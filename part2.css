@@ -1,0 +1,576 @@
+/* ==========================================================================
+   Part 2 Interactive Features CSS Additions
+   ========================================================================== */
+
+/* 1. Hero State Toggle & Interactive Dashboard Mockup */
+.mockup-toggle-bar {
+  display: flex;
+  background: rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid var(--accent-grey);
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(134, 134, 134, 0.4);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: none !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toggle-btn:hover {
+  border-color: var(--accent-light);
+  color: var(--text-primary);
+}
+
+.toggle-btn.active {
+  background: var(--accent-light);
+  border-color: var(--accent-light);
+  color: var(--bg-dark);
+  box-shadow: 
+    0 2px 4px rgba(0,0,0,0.5),
+    0 0 10px rgba(239, 239, 239, 0.3);
+}
+
+.dashboard-interactive {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  box-sizing: border-box;
+  background-color: #030303;
+  transition: background-color 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dashboard-interactive.flow-active {
+  background-color: #000502; /* Subtle dark green accent glow background */
+}
+
+.dashboard-card {
+  background: rgba(134, 134, 134, 0.04);
+  border: 1px solid rgba(134, 134, 134, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-header-ui {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(134, 134, 134, 0.1);
+  padding-bottom: 8px;
+}
+
+.card-title-ui {
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.card-status-ui {
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.calendar-grid-ui {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 180px;
+  overflow: hidden;
+  transition: all 0.5s ease;
+}
+
+.calendar-item {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.item-chaos {
+  background: rgba(255, 0, 0, 0.05);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+.item-flow {
+  background: rgba(0, 255, 0, 0.04);
+  border: 1px solid rgba(0, 255, 0, 0.15);
+}
+
+.inbox-content-ui {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.inbox-badge-ui {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  padding: 10px 16px;
+  border-radius: 6px;
+  background: rgba(134, 134, 134, 0.05);
+  border: 1px solid rgba(134, 134, 134, 0.2);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.inbox-badge-ui.text-red {
+  color: #ff3333;
+  border-color: rgba(255, 0, 0, 0.3);
+  background: rgba(255, 0, 0, 0.03);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.1);
+}
+
+.inbox-badge-ui.text-green {
+  color: #00ff66;
+  border-color: rgba(0, 255, 0, 0.3);
+  background: rgba(0, 255, 0, 0.03);
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+}
+
+.inbox-list-ui {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-grow: 1;
+}
+
+.inbox-item {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgba(134, 134, 134, 0.03);
+  border: 1px solid rgba(134, 134, 134, 0.1);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.inbox-item .sender {
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inbox-item .subject {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Helper hidden state classes */
+.hidden {
+  display: none !important;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* 2. Eisenhower Delegation Matrix */
+.matrix-section {
+  padding: 100px 0;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  position: relative;
+  z-index: 1;
+}
+
+.matrix-container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 3rem;
+}
+
+.matrix-quadrant {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-grey);
+  border-radius: 12px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  transition: var(--transition-smooth);
+}
+
+.matrix-quadrant::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  opacity: 0.4;
+  transition: var(--transition-smooth);
+}
+
+.q-visionary::before { background: var(--accent-light); }
+.q-system::before { background: var(--accent-grey); }
+.q-delegate::before { background: var(--accent-grey); }
+.q-leakage::before { background: var(--accent-light); }
+
+.matrix-quadrant:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.8);
+}
+
+.matrix-quadrant:hover::before {
+  opacity: 1;
+}
+
+.quadrant-header h3 {
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.quadrant-subtitle {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.quadrant-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.matrix-task-btn {
+  background: rgba(134, 134, 134, 0.04);
+  border: 1px solid rgba(134, 134, 134, 0.2);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 12px 18px;
+  border-radius: 6px;
+  text-align: left;
+  cursor: none !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.matrix-task-btn:hover {
+  background: rgba(239, 239, 239, 0.06);
+  border-color: var(--accent-light);
+  transform: translateX(4px);
+}
+
+.matrix-task-btn.selected {
+  background: rgba(239, 239, 239, 0.1);
+  border-color: var(--accent-light);
+  box-shadow: 0 0 15px rgba(239, 239, 239, 0.15);
+}
+
+.matrix-feedback-panel {
+  background: rgba(134, 134, 134, 0.03);
+  border: 1px solid var(--accent-grey);
+  border-radius: 8px;
+  padding: 24px;
+  margin-top: 2rem;
+  text-align: center;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feedback-placeholder {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.feedback-content {
+  text-align: left;
+  width: 100%;
+}
+
+.feedback-content h4 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: var(--accent-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.feedback-content p {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 3. Global Operations World Map */
+.global-ops-section {
+  padding: 100px 0;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  z-index: 1;
+}
+
+.global-ops-container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.world-map-wrapper {
+  position: relative;
+  width: 100%;
+  margin-top: 4rem;
+  background: rgba(134, 134, 134, 0.02);
+  border: 1px solid rgba(134, 134, 134, 0.15);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.world-map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  opacity: 0.65;
+}
+
+/* Coordinate Dot Hotspots */
+.map-hotspot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  cursor: none !important;
+  z-index: 10;
+}
+
+.hotspot-dot {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-light);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(239, 239, 239, 0.8);
+  transition: transform 0.3s ease;
+}
+
+.pulse-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(239, 239, 239, 0.6);
+  border-radius: 50%;
+  animation: map-pulse 1.8s infinite ease-out;
+  pointer-events: none;
+}
+
+@keyframes map-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.map-hotspot:hover .hotspot-dot {
+  transform: scale(1.5);
+  background-color: var(--accent-light);
+}
+
+/* Timezone Glassmorphic Tooltip */
+.timezone-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(239, 239, 239, 0.2);
+  padding: 16px 20px;
+  border-radius: 6px;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -120%) scale(0.9);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 
+    0 10px 25px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  min-width: 200px;
+}
+
+.timezone-tooltip.active {
+  opacity: 1;
+  transform: translate(-50%, -120%) scale(1);
+}
+
+.tooltip-city {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-light);
+  margin-bottom: 4px;
+}
+
+.tooltip-time {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.tooltip-status {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* 4. ROI of Scaling Tab Interface */
+.calc-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+  gap: 16px;
+}
+
+.calc-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 10px 0;
+  cursor: none !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.calc-tab-btn::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--accent-light);
+  transition: all 0.3s ease;
+}
+
+.calc-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.calc-tab-btn.active {
+  color: var(--text-primary);
+}
+
+.calc-tab-btn.active::after {
+  width: 100%;
+}
+
+.calc-tab-content {
+  display: none;
+}
+
+.calc-tab-content.active {
+  display: block;
+  animation: tabFadeIn 0.5s ease forwards;
+}
+
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.text-green {
+  color: #00ff66 !important;
+}
+
+.calc-footer-ui {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+  position: relative;
+}
+
+.copy-success-notification {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: #00ff66;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  font-weight: 600;
+}
+
+.copy-success-notification.show {
+  opacity: 1;
+}
+
+/* Responsive adjustment for Part 2 */
+@media (max-width: 768px) {
+  .matrix-grid {
+    grid-template-columns: 1fr;
+  }
+  .world-map-wrapper {
+    overflow-x: auto;
+  }
+  .world-map-svg {
+    min-width: 600px;
+  }
+}
