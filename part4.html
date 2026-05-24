@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jordan — Elite Operational Partner [Cinematic Edition]</title>
+  <meta name="description" content="Premium operational partner and executive assistant for high-growth creators, founders, and executives. Shielding your time, scaling your reach.">
+  
+  <!-- Preconnect to Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Load Rolls-Royce style Premium Typography falls (Montserrat) -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="part4.css">
+</head>
+<body>
+
+  <!-- Animated Background Ambient Glows (Stripe/Apple style) -->
+  <div class="ambient-glow-animated bg-glow-1"></div>
+  <div class="ambient-glow-animated bg-glow-2"></div>
+  <div class="ambient-glow-animated bg-glow-3"></div>
+
+  <!-- Rolls-Royce Dot-Highlight Scroll Navigation -->
+  <div class="scroll-dots-container" id="scrollDots">
+    <a href="#hero" class="scroll-dot active" data-section="hero" aria-label="Hero Section">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Top</span>
+    </a>
+    <a href="#bottleneck" class="scroll-dot" data-section="bottleneck" aria-label="Operational Diagnosis">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Diagnosis</span>
+    </a>
+    <a href="#about" class="scroll-dot" data-section="about" aria-label="About Section">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Focus ROI</span>
+    </a>
+    <a href="#integration" class="scroll-dot" data-section="integration" aria-label="3-Day Integration">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Integration</span>
+    </a>
+    <a href="#matrix" class="scroll-dot" data-section="matrix" aria-label="Delegation Matrix">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Matrix</span>
+    </a>
+    <a href="#services" class="scroll-dot" data-section="services" aria-label="Services Grid Section">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Operations Grid</span>
+    </a>
+    <a href="#global-ops" class="scroll-dot" data-section="global-ops" aria-label="Global Operations">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Global Footprint</span>
+    </a>
+    <a href="#connect" class="scroll-dot" data-section="connect" aria-label="Connect Section">
+      <span class="dot-inner"></span>
+      <span class="dot-label">Connect</span>
+    </a>
+  </div>
+
+  <!-- Custom Rolls-Royce Style Animated Cursor -->
+  <div class="custom-cursor" id="customCursor">
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+  </div>
+
+  <!-- Floating Navigation with cinematic header controls -->
+  <header class="header" id="cinematicHeader">
+    <div class="nav-container">
+      <a href="#" class="logo" id="headerLogo">
+        <span class="logo-text">JORDANWORLD</span><span class="logo-dot-suffix">.CO</span>
+      </a>
+      
+      <!-- Separate absolute-positioned globe icon -->
+      <div class="logo-globe-icon" id="headerGlobe">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          <path d="M2 12h20"></path>
+        </svg>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#bottleneck" class="nav-link">Diagnosis</a>
+        <a href="#integration" class="nav-link">Integration</a>
+        <a href="#matrix" class="nav-link">Matrix</a>
+        <a href="#services" class="nav-link">Services</a>
+        <a href="#global-ops" class="nav-link">Global Ops</a>
+        <a href="#connect" class="nav-link">Connect</a>
+      </nav>
+      
+      <a href="#connect" class="btn btn-nav btn-3d" id="navCallBtn">
+        <span>Book Call</span>
+      </a>
+      
+      <button class="mobile-toggle" aria-label="Toggle menu">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section" id="hero">
+    <div class="hero-container">
+      <div class="hero-content">
+        <div class="badge-container">
+          <span class="badge">ELITE OPERATIONAL PARTNER</span>
+        </div>
+        <h1 class="hero-title">
+          You are the visionary. <span class="gradient-text">I am the engine.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Eliminate the operational friction stalling your growth. I provide high-stakes executive gatekeeping and seamless logistics so you can stay in your zone of genius.
+        </p>
+        <div class="hero-cta-wrapper">
+          <a href="#connect" class="btn btn-primary btn-3d-lg">
+            <span>Book a Discovery Call</span>
+          </a>
+          <span class="cta-urgency"><span class="pulse-dot"></span> Only 2 operational spots open for Q3</span>
+        </div>
+      </div>
+      
+      <!-- Hero Interactive Mockup with Flow State Toggle -->
+      <div class="hero-mockup-container">
+        <div class="mockup-frame">
+          <div class="mockup-header">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+            <div class="brand-badge-3d">
+              <span class="badge-text">JORDANWORLD.CO</span>
+              <span class="badge-separator">|</span>
+              <span class="badge-subtext">Operations Management</span>
+            </div>
+          </div>
+          
+          <div class="mockup-toggle-bar">
+            <button class="toggle-btn active" id="btnChaos">Chaos</button>
+            <button class="toggle-btn" id="btnFlow">Flow State</button>
+          </div>
+
+          <div class="mockup-body dashboard-interactive chaos-active" id="dashboardInteractive">
+            <!-- Calendar Card -->
+            <div class="dashboard-card calendar-card-ui">
+              <div class="card-header-ui">
+                <span class="card-title-ui">CALENDAR SLOTS</span>
+                <span class="card-status-ui text-red" id="calendarStatus">OVERLOADED</span>
+              </div>
+              <div class="calendar-grid-ui" id="calendarGrid">
+                <!-- Chaos Blocks -->
+                <div class="calendar-item item-chaos text-red">Double Booked: Sponsor Call</div>
+                <div class="calendar-item item-chaos text-red">Overlapping: Gear Logistics Audit</div>
+                <div class="calendar-item item-chaos text-red">Urgent: Personal Flights Booking</div>
+                <div class="calendar-item item-chaos text-red">Admin: Inbox Filter Backlog</div>
+                <!-- Flow Blocks (hidden on chaos, shown on flow) -->
+                <div class="calendar-item item-flow text-green hidden">Deep Work Block (Protected)</div>
+                <div class="calendar-item item-flow text-green hidden">High-Value Brand Negotiation</div>
+                <div class="calendar-item item-flow text-green hidden">Operational Setup Complete</div>
+                <div class="calendar-item item-flow text-green hidden">Sponsor Deliverables Delivered</div>
+              </div>
+            </div>
+
+            <!-- Inbox Card -->
+            <div class="dashboard-card inbox-card-ui">
+              <div class="card-header-ui">
+                <span class="card-title-ui">PRIORITY INBOX</span>
+              </div>
+              <div class="inbox-content-ui">
+                <div class="inbox-badge-ui text-red" id="inboxBadge">412 Unread</div>
+                <div class="inbox-list-ui" id="inboxList">
+                  <div class="inbox-item">
+                    <span class="sender">Marcus (VC Deal)</span>
+                    <span class="subject">URGENT: Re-send proposal details...</span>
+                  </div>
+                  <div class="inbox-item">
+                    <span class="sender">Distraction Pitcher</span>
+                    <span class="subject">Collab: Free review copy promotion...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Emotional Hook Section -->
+  <section class="bottleneck-section" id="bottleneck">
+    <div class="bottleneck-container">
+      <div class="section-badge text-center" style="display: block; margin: 0 auto 1.5rem auto; width: fit-content;">OPERATIONAL DIAGNOSIS</div>
+      <h2 class="section-title text-center">Is your bandwidth the bottleneck?</h2>
+      <p class="section-subtitle text-center">
+        High-growth brands stall when the visionary is bogged down by administrative loops. Real leverage means offloading the friction.
+      </p>
+      <div class="bottleneck-grid">
+        <!-- Card 1 -->
+        <div class="bottleneck-card">
+          <div class="bottleneck-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+              <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+            </svg>
+          </div>
+          <h3>Inboxes filled with missed revenue</h3>
+          <p>Important partnership queries, high-value sponsorship deals, and urgent investor emails get lost inside thousands of unread messages and low-priority spam.</p>
+        </div>
+        <!-- Card 2 -->
+        <div class="bottleneck-card">
+          <div class="bottleneck-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <h3>Calendars that cause anxiety</h3>
+          <p>Constant back-and-forth coordination, double-bookings, and meeting fatigue destroy your focus, leaving you with zero time for deep creative work.</p>
+        </div>
+        <!-- Card 3 -->
+        <div class="bottleneck-card">
+          <div class="bottleneck-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <h3>Logistical noise killing your creativity</h3>
+          <p>Spending hours booking flights, coordinating shoot gear, and chasing invoices instead of scriptwriting, filming, and expanding your strategic reach.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Value Proposition & Calculator Section -->
+  <section id="about" class="about-section">
+    <div class="about-container">
+      <div class="about-text-column">
+        <div class="section-badge">VALUE PROPOSITION</div>
+        <h2 class="section-title">Reclaim Your Focus</h2>
+        <p class="about-paragraph">
+          You are the visionary. You shouldn't be trapped in back-and-forth calendar coordination, messy inbox filtering, or endless logistical administration.
+        </p>
+        <p class="about-paragraph highlight">
+          I work as a personal assistant, handling the operational side so you can stay focused on money-printing work.
+        </p>
+        <div class="about-bullets">
+          <div class="bullet-item">
+            <span class="bullet-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 10px; height: 10px; display: block;">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+            <div>
+              <strong>High-agency execution:</strong> No hand-holding needed. Send a voice note, and it's handled.
+            </div>
+          </div>
+          <div class="bullet-item">
+            <span class="bullet-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 10px; height: 10px; display: block;">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+            <div>
+              <strong>Absolute discretion:</strong> Trusted partner dealing with confidential schedules, accounts, and partnerships.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leverage & Growth Gap Calculator Card -->
+      <div id="calculator" class="calculator-card">
+        <div class="calc-tabs">
+          <button class="calc-tab-btn active" id="tabOpportunity">Opportunity Cost</button>
+          <button class="calc-tab-btn" id="tabGrowth">Growth Gap</button>
+        </div>
+        
+        <!-- Tab 1: Opportunity Cost Content -->
+        <div class="calc-tab-content active" id="contentOpportunity">
+          <div class="calc-header">
+            <h3>Calculated Opportunity Cost</h3>
+            <p>See exactly how much revenue is leaking from your brand each year by doing administrative tasks yourself.</p>
+          </div>
+          <div class="calc-body">
+            <div class="input-group">
+              <div class="input-label-row">
+                <label for="hourlyRate">Your Hourly Value</label>
+                <span class="range-value" id="hourlyRateVal">$150/hr</span>
+              </div>
+              <input type="range" id="hourlyRate" min="50" max="1000" step="25" value="150">
+            </div>
+            
+            <div class="input-group">
+              <div class="input-label-row">
+                <label for="hoursWasted">Weekly Hours Lost to Admin</label>
+                <span class="range-value" id="hoursWastedVal">15 hrs</span>
+              </div>
+              <input type="range" id="hoursWasted" min="2" max="40" step="1" value="15">
+            </div>
+
+            <div class="calc-results">
+              <div class="result-box">
+                <span class="result-label">Weekly Leaked Value</span>
+                <span class="result-value" id="weeklyLoss">$2,250</span>
+              </div>
+              <div class="result-box highlight">
+                <span class="result-label">Annual Opportunity Cost</span>
+                <span class="result-value text-red" id="annualLoss">$117,000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Growth Gap Content -->
+        <div class="calc-tab-content" id="contentGrowth">
+          <div class="calc-header">
+            <h3>The Growth Gap Unlocked</h3>
+            <p>See how many additional high-value assets (deals, content, products) you could publish with reclaimed hours.</p>
+          </div>
+          <div class="calc-body">
+            <div class="input-group">
+              <div class="input-label-row">
+                <label for="currentOutput">Monthly High-Value Output</label>
+                <span class="range-value" id="currentOutputVal">4 assets/mo</span>
+              </div>
+              <input type="range" id="currentOutput" min="1" max="30" step="1" value="4">
+            </div>
+
+            <div class="input-group">
+              <div class="input-label-row">
+                <label for="assetValue">Average Asset/Deal Value</label>
+                <span class="range-value" id="assetValueVal">$5,000</span>
+              </div>
+              <input type="range" id="assetValue" min="500" max="50000" step="500" value="5000">
+            </div>
+
+            <div class="calc-results">
+              <div class="result-box">
+                <span class="result-label">Additional Assets / Yr</span>
+                <span class="result-value" id="additionalAssets">52 assets</span>
+              </div>
+              <div class="result-box highlight">
+                <span class="result-label">Potential Revenue Added</span>
+                <span class="result-value text-green" id="growthAdded">$260,000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shared Calculator Footer with Copy Report & CTA -->
+        <div class="calc-footer-ui">
+          <div class="calc-cta-text" id="calcCtaText">
+            Delegating this to an elite assistant unlocks 100% of this leakage.
+          </div>
+          <button class="btn btn-nav btn-3d" id="btnCopyReport" style="width: 100%; margin-top: 15px;">
+            <span>Copy Efficiency Report</span>
+          </button>
+          <span id="copySuccessMsg" class="copy-success-notification">Report copied to clipboard!</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Zero-Lag Integration Section -->
+  <section class="integration-section" id="integration">
+    <div class="integration-container">
+      <div class="section-badge text-center" style="display: block; margin: 0 auto 1.5rem auto; width: fit-content;">FAST ONBOARDING</div>
+      <h2 class="section-title text-center">3-Day Fast Integration</h2>
+      <p class="section-subtitle text-center">
+        Transitioning support should not create more work. I plug into your systems seamlessly with zero operational lag.
+      </p>
+      <div class="integration-timeline">
+        <div class="timeline-step">
+          <div class="step-number">01</div>
+          <h3>Day 1: Access & Audit</h3>
+          <p>Secure hand-off of credentials and priority mapping.</p>
+        </div>
+        <div class="timeline-step">
+          <div class="step-number">02</div>
+          <h3>Day 2: System Setup</h3>
+          <p>Inbox filtering and calendar optimization begin immediately.</p>
+        </div>
+        <div class="timeline-step">
+          <div class="step-number">03</div>
+          <h3>Day 3: Full Autonomy</h3>
+          <p>Transition from being managed to me managing your operations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Strategic Delegation Matrix Section -->
+  <section class="matrix-section" id="matrix">
+    <div class="matrix-container">
+      <div class="section-badge text-center" style="display: block; margin: 0 auto 1.5rem auto; width: fit-content;">DELEGATION MATRIX</div>
+      <h2 class="section-title text-center">What Should You Delegate?</h2>
+      <p class="section-subtitle text-center">
+        Many founders and creators lose momentum because they fail to identify operational leakage. Click on tasks below to analyze delegation status.
+      </p>
+
+      <div class="matrix-grid">
+        <!-- Q1: High Value / High Joy -->
+        <div class="matrix-quadrant q-visionary">
+          <div class="quadrant-header">
+            <h3>Visionary Core</h3>
+            <span class="quadrant-subtitle">High Value • High Joy</span>
+          </div>
+          <div class="quadrant-tasks">
+            <button class="matrix-task-btn" data-tooltip="visionary-strategy" data-title="Long-term Strategy">Long-term Strategy</button>
+            <button class="matrix-task-btn" data-tooltip="visionary-content" data-title="Creative Filming & Writing">Creative Filming / Writing</button>
+            <button class="matrix-task-btn" data-tooltip="visionary-deals" data-title="Final Sponsorship Handshake">Sponsorship Handshake</button>
+          </div>
+        </div>
+
+        <!-- Q2: High Value / Low Joy -->
+        <div class="matrix-quadrant q-system">
+          <div class="quadrant-header">
+            <h3>Operational Opportunity</h3>
+            <span class="quadrant-subtitle">High Value • Low Joy</span>
+          </div>
+          <div class="quadrant-tasks">
+            <button class="matrix-task-btn" data-tooltip="system-inbox" data-title="Zero Inbox Architecture">Inbox System Audit</button>
+            <button class="matrix-task-btn" data-tooltip="system-sponsors" data-title="Brand Pipeline Tracking">Brand Pipeline Tracking</button>
+            <button class="matrix-task-btn" data-tooltip="system-analytics" data-title="Contract Analytics Review">Contract Analytics</button>
+          </div>
+        </div>
+
+        <!-- Q3: Low Value / High Joy -->
+        <div class="matrix-quadrant q-delegate">
+          <div class="quadrant-header">
+            <h3>Delegatable Errand</h3>
+            <span class="quadrant-subtitle">Low Value • High Joy</span>
+          </div>
+          <div class="quadrant-tasks">
+            <button class="matrix-task-btn" data-tooltip="delegate-reels" data-title="Editing Draft Reels">Editing Draft Reels</button>
+            <button class="matrix-task-btn" data-tooltip="delegate-community" data-title="Replying to Fan DMs">Replying to Fan DMs</button>
+            <button class="matrix-task-btn" data-tooltip="delegate-travel" data-title="Booking High-End Lodging">Booking High-End Lodging</button>
+          </div>
+        </div>
+
+        <!-- Q4: Low Value / Low Joy -->
+        <div class="matrix-quadrant q-leakage">
+          <div class="quadrant-header">
+            <h3>Operational Leakage</h3>
+            <span class="quadrant-subtitle">Low Value • Low Joy</span>
+          </div>
+          <div class="quadrant-tasks">
+            <button class="matrix-task-btn" data-tooltip="leakage-calendar" data-title="Meeting Coordination Back-and-Forth">Calendar Back-and-Forth</button>
+            <button class="matrix-task-btn" data-tooltip="leakage-receipts" data-title="Expense & Receipt Tracking">Receipt & Expense Audit</button>
+            <button class="matrix-task-btn" data-tooltip="leakage-invoicing" data-title="Invoicing & Following Up Payments">Invoicing & Payment Follow-Ups</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Tooltip Feedback Panel -->
+      <div class="matrix-feedback-panel" id="matrixFeedbackPanel">
+        <div class="feedback-placeholder" id="feedbackPlaceholder">Click any task above to analyze delegation status...</div>
+        <div class="feedback-content" id="feedbackContent" style="display: none;">
+          <h4 id="feedbackTaskTitle">Task Name</h4>
+          <p id="feedbackText">Task analysis feedback...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services Section -->
+  <section id="services" class="services-section">
+    <div class="services-container">
+      <div class="services-intro">
+        <div class="section-badge">SERVICES</div>
+        <h2 class="section-title text-center">How I Support Your Growth</h2>
+        <p class="section-subtitle text-center">
+          Elite-level operations tailored specifically for high-impact creators, founders, and executives.
+        </p>
+      </div>
+
+      <div class="services-grid">
+        <!-- Service Card 1 -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <path d="M8 11h6"></path>
+              <path d="M11 8v6"></path>
+            </svg>
+          </div>
+          <h3 class="service-title">Research, Admin & Daily Tasks</h3>
+          <p class="service-description">
+            Handling the background noise so you can focus. I handle market research, client database curation, software setup, personal tasks, and executive admin support.
+          </p>
+          <ul class="service-list">
+            <li>Custom research reports</li>
+            <li>Tool & system integration</li>
+            <li>Ad-hoc personal errands</li>
+          </ul>
+        </div>
+
+        <!-- Service Card 2 -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <h3 class="service-title">Executive Gatekeeping & Priority Inbox</h3>
+          <p class="service-description">
+            Zero inbox, perfectly scheduled days. I filter inbound pitches, resolve timezone conflicts, prioritize VIP communications, and aggressively shield your deep work blocks.
+          </p>
+          <ul class="service-list">
+            <li>Zero Inbox architecture</li>
+            <li>High-priority email alerts</li>
+            <li>Strategic calendar optimization</li>
+          </ul>
+        </div>
+
+        <!-- Service Card 3 -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <h3 class="service-title">Revenue & Partnership Pipeline Ops</h3>
+          <p class="service-description">
+            Securing your revenue and managing sponsorships. I monitor incoming deal flow, manage pipeline updates (CRM), coordinate deliverables, and follow up on payments.
+          </p>
+          <ul class="service-list">
+            <li>Pipeline management (CRM)</li>
+            <li>Sponsor relations support</li>
+            <li>Deliverable deadline tracking</li>
+          </ul>
+        </div>
+
+        <!-- Service Card 4 -->
+        <div class="service-card">
+          <div class="service-icon-box">
+            <svg class="service-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 2L11 13"></path>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+            </svg>
+          </div>
+          <h3 class="service-title">Global Logistics & High-End Concierge</h3>
+          <p class="service-description">
+            Flawless logistics, wherever your brand takes you. I orchestrate complex travel itineraries, secure premium shoot locations, source gear, and handle local translation logistics.
+          </p>
+          <ul class="service-list">
+            <li>End-to-end travel itineraries</li>
+            <li>Location & gear sourcing</li>
+            <li>On-site logistics coordination</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Global Operations Timezone Mapper Section -->
+  <section class="global-ops-section" id="global-ops">
+    <div class="global-ops-container">
+      <div class="section-badge text-center" style="display: block; margin: 0 auto 1.5rem auto; width: fit-content;">GLOBAL OPERATIONS</div>
+      <h2 class="section-title text-center">Global Footprint</h2>
+      <p class="section-subtitle text-center">
+        Your brand operates internationally. I synchronize communication, travel logistics, and partnership tracking across key global hubs. Hover/Click map hotspots to see status.
+      </p>
+
+      <div class="world-map-wrapper">
+        <svg class="world-map-svg" viewBox="0 0 1000 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Americas -->
+          <path d="M120 100 C150 120, 180 180, 160 250 C150 280, 170 340, 200 450 C180 470, 150 480, 140 450 C120 400, 90 300, 70 200 C50 120, 80 80, 120 100 Z" fill="rgba(134,134,134,0.08)" stroke="rgba(134,134,134,0.15)" stroke-width="1.5"/>
+          <!-- Eurasia / Africa -->
+          <path d="M420 80 C500 60, 650 50, 800 120 C850 150, 900 250, 850 350 C800 380, 750 420, 700 450 C680 430, 650 350, 600 300 C550 260, 520 280, 480 350 C440 420, 400 380, 410 300 C420 250, 380 180, 420 80 Z" fill="rgba(134,134,134,0.08)" stroke="rgba(134,134,134,0.15)" stroke-width="1.5"/>
+          <!-- Australia -->
+          <path d="M780 350 C830 350, 850 380, 840 420 C800 450, 760 430, 750 380 C750 360, 760 350, 780 350 Z" fill="rgba(134,134,134,0.08)" stroke="rgba(134,134,134,0.15)" stroke-width="1.5"/>
+          
+          <!-- Connections lines -->
+          <path d="M260 170 Q400 110 500 140 T780 230" stroke="rgba(239,239,239,0.08)" stroke-width="1" stroke-dasharray="5 5" fill="none"/>
+          <path d="M500 140 Q620 160 700 190" stroke="rgba(239,239,239,0.08)" stroke-width="1" stroke-dasharray="5 5" fill="none"/>
+          <path d="M260 170 Q480 220 700 190" stroke="rgba(239,239,239,0.08)" stroke-width="1" stroke-dasharray="5 5" fill="none"/>
+        </svg>
+
+        <!-- Coordinate Hotspots -->
+        <div class="map-hotspot" style="left: 26%; top: 34%;" data-city="NYC" data-status="NYC: Active — auditing brand emails & tracking Q3 deliverables.">
+          <span class="pulse-ring"></span>
+          <span class="hotspot-dot"></span>
+        </div>
+        <div class="map-hotspot" style="left: 50%; top: 28%;" data-city="London" data-status="London: Active — coordinating locations & gear logistics for shoot.">
+          <span class="pulse-ring"></span>
+          <span class="hotspot-dot"></span>
+        </div>
+        <div class="map-hotspot" style="left: 61%; top: 42%;" data-city="Dubai" data-status="Dubai: Standby — booking travel itineraries & securing yacht charters.">
+          <span class="pulse-ring"></span>
+          <span class="hotspot-dot"></span>
+        </div>
+        <div class="map-hotspot" style="left: 82%; top: 36%;" data-city="Tokyo" data-status="Tokyo: Standby — translating partnership documents & event planning.">
+          <span class="pulse-ring"></span>
+          <span class="hotspot-dot"></span>
+        </div>
+
+        <!-- Dynamic Timezone Glassmorphic Tooltip -->
+        <div class="timezone-tooltip" id="timezoneTooltip">
+          <div class="tooltip-city" id="tooltipCity">London</div>
+          <div class="tooltip-time" id="tooltipTime">12:00 AM</div>
+          <div class="tooltip-status" id="tooltipStatus">Coordinating shoot location</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="testimonials-section">
+    <div class="testimonials-container">
+      <div class="section-badge">TESTIMONIALS</div>
+      <h2 class="section-title text-center">Trusted by Industry Leaders</h2>
+      
+      <div class="testimonials-wrapper">
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            "Jordan stepped in and completely took over my calendar and brand deal pipeline. I got back 15 hours a week and immediately closed two new scale projects because I finally had the mental bandwidth."
+          </div>
+          <div class="testimonial-author">
+            <div class="author-avatar">MB</div>
+            <div class="author-meta">
+              <span class="author-name">Marcus Brooks</span>
+              <span class="author-role">Founder, Tech Venture Studio</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card active">
+          <div class="testimonial-content">
+            "An absolute game-changer. My inbox went from 400 unread pitches to zero, and I didn't miss a single critical sponsor deliverable during our biggest product launch of the year."
+          </div>
+          <div class="testimonial-author">
+            <div class="author-avatar">AL</div>
+            <div class="author-meta">
+              <span class="author-name">Aria Laurent</span>
+              <span class="author-role">YouTube Creator (3.2M Subscribers)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            "Operational excellence at its absolute finest. Proactive, highly communicative, hyper-organized, and handled confidential partnership accounts with absolute poise and execution."
+          </div>
+          <div class="testimonial-author">
+            <div class="author-avatar">DK</div>
+            <div class="author-meta">
+              <span class="author-name">David Kovic</span>
+              <span class="author-role">Managing Director, Vanguard Capital</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Closing / Contact Section -->
+  <section id="connect" class="contact-section">
+    <div class="contact-container">
+      <div class="contact-card">
+        <div class="contact-info">
+          <div class="section-badge">LET'S CONNECT</div>
+          <h2 class="section-title">Stretched too thin managing it all yourself?</h2>
+          <p class="contact-lead-text">
+            If you feel stretched managing everything yourself, I’d love to connect for a quick chat and see if it makes sense.
+          </p>
+          <div class="contact-details">
+            <div class="detail-item">
+              <span class="detail-icon" style="display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: block;">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+              </span>
+              <span>jordan@jordanworld.co</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-icon" style="display: flex; align-items: center; justify-content: center;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; display: block;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </span>
+              <span>15-min discovery consultation</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="contact-form-wrapper">
+          <form id="contactForm" class="contact-form">
+            <div class="form-group">
+              <label for="clientName">Your Name *</label>
+              <input type="text" id="clientName" required placeholder="E.g. Elon Musk">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="clientEmail">Email Address *</label>
+                <input type="email" id="clientEmail" required placeholder="E.g. name@brand.co">
+              </div>
+              <div class="form-group">
+                <label for="clientRole">Your Role</label>
+                <input type="text" id="clientRole" placeholder="E.g. Founder, Creator">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="clientBottleneck">What is your biggest operational bottleneck? *</label>
+              <select id="clientBottleneck" required>
+                <option value="" disabled selected>Select an option...</option>
+                <option value="inbox">Inbox Overflow / Lost Opportunities</option>
+                <option value="calendar">Messy Calendar / Too Many Meetings</option>
+                <option value="deals">Brand Deals & Partnership Tracking</option>
+                <option value="logistics">Travel, Shoots & Logistics Administration</option>
+                <option value="other">All of the above (Complete Burnout)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="clientMsg">How can Jordan support you? *</label>
+              <textarea id="clientMsg" rows="4" required placeholder="Tell me a bit about your brand/business and how I can lift the weight off your shoulders..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-submit btn-3d-lg" id="submitBtn">
+              <span>Let's Connect</span>
+            </button>
+          </form>
+          
+          <!-- Success State -->
+          <div class="form-success" id="formSuccess">
+            <div class="success-icon" style="display: flex; align-items: center; justify-content: center;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width: 22px; height: 22px; display: block;">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h3>Calendar Slot Reserved</h3>
+            <p>Thank you! Jordan will personally review your operational bottleneck and reach out within 4 hours to coordinate our 15-minute discovery consultation.</p>
+          </div>
+          
+          <!-- Trust & Security Area inside contact form wrapper -->
+          <div class="form-security-badges">
+            <div class="security-badge-item">
+              <svg class="badge-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span>NDA-Standard Confidentiality</span>
+            </div>
+            <div class="security-badge-item">
+              <svg class="badge-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <span>Secure 1Password Credential Management</span>
+            </div>
+            <div class="security-badge-item">
+              <svg class="badge-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="1"></circle>
+              </svg>
+              <span>100% Discretion</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <a href="#" class="logo">jordanworld<span>.co</span></a>
+        <p class="footer-tagline">Elite operational partnership for world-class builders and visionaries.</p>
+      </div>
+      <div class="footer-right">
+        <span class="footer-link">Confidentiality Assured</span>
+        <span class="footer-separator">•</span>
+        <span class="footer-link">Limited Availability</span>
+      </div>
+    </div>
+    
+    <!-- Security Trust Area near footer -->
+    <div class="footer-security-bar">
+      <p>NDA-Standard Confidentiality &nbsp;•&nbsp; Secure 1Password Credential Management &nbsp;•&nbsp; 100% Discretion</p>
+    </div>
+
+    <div class="footer-bottom">
+      <p>© 2026 jordanworld.co. All rights reserved. Operations, synchronized.</p>
+    </div>
+  </footer>
+
+  <!-- Javascript Files -->
+  <script src="main.js"></script>
+  <script src="part4.js"></script>
+</body>
+</html>

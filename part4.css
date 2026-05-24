@@ -1,0 +1,141 @@
+/* ==========================================================================
+   Part 4 Cinematic Header Animation Overrides & Final Polish
+   ========================================================================== */
+
+/* 1. Import Part 3 baseline systems */
+@import url('part3.css');
+
+/* ==========================================================================
+   Cinematic Logo Transition Sequence (Rolls-Royce Style)
+   ========================================================================== */
+.nav-container {
+  position: relative !important;
+}
+
+/* Default Logo State */
+.logo {
+  display: flex !important;
+  align-items: center;
+  font-family: var(--font-heading);
+  font-size: 1.1rem !important;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  transition: all 0.9s cubic-bezier(0.25, 1, 0.2, 1) !important;
+  opacity: 1;
+  filter: blur(0);
+}
+
+.logo span {
+  font-weight: 300;
+  color: var(--accent-grey);
+}
+
+/* Absolute-positioned Globe Icon in header */
+.logo-globe-icon {
+  position: absolute;
+  left: 205px; /* Placed immediately following logo text */
+  top: 50%;
+  transform: translateY(-50%) rotate(0deg) scale(1);
+  width: 22px;
+  height: 22px;
+  color: var(--accent-light);
+  transition: all 0.9s cubic-bezier(0.25, 1, 0.2, 1) !important; /* Luxury Custom Easing */
+  cursor: pointer;
+  z-index: 1010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-globe-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+/* Nav Menu and button base transitions */
+.nav-menu {
+  transition: all 0.8s cubic-bezier(0.25, 1, 0.2, 1) !important;
+  opacity: 1;
+}
+
+#navCallBtn {
+  transition: all 0.8s cubic-bezier(0.25, 1, 0.2, 1) !important;
+}
+
+/* ==========================================================================
+   SCROLLED STATE - Cinematic Blend & Focus WIPES
+   ========================================================================== */
+.header.scrolled {
+  height: 64px;
+  background-color: rgba(0, 0, 0, 0.76) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(239, 239, 239, 0.1) !important;
+}
+
+/* Dissolve Text Logo */
+.header.scrolled .logo {
+  opacity: 0 !important;
+  filter: blur(8px) !important;
+  transform: translateX(-30px) !important;
+  pointer-events: none;
+}
+
+/* Slide, Revolve & Scale Globe Icon to Center Anchor */
+.header.scrolled .logo-globe-icon {
+  left: 50% !important;
+  transform: translate(-50%, -50%) rotate(360deg) scale(1.6) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Dissolve Main Navigation links to clear canvas */
+.header.scrolled .nav-menu {
+  opacity: 0 !important;
+  filter: blur(6px) !important;
+  transform: translateY(-10px) !important;
+  pointer-events: none;
+}
+
+/* Dim CTA button to draw focus to central globe anchor */
+.header.scrolled #navCallBtn {
+  opacity: 0.15 !important;
+  filter: blur(2px) !important;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Hero Mockup Header Cropping Layout Fixes
+   ========================================================================== */
+.hero-mockup-container {
+  overflow: visible !important;
+}
+
+.mockup-frame {
+  overflow: visible !important; /* Fix mockup badge cropping */
+  transform: perspective(1500px) rotateY(-8deg) rotateX(4deg) !important; /* Increase perspective depth shadow */
+}
+
+.brand-badge-3d {
+  white-space: nowrap !important; /* Prevent text wrapping */
+  margin-right: 20px !important; /* Prevent hitting boundary edge */
+  transform-style: preserve-3d;
+}
+
+/* ==========================================================================
+   Mobile Optimization Scale Queries (iPhone Screens)
+   ========================================================================== */
+@media (max-width: 480px) {
+  .hero-mockup-container {
+    transform: scale(0.85) !important;
+    transform-origin: center top !important;
+    margin-bottom: -50px; /* Reduce spacer gap caused by scaling */
+  }
+  
+  .logo-globe-icon {
+    left: 175px !important; /* Recalibrate starting icon left coordinates on narrow viewports */
+  }
+}

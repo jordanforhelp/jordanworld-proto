@@ -1,0 +1,78 @@
+/* ==========================================================================
+   Part 5 Dynamic Leverage Overrides & Premium Polish
+   ========================================================================== */
+
+/* 1. Import Part 4 baseline transitions and layouts */
+@import url('part4.css');
+@import url('part3.css');
+
+/* ==========================================================================
+   Tabular Numbers for Jitter-Free Mechanical Rolling (Odometer Effect)
+   ========================================================================== */
+.result-value {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  letter-spacing: 0.02em !important;
+  transition: color 0.3s ease;
+}
+
+/* 2. Prominent High-Contrast Styling for Growth Gap Key Metric */
+.prominent-contrast {
+  color: #00ff66 !important;
+  font-size: 1.8rem !important; /* Highly prominent visual scale */
+  font-weight: 800 !important;
+  text-shadow: 0 0 15px rgba(0, 255, 102, 0.4); /* Subtle glow reflecting digital asset worth */
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* High contrast highlight container details */
+.result-box.highlight {
+  border-color: rgba(0, 255, 102, 0.35) !important;
+  background: rgba(0, 255, 102, 0.02) !important;
+  box-shadow: 
+    0 10px 30px rgba(0, 255, 102, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 3. Generous Spacing for Tab Content and Clean Layout Lines */
+.calc-tab-content {
+  padding: 10px 0;
+}
+
+.calc-footer-ui {
+  margin-top: 2rem !important;
+  padding-top: 2rem !important;
+}
+
+/* Quick hover animation overrides for tactile haptics */
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.3);
+  background: #00ff66 !important;
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.6);
+}
+
+/* Header stacking order */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 2000;
+}
+
+/* Ensure navigation links are above other layers */
+.header .nav-menu a {
+  position: relative;
+  z-index: 2001;
+}
+
+/* Header stacking order */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 2000;
+}
+
+/* Ensure navigation links are above other layers */
+.header .nav-menu a {
+  position: relative;
+  z-index: 2001;
+}

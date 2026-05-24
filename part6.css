@@ -1,0 +1,469 @@
+/* ==========================================================================
+   Part 6 Final Build Overrides & Premium Polish
+   ========================================================================== */
+
+/* 1. Import Part 3 baseline systems */
+@import url('part3.css');
+
+/* ==========================================================================
+   Force Hide System Cursors globally to preserve Custom follow cursor
+   ========================================================================== */
+*,
+*::before,
+*::after,
+a,
+button,
+input,
+select,
+textarea,
+[role="button"],
+input[type="range"],
+.map-hotspot,
+.world-map-svg,
+.world-map-svg path,
+.timezone-tooltip,
+.services-section,
+.services-intro,
+.service-card {
+  cursor: none !important;
+}
+
+/* Specific vendor range thumbs & tracks to completely hide native cursor */
+input[type="range"]::-webkit-slider-thumb,
+input[type="range"]::-webkit-slider-runnable-track,
+input[type="range"]::-moz-range-thumb,
+input[type="range"]::-moz-range-track,
+input[type="range"]::-ms-thumb,
+input[type="range"]::-ms-track {
+  cursor: none !important;
+}
+
+/* Custom follower cursor dimensions & z-indexing standard stack */
+#customCursor {
+  pointer-events: none !important;
+  z-index: 999999 !important;
+}
+
+/* ==========================================================================
+   3D Tilt & Parallax Layout Enhancements (Hero Mockup)
+   ========================================================================== */
+.hero-mockup-container {
+  overflow: visible !important;
+  perspective: 1500px !important;
+}
+
+.mockup-frame {
+  overflow: visible !important;
+  transform-style: preserve-3d !important;
+  transform: perspective(1500px) rotateY(-8deg) rotateX(4deg);
+  transition: transform 0.1s ease-out; /* Smooth reactive tracking response */
+}
+
+/* Inner elements floating high inside 3D space */
+.brand-badge-3d {
+  white-space: nowrap !important;
+  margin-right: 20px !important;
+  transform-style: preserve-3d !important;
+  transform: translate3d(0, 0, 30px);
+}
+
+.dashboard-card, 
+.mockup-toggle-bar {
+  transform-style: preserve-3d !important;
+  transform: translate3d(0, 0, 15px);
+}
+
+/* ==========================================================================
+   Tabular Numbers & Contrast Metrics for ROI leverage Dashboard
+   ========================================================================== */
+.result-value {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  letter-spacing: 0.02em !important;
+  transition: color 0.3s ease;
+}
+
+/* Margins, pads & controls haptics */
+.calc-tab-content {
+  padding: 10px 0;
+}
+
+.calc-footer-ui {
+  margin-top: 2rem !important;
+  padding-top: 2rem !important;
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.3);
+  background: var(--accent-light) !important;
+  box-shadow: 0 0 15px rgba(239, 239, 239, 0.6) !important;
+}
+
+/* Enable 3D rendering context on hero content */
+.hero-content {
+  transform-style: preserve-3d !important;
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  transition: transform 0.1s ease-out;
+}
+
+.hero-content .badge,
+.hero-content .hero-title,
+.hero-content .hero-subtitle,
+.hero-content .hero-cta-wrapper {
+  transform-style: preserve-3d !important;
+  transition: transform 0.1s ease-out;
+}
+
+/* ==========================================================================
+   Header layer alignment and mobile view scale overrides
+   ========================================================================== */
+html, body, .header, .nav-container {
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+html, body {
+  padding: 0 !important;
+}
+
+html::before, body::before, .header::before {
+  content: none !important;
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  z-index: 2000 !important;
+  border-top: none !important;
+  outline: none !important;
+}
+
+.header .nav-menu a {
+  position: relative;
+  z-index: 2001 !important;
+}
+
+@media (max-width: 480px) {
+  .hero-mockup-container {
+    transform: scale(0.85) !important;
+    transform-origin: center top !important;
+    margin-bottom: -50px;
+  }
+}
+
+/* ==========================================================================
+   Philosophy & Leverage Section Styling (Flat Solid White)
+   ========================================================================== */
+.insight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-light) !important; /* Solid White border */
+  border-radius: 12px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-smooth);
+}
+
+.insight-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(255, 255, 255, 0.05);
+}
+
+.quote-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-light);
+  margin-bottom: 1.5rem;
+}
+
+.insight-content {
+  font-size: 1rem;
+  color: var(--text-primary) !important; /* Solid White content text */
+  font-style: italic;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+.insight-author {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-light) !important; /* Solid White author text */
+}
+
+/* ==========================================================================
+   Global Footprint Overhaul Styles & Tooltip (Rolls-Royce Dark Mode)
+   ========================================================================== */
+.world-map-svg {
+  opacity: 0.85 !important;
+  background: #000000 !important; /* Deep black base */
+  border-radius: 12px;
+}
+
+.world-map-svg path {
+  fill: #121212 !important; /* Deep dark grey landmasses */
+  stroke: rgba(255, 255, 255, 0.12) !important; /* Subtle white borders */
+  stroke-width: 0.4px !important;
+  transition: fill 0.3s ease, stroke 0.3s ease;
+}
+
+.world-map-svg path:hover {
+  fill: #1a1a1a !important; /* Lighter on hover */
+  stroke: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Glowing Hotspots Override */
+.map-hotspot .hotspot-dot {
+  background: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9) !important;
+  width: 8px !important;
+  height: 8px !important;
+  top: 4px !important;
+  left: 4px !important;
+}
+
+.map-hotspot .pulse-ring {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.map-hotspot:hover .hotspot-dot {
+  transform: scale(1.5) !important;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 1) !important;
+}
+
+/* Minimalist Timezone Tooltip Override */
+.timezone-tooltip {
+  background: rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important; /* Thin white border */
+  border-radius: 4px !important; /* Sharp minimalist look */
+  padding: 10px 14px !important;
+  font-family: monospace, Courier, monospace !important; /* Mono-spaced font */
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8) !important;
+  min-width: 160px !important;
+}
+
+.tooltip-city {
+  font-family: monospace, Courier, monospace !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0.12em !important;
+  margin-bottom: 4px !important;
+}
+
+.tooltip-time {
+  font-family: monospace, Courier, monospace !important;
+  color: #ffffff !important;
+  font-weight: 400 !important;
+  font-size: 1rem !important;
+  margin-bottom: 0 !important;
+}
+
+/* ==========================================================================
+   Services Section Centering Override
+   ========================================================================== */
+.services-intro {
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+
+.services-intro .section-badge {
+  display: inline-block !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+.services-intro .section-title {
+  text-align: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.services-intro .section-subtitle {
+  text-align: center !important;
+  margin: 0 auto 3rem auto !important;
+}
+
+/* Ensure the map wrapper has relative positioning to lock absolute hotspots */
+.world-map-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  aspect-ratio: 784.077 / 458.627 !important;
+  margin-top: 4rem !important;
+  background: rgba(134, 134, 134, 0.02) !important;
+  border: 1px solid rgba(134, 134, 134, 0.15) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+/* ==========================================================================
+   Mobile Responsiveness Overrides (The 'No-Overlap' Guarantee)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Reset cursor styles on mobile/touch screens and hide custom follower */
+  #customCursor {
+    display: none !important;
+  }
+  
+  *,
+  *::before,
+  *::after,
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  input[type="range"],
+  .map-hotspot,
+  .world-map-svg,
+  .world-map-svg path,
+  .timezone-tooltip,
+  .services-section,
+  .services-intro,
+  .service-card {
+    cursor: auto !important;
+  }
+
+  /* Hero Typography & Padding Scaling */
+  .hero-section {
+    padding: 120px 0 60px 0 !important;
+  }
+
+  .hero-title {
+    font-size: 2.2rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem !important;
+    margin-bottom: 2rem !important;
+  }
+
+  .hero-mockup-container {
+    transform: scale(0.9) !important;
+    margin-bottom: -20px !important;
+  }
+
+  /* Full-Screen Mobile Menu with Blur Backdrop */
+  .nav-menu {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2rem !important;
+    z-index: 1999 !important;
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    pointer-events: none;
+  }
+
+  .nav-menu.active {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-toggle {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    z-index: 2005 !important;
+    position: relative !important;
+    background: none !important;
+    border: none !important;
+  }
+
+  .mobile-toggle .bar {
+    width: 24px !important;
+    height: 2px !important;
+    background-color: var(--text-primary) !important;
+    transition: var(--transition-smooth) !important;
+  }
+
+  .mobile-toggle.active .bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg) !important;
+  }
+
+  .mobile-toggle.active .bar:nth-child(2) {
+    opacity: 0 !important;
+  }
+
+  .mobile-toggle.active .bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg) !important;
+  }
+
+  /* Stacking and padding fixes for Calculators */
+  .calculator-card {
+    padding: 1.75rem !important;
+  }
+
+  .calc-results {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .calc-tabs {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .calc-tab {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* Form / Contacts Padding Scaling */
+  .contact-info, .contact-form-wrapper {
+    padding: 2.5rem 1.5rem !important;
+  }
+
+  /* Hotspots Scale Down Override on Mobile */
+  .map-hotspot {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .map-hotspot .hotspot-dot {
+    width: 6px !important;
+    height: 6px !important;
+    top: 3px !important;
+    left: 3px !important;
+  }
+
+  .map-hotspot .pulse-ring {
+    width: 12px !important;
+    height: 12px !important;
+  }
+}
