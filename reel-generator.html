@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jordan — Instagram Marketing Suite (Reels & Carousels)</title>
+  <meta name="description" content="Generate high-converting, premium Instagram Reels and Carousel posts to promote Jordan's elite operational services.">
+  
+  <!-- Preconnect to Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="reel-generator.css">
+</head>
+<body>
+
+  <!-- Background Ambient Glows -->
+  <div class="ambient-glow bg-glow-1"></div>
+  <div class="ambient-glow bg-glow-2"></div>
+
+  <!-- Main Container -->
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-logo">
+        <a href="index.html" class="logo">jordanworld<span>.co</span></a>
+        <span class="badge-tag">Instagram Hub</span>
+      </div>
+      
+      <!-- Premium Tab Navigation Toggle -->
+      <div class="app-tabs">
+        <button class="tab-btn active" id="tabBtnReel" data-tab="reel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+          Video Reels
+        </button>
+        <button class="tab-btn" id="tabBtnCarousel" data-tab="carousel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+            <line x1="15" y1="3" x2="15" y2="21"></line>
+          </svg>
+          Image Carousels
+        </button>
+      </div>
+
+      <div class="header-nav">
+        <a href="index.html" class="btn btn-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          Back to Portfolio
+        </a>
+      </div>
+    </header>
+
+    <!-- App Body -->
+    <main class="app-main">
+      
+      <!-- LEFT PANEL: CONTROLS (Toggled via JS) -->
+      <section class="panel panel-controls">
+        <div class="panel-header">
+          <div class="step-num">1</div>
+          <h2>Configure Copy</h2>
+        </div>
+        
+        <div class="panel-body">
+          
+          <!-- REEL CONTROLS (Active by default) -->
+          <div id="reelControlsContainer" class="tab-content-panel active">
+            <!-- Template Selector -->
+            <div class="control-group">
+              <label for="templateSelect">Select Reel Template Structure</label>
+              <select id="templateSelect" class="input-select">
+                <option value="leakage">The Leverage Leakage (Opportunity Cost Focus)</option>
+                <option value="zero-inbox">Zero Inbox Blueprint (Operations Focus)</option>
+                <option value="reclaim-time">Reclaim 15 Hours (Productivity Focus)</option>
+                <option value="proof">Client Social Proof (Testimonial Focus)</option>
+                <option value="audit">Free Operational Audit (Call-To-Action Focus)</option>
+              </select>
+            </div>
+
+            <hr class="divider">
+
+            <!-- Frame Content Editor -->
+            <div class="control-group">
+              <label>Slide 1: The Hook (0s - 3s)</label>
+              <input type="text" id="slide1Text1" class="input-text" placeholder="Line 1" value="Every hour you spend on admin...">
+              <input type="text" id="slide1Text2" class="input-text" placeholder="Line 2" value="is brand leverage lost.">
+            </div>
+
+            <div class="control-group">
+              <label>Slide 2: The Core Message (3s - 6s)</label>
+              <input type="text" id="slide2Text1" class="input-text" placeholder="Line 1" value="Jordan handles inbox, deals & travel.">
+              <input type="text" id="slide2Text2" class="input-text" placeholder="Line 2" value="You stay focused on money work.">
+            </div>
+
+            <div class="control-group">
+              <label>Slide 3: Call To Action (6s - 10s)</label>
+              <input type="text" id="slide3Text1" class="input-text" placeholder="CTA Hook" value="Book a 15-min Discovery Call">
+              <input type="text" id="slide3Text2" class="input-text" placeholder="Website" value="jordanworld.co">
+            </div>
+
+            <hr class="divider">
+
+            <!-- Visual Aesthetics Settings -->
+            <div class="control-group">
+              <label for="bgStyleSelect">Visual Backdrop Theme</label>
+              <select id="bgStyleSelect" class="input-select">
+                <option value="grid">Cyberpunk Grid & Moving Stars</option>
+                <option value="glow">Sleek Radial Ambient Glow</option>
+                <option value="aberration">Chromatic Geometric Shift</option>
+              </select>
+            </div>
+
+            <div class="control-row">
+              <div class="control-group half">
+                <label for="accentColor">Accent Color</label>
+                <div class="color-picker-wrapper">
+                  <input type="color" id="accentColor" value="#efefef">
+                  <span class="color-hex">#EFEFEF</span>
+                </div>
+              </div>
+              <div class="control-group half">
+                <label for="particleSpeed">Energy Flow Speed</label>
+                <select id="particleSpeed" class="input-select">
+                  <option value="slow">Steady Elegant</option>
+                  <option value="medium" selected>Dynamic Flow</option>
+                  <option value="fast">High Impact</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-group" style="margin-top: 8px;">
+              <label for="musicSelect">Interactive Background Music</label>
+              <select id="musicSelect" class="input-select">
+                <option value="synth-ambient">Warm Lo-Fi Ambient Synth (Custom Beats)</option>
+                <option value="off">No Music (Silent Video)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- CAROUSEL CONTROLS (Hidden by default) -->
+          <div id="carouselControlsContainer" class="tab-content-panel">
+            <!-- Carousel Template Selector -->
+            <div class="control-group">
+              <label for="carouselTemplateSelect">Select Carousel Template</label>
+              <select id="carouselTemplateSelect" class="input-select">
+                <option value="c-leakage">The Leverage Leakage (Opportunity Cost Focus)</option>
+                <option value="c-scaling">The Scaling Formula (Productivity Focus)</option>
+                <option value="c-system">Zero Inbox System (Operations Focus)</option>
+              </select>
+            </div>
+
+            <hr class="divider">
+
+            <!-- Carousel Slides Editor -->
+            <div class="control-group">
+              <label>Slide 1: Hook Card (Cover)</label>
+              <input type="text" id="carCoverTitle" class="input-text" placeholder="Cover Hook Title" value="Are you leaking $117k every single year?">
+              <input type="text" id="carCoverSub" class="input-text" placeholder="Cover Subheading" value="The opportunity cost of doing admin yourself.">
+            </div>
+
+            <div class="control-group">
+              <label>Slide 2: Pain Points (The Leak)</label>
+              <input type="text" id="carPain1" class="input-text" placeholder="Pain 1" value="Messy Calendar & Meeting Clashes">
+              <input type="text" id="carPain2" class="input-text" placeholder="Pain 2" value="400+ Unread Sponsorship Pitches">
+              <input type="text" id="carPain3" class="input-text" placeholder="Pain 3" value="Logistical Travel Scheduling Friction">
+            </div>
+
+            <div class="control-group">
+              <label>Slide 3: Solution (The Reclaim)</label>
+              <input type="text" id="carSolTitle" class="input-text" placeholder="Solution Title" value="Delegation unlocks absolute focus.">
+              <input type="text" id="carSolSub" class="input-text" placeholder="Solution Description" value="Jordan runs your logistics so you focus 100% on money work.">
+            </div>
+
+            <div class="control-group">
+              <label>Slide 4: Call To Action (Cover Exit)</label>
+              <input type="text" id="carCtaTitle" class="input-text" placeholder="CTA Text" value="Book a Free 15-Min Operational Leak Audit">
+              <input type="text" id="carCtaSub" class="input-text" placeholder="Website Subheading" value="jordanworld.co • Only 2 slots open">
+            </div>
+
+            <hr class="divider">
+
+            <!-- Shared Aesthetic Style Pickers for Carousel -->
+            <div class="control-row">
+              <div class="control-group half">
+                <label for="carAccentColor">Accent Color</label>
+                <div class="color-picker-wrapper">
+                  <input type="color" id="carAccentColor" value="#c5a880"> <!-- Default gold for carousels -->
+                  <span class="car-color-hex">#C5A880</span>
+                </div>
+              </div>
+              <div class="control-group half">
+                <label for="carBgStyleSelect">Backdrop Theme</label>
+                <select id="carBgStyleSelect" class="input-select">
+                  <option value="grid">Cyberpunk Matrix Grid</option>
+                  <option value="glow" selected>Premium Ambient Glow</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- CENTER PANEL: LIVE PREVIEW MOCKUP -->
+      <section class="panel panel-preview">
+        <div class="panel-header text-center">
+          <h2 id="previewHeader">Real-Time 9:16 Video Canvas</h2>
+        </div>
+        
+        <div class="preview-stage">
+          <!-- Smartphone / Post Viewport Mockup Frame -->
+          <div class="smartphone-frame" id="viewportFrame">
+            <div class="phone-camera" id="phoneNotch"></div>
+            <div class="phone-screen">
+              <!-- Actual rendering canvas. Size changes dynamically in JS (9:16 vs 4:5) -->
+              <canvas id="videoCanvas" width="1080" height="1920"></canvas>
+              
+              <!-- Video Time Overlay (For Reels only) -->
+              <div class="canvas-time-indicator" id="timeIndicator">0.0s / 10.0s</div>
+              
+              <!-- Carousel Page Overlay (For Carousels only) -->
+              <div class="carousel-page-indicator" id="pageIndicator" style="display: none;">Slide 1 / 4</div>
+              
+              <!-- Play Screen Large Button Overlay (For Reels only) -->
+              <div class="canvas-overlay" id="playOverlay">
+                <button class="btn-play-large" id="playBtnLarge" aria-label="Play animation preview">
+                  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" class="icon-lg">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- REEL CONTROLS TOOLBAR (Active by default) -->
+        <div class="preview-toolbar" id="reelToolbar">
+          <button class="btn btn-secondary" id="previewPlayBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm btn-icon-play">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm btn-icon-pause" style="display:none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            <span>Play Preview</span>
+          </button>
+          
+          <button class="btn btn-accent btn-render" id="renderBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Export & Download Reel</span>
+          </button>
+        </div>
+
+        <!-- CAROUSEL CONTROLS TOOLBAR (Hidden by default) -->
+        <div class="preview-toolbar" id="carouselToolbar" style="display: none;">
+          <div class="carousel-nav-group">
+            <button class="btn btn-secondary" id="carPrevBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+              <span>Prev</span>
+            </button>
+            
+            <button class="btn btn-secondary" id="carNextBtn">
+              <span>Next</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+          
+          <button class="btn btn-accent btn-render" id="carRenderBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download All Slides (PNG)</span>
+          </button>
+        </div>
+
+        <!-- Export Loading Progress Overlay (For Reels video rendering) -->
+        <div class="render-progress-overlay" id="renderOverlay" style="display: none;">
+          <div class="progress-box">
+            <div class="spinner"></div>
+            <h3>Rendering High-Definition Video</h3>
+            <p>Capturing canvas stream at 1080x1920 (30 FPS) with synthesized beats...</p>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+            <span class="progress-percentage" id="progressPercent">0%</span>
+            <span class="progress-warning">Do not close this tab or change windows while rendering.</span>
+          </div>
+        </div>
+
+        <!-- Carousel Export Success Overlay -->
+        <div class="render-progress-overlay" id="carSuccessOverlay" style="display: none;">
+          <div class="progress-box">
+            <div style="font-size: 40px; color: var(--accent-gold); margin-bottom: 1rem;">✓</div>
+            <h3>Carousel Generated Successfully!</h3>
+            <p>We triggered sequential downloads for all 4 slides in high-resolution PNG format.</p>
+            <button class="btn btn-accent" id="closeCarSuccessBtn" style="margin-top: 1rem;">Done</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT PANEL: PRESET BLUEPRINTS (Toggled via JS) -->
+      <section class="panel panel-catalog">
+        <div class="panel-header">
+          <div class="step-num">2</div>
+          <h2>Promo Blueprints</h2>
+        </div>
+        
+        <div class="panel-body">
+          
+          <!-- REELS CATALOG -->
+          <div id="reelsCatalog" class="tab-content-panel active catalog-list">
+            <div class="blueprint-card active" data-preset="leakage">
+              <div class="card-badge">HOOK FOCUS: FINANCIAL LOSS</div>
+              <h3>Opportunity Cost</h3>
+              <p>Stresses the financial loss of admin work ($150+/hr leakage). High urgency.</p>
+              <div class="blueprint-slides">
+                <span><strong>Slide 1:</strong> "Every hour you spend on admin..."</span>
+                <span><strong>Slide 2:</strong> "...is $150+ leaking from your brand."</span>
+                <span><strong>Slide 3:</strong> "Stop the leakage. Book Jordan."</span>
+              </div>
+            </div>
+
+            <div class="blueprint-card" data-preset="zero-inbox">
+              <div class="card-badge">HOOK FOCUS: RESOLVING CHAOS</div>
+              <h3>Zero Inbox Blueprint</h3>
+              <p>Focuses on inbox overflow, visual clutter clearing, and organizational sanity.</p>
+              <div class="blueprint-slides">
+                <span><strong>Slide 1:</strong> "400+ unread pitches."</span>
+                <span><strong>Slide 2:</strong> "Reduced to 0. Every day."</span>
+                <span><strong>Slide 3:</strong> "Zero noise. Book Jordan."</span>
+              </div>
+            </div>
+
+            <div class="blueprint-card" data-preset="reclaim-time">
+              <div class="card-badge">HOOK FOCUS: FREEDOM VALUE</div>
+              <h3>Reclaim 15 Hours</h3>
+              <p>Focuses on pure time value and buying back creative focus for scaling content.</p>
+              <div class="blueprint-slides">
+                <span><strong>Slide 1:</strong> "Visionaries shouldn't book travel."</span>
+                <span><strong>Slide 2:</strong> "Get 15+ hours back a week."</span>
+                <span><strong>Slide 3:</strong> "Focus on scaling. Hire Jordan."</span>
+              </div>
+            </div>
+
+            <div class="blueprint-card" data-preset="proof">
+              <div class="card-badge">HOOK FOCUS: SOCIAL PROOF</div>
+              <h3>Client Social Proof</h3>
+              <p>Leverages high-authority testimonials from founders and major creators.</p>
+              <div class="blueprint-slides">
+                <span><strong>Slide 1:</strong> "An absolute operational game-changer."</span>
+                <span><strong>Slide 2:</strong> "- Aria Laurent (YouTube, 3.2M subs)"</span>
+                <span><strong>Slide 3:</strong> "Gain the leverage. jordanworld.co"</span>
+              </div>
+            </div>
+
+            <div class="blueprint-card" data-preset="audit">
+              <div class="card-badge">HOOK FOCUS: RISK-FREE AUDIT</div>
+              <h3>Free Operational Audit</h3>
+              <p>Low-friction lead magnet. Offers a 15-minute operational leverage discovery call.</p>
+              <div class="blueprint-slides">
+                <span><strong>Slide 1:</strong> "Feeling stretched too thin?"</span>
+                <span><strong>Slide 2:</strong> "Let's find your operational leaks."</span>
+                <span><strong>Slide 3:</strong> "Book a free 15-min discovery call."</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- CAROUSELS CATALOG -->
+          <div id="carouselsCatalog" class="tab-content-panel catalog-list">
+            <div class="blueprint-card active" data-preset="c-leakage">
+              <div class="card-badge">COVER: COST INTRIGUE</div>
+              <h3>Opportunity Cost Cover</h3>
+              <p>Classic 4-slide swiper visualising leaked dollars and offering a system fix.</p>
+              <div class="blueprint-slides">
+                <span><strong>Card 1:</strong> "Are you leaking $117k annually?"</span>
+                <span><strong>Card 2:</strong> "Paint point: meetings, calendar, travel"</span>
+                <span><strong>Card 3:</strong> "Solution: clean inbox, absolute focus"</span>
+                <span><strong>Card 4:</strong> "CTA: Free 15-Min operational leak audit"</span>
+              </div>
+            </div>
+
+            <div class="blueprint-card" data-preset="c-scaling">
+              <div class="card-badge">COVER: THE VISIONARY GAP</div>
+              <h3>The Scaling Gap</h3>
+              <p>Stresses creative scaling versus logistics management to urge operational hire.</p>
+              <div class="blueprint-slides">
+                <span><strong>Card 1:</strong> "Visionaries shouldn't coordinate admin."</span>
+                <span><strong>Card 2:</strong> "If you lose 15 hrs, you are standing still."</span>
+                <span><strong>Card 3:</strong> "High-agency execution handles details."</span>
+                <span><strong>Card 4:</strong> "CTA: Book one of Q3 open spots."</span>
+              </div>
+            </div>
+
+            <div class="blueprint-card" data-preset="c-system">
+              <div class="card-badge">COVER: CASE STUDY BLUEPRINT</div>
+              <h3>Zero Inbox Case Study</h3>
+              <p>Demonstrable proof swiper highlighting real testimonials and zero unread metrics.</p>
+              <div class="blueprint-slides">
+                <span><strong>Card 1:</strong> "How to clear 400+ unread pitches to 0"</span>
+                <span><strong>Card 2:</strong> "I filter pitches, follow deals & travel"</span>
+                <span><strong>Card 3:</strong> "Aria Laurent got 15+ hours back"</span>
+                <span><strong>Card 4:</strong> "CTA: Secure your partner. Book a Call"</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Quick instructions footer -->
+    <footer class="app-instructions">
+      <div class="instruct-item" id="instructReel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="instruct-icon">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <p><strong>IG-Ready Export:</strong> We generate and download a premium 1080x1920 video with a custom warm lo-fi synthesizer soundtrack built-in. It's ready to post directly onto Instagram Reels, Stories, or TikTok!</p>
+      </div>
+      <div class="instruct-item" id="instructCarousel" style="display: none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="instruct-icon">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <p><strong>Carousel Best Practice:</strong> We export 4 high-definition 4:5 portrait slide cards (1080x1350) in PNG format sequentially. Ready to upload together on Instagram. Keep your accent color bold for covers to stand out in the feeds!</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Custom Cursor (matches site design system) -->
+  <div class="custom-cursor" id="customCursor">
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="reel-generator.js"></script>
+</body>
+</html>
