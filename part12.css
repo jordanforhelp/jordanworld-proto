@@ -1,0 +1,863 @@
+/* ==========================================================================
+   Part 6 Final Build Overrides & Premium Polish
+   ========================================================================== */
+
+/* 1. Import Part 3 baseline systems */
+@import url('part3.css');
+
+/* ==========================================================================
+   Force Hide System Cursors globally to preserve Custom follow cursor
+   ========================================================================== */
+*,
+*::before,
+*::after,
+a,
+button,
+input,
+select,
+textarea,
+[role="button"],
+input[type="range"],
+.map-hotspot,
+.world-map-svg,
+.world-map-svg path,
+.timezone-tooltip,
+.services-section,
+.services-intro,
+.service-card {
+  cursor: none !important;
+}
+
+/* Specific vendor range thumbs & tracks to completely hide native cursor */
+input[type="range"]::-webkit-slider-thumb,
+input[type="range"]::-webkit-slider-runnable-track,
+input[type="range"]::-moz-range-thumb,
+input[type="range"]::-moz-range-track,
+input[type="range"]::-ms-thumb,
+input[type="range"]::-ms-track {
+  cursor: none !important;
+}
+
+/* Custom follower cursor dimensions & z-indexing standard stack */
+#customCursor {
+  pointer-events: none !important;
+  z-index: 999999 !important;
+}
+
+/* ==========================================================================
+   3D Tilt & Parallax Layout Enhancements (Hero Mockup)
+   ========================================================================== */
+/* Centered Hero Layout overrides */
+.hero-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  max-width: var(--max-width) !important;
+  margin: 0 auto !important;
+  padding: 0 2rem !important;
+}
+
+.hero-content {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  max-width: 800px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+}
+
+.hero-title {
+  text-align: center !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.hero-subtitle {
+  text-align: center !important;
+  margin: 0 auto 2.5rem auto !important;
+  max-width: 680px !important;
+}
+
+.hero-cta-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1.25rem !important;
+  width: 100% !important;
+}
+
+.badge-container {
+  margin: 0 auto 2rem auto !important;
+  display: flex !important;
+  justify-content: center !important;
+  width: fit-content !important;
+}
+
+/* ==========================================================================
+   Part 12 Unified Card Glow, Border Cleanup & Touch-Luxury Refactoring
+   ========================================================================== */
+.bottleneck-card,
+.insight-card,
+.matrix-quadrant {
+  position: relative !important;
+  background: var(--bg-card) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important; /* Low-opacity dark gray/white border outline */
+  border-radius: 12px !important;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              background 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  overflow: hidden !important;
+}
+
+/* Eliminate any stray lines, overlapping elements, or raw pseudo-elements from base styles */
+.bottleneck-card::before,
+.insight-card::before,
+.matrix-quadrant::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: radial-gradient(400px circle at var(--x, 0px) var(--y, 0px), rgba(255, 255, 255, 0.08), transparent 50%) !important;
+  transform: none !important;
+  opacity: 0 !important;
+  transition: opacity 0.4s ease !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+.bottleneck-card::after,
+.insight-card::after,
+.matrix-quadrant::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Ensure contents sit on top of spotlight */
+.bottleneck-card > *,
+.insight-card > *,
+.matrix-quadrant > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Desktop Hover Glow Effects (Fades in dynamically) */
+@media (hover: hover) {
+  .bottleneck-card:hover,
+  .insight-card:hover,
+  .matrix-quadrant:hover {
+    transform: translateY(-4px) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important; /* Crisp, semi-bright white border */
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 255, 255, 0.08) !important; /* Soft white glow shadow */
+    background: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  .bottleneck-card:hover::before,
+  .insight-card:hover::before,
+  .matrix-quadrant:hover::before {
+    opacity: 1 !important;
+  }
+
+  /* Specific icon glow inside bottleneck card on hover */
+  .bottleneck-card:hover .bottleneck-card-icon {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4) !important;
+  }
+}
+
+/* Mobile Active / Tap Styles (Responsive touch feedback, scaling, and reset) */
+.bottleneck-card:active,
+.bottleneck-card.active,
+.insight-card:active,
+.insight-card.active,
+.matrix-quadrant:active,
+.matrix-quadrant.active {
+  transform: translateY(-2px) scale(0.98) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  transition: all 0.1s ease-out !important; /* Snappy touch down response */
+}
+
+.bottleneck-card:active::before,
+.bottleneck-card.active::before,
+.insight-card:active::before,
+.insight-card.active::before,
+.matrix-quadrant:active::before,
+.matrix-quadrant.active::before {
+  opacity: 1 !important;
+}
+
+.bottleneck-card:active .bottleneck-card-icon,
+.bottleneck-card.active .bottleneck-card-icon {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Ensure inbox flex containers can shrink below content width globally to prevent layout overflow */
+.inbox-content-ui {
+  min-width: 0 !important;
+}
+
+.inbox-list-ui {
+  min-width: 0 !important;
+  flex-grow: 1 !important;
+  flex-shrink: 1 !important;
+}
+
+.inbox-item {
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.inbox-item .subject {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+  display: block !important;
+}
+
+/* ==========================================================================
+   Tabular Numbers & Contrast Metrics for ROI leverage Dashboard
+   ========================================================================== */
+.result-value {
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" !important;
+  letter-spacing: 0.02em !important;
+  transition: color 0.3s ease;
+}
+
+/* Margins, pads & controls haptics */
+.calc-tab-content {
+  padding: 10px 0;
+}
+
+.calc-footer-ui {
+  margin-top: 1rem !important;
+  padding-top: 0 !important;
+  border-top: none !important;
+}
+
+.calc-cta-text {
+  border-top: none !important;
+  padding-top: 0 !important;
+  margin-bottom: 15px !important;
+}
+
+/* ==========================================================================
+   Floating Money Animation Style for Unlock Hidden Revenue
+   ========================================================================== */
+.floating-bill {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  width: 40px;
+  height: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='20' viewBox='0 0 40 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='20' rx='2' fill='%23071510' stroke='%2300ff66' stroke-width='1.2'/%3E%3Ccircle cx='20' cy='10' r='4.5' fill='none' stroke='%2300ff66' stroke-width='1'/%3E%3Cpath d='M19 8.5C19 8.22386 19.2239 8 19.5 8H20.5C20.7761 8 21 8.22386 21 8.5C21 8.77614 20.7761 9 20.5 9H19.5C19.2239 9 19 9.22386 19 9.5V10.5C19 10.7761 19.2239 11 19.5 11H20.5C20.7761 11 21 10.7761 21 10.5V11.5M20 7V13' stroke='%2300ff66' stroke-width='1' stroke-linecap='round'/%3E%3Crect x='3' y='3' width='4' height='4' rx='0.5' fill='none' stroke='%2300ff66' stroke-width='0.6' stroke-opacity='0.6'/%3E%3Crect x='33' y='3' width='4' height='4' rx='0.5' fill='none' stroke='%2300ff66' stroke-width='0.6' stroke-opacity='0.6'/%3E%3Crect x='3' y='13' width='4' height='4' rx='0.5' fill='none' stroke='%2300ff66' stroke-width='0.6' stroke-opacity='0.6'/%3E%3Crect x='33' y='13' width='4' height='4' rx='0.5' fill='none' stroke='%2300ff66' stroke-width='0.6' stroke-opacity='0.6'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  animation: floatUp 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(0.5);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translate3d(calc(-50% + var(--drift-x-start)), calc(-50% + var(--drift-y-start)), 0) rotate(var(--rot-start)) scale(1.1);
+  }
+  100% {
+    transform: translate3d(calc(-50% + var(--drift-x-end)), calc(-50% + var(--drift-y-end)), 0) rotate(var(--rot-end)) scale(0.8);
+    opacity: 0;
+  }
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.3);
+  background: var(--accent-light) !important;
+  box-shadow: 0 0 15px rgba(239, 239, 239, 0.6) !important;
+}
+
+/* Enable 3D rendering context on hero content */
+.hero-content {
+  transform-style: preserve-3d !important;
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+  transition: transform 0.1s ease-out;
+}
+
+.hero-content .badge,
+.hero-content .hero-title,
+.hero-content .hero-subtitle,
+.hero-content .hero-cta-wrapper {
+  transform-style: preserve-3d !important;
+  transition: transform 0.1s ease-out;
+}
+
+/* ==========================================================================
+   Header layer alignment and mobile view scale overrides
+   ========================================================================== */
+html, body, .header, .nav-container {
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+html, body {
+  padding: 0 !important;
+}
+
+html::before, body::before, .header::before {
+  content: none !important;
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  z-index: 2000 !important;
+  border-top: none !important;
+  outline: none !important;
+}
+
+.header .nav-menu a {
+  position: relative;
+  z-index: 2001 !important;
+}
+
+
+/* ==========================================================================
+   Philosophy & Leverage Section Styling (Flat Solid White)
+   ========================================================================== */
+.insight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-light) !important; /* Solid White border */
+  border-radius: 12px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: var(--transition-smooth);
+}
+
+.insight-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(255, 255, 255, 0.05);
+}
+
+.quote-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-light);
+  margin-bottom: 1.5rem;
+}
+
+.insight-content {
+  font-size: 1rem;
+  color: var(--text-primary) !important; /* Solid White content text */
+  font-style: italic;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+.insight-author {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-light) !important; /* Solid White author text */
+}
+
+/* ==========================================================================
+   Global Footprint Overhaul Styles & Tooltip (Rolls-Royce Dark Mode)
+   ========================================================================== */
+.world-map-svg {
+  opacity: 0.85 !important;
+  background: #000000 !important; /* Deep black base */
+  border-radius: 12px;
+}
+
+.world-map-svg path {
+  fill: #121212 !important; /* Deep dark grey landmasses */
+  stroke: rgba(255, 255, 255, 0.12) !important; /* Subtle white borders */
+  stroke-width: 0.4px !important;
+  transition: fill 0.3s ease, stroke 0.3s ease;
+}
+
+.world-map-svg path:hover {
+  fill: #1a1a1a !important; /* Lighter on hover */
+  stroke: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Glowing Hotspots Override */
+.map-hotspot .hotspot-dot {
+  background: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.9) !important;
+  width: 8px !important;
+  height: 8px !important;
+  top: 4px !important;
+  left: 4px !important;
+}
+
+.map-hotspot .pulse-ring {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.map-hotspot:hover .hotspot-dot {
+  transform: scale(1.5) !important;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 1) !important;
+}
+
+/* Minimalist Timezone Tooltip Override */
+.timezone-tooltip {
+  background: rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important; /* Thin white border */
+  border-radius: 4px !important; /* Sharp minimalist look */
+  padding: 10px 14px !important;
+  font-family: monospace, Courier, monospace !important; /* Mono-spaced font */
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8) !important;
+  min-width: 160px !important;
+}
+
+.tooltip-city {
+  font-family: monospace, Courier, monospace !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0.12em !important;
+  margin-bottom: 4px !important;
+}
+
+.tooltip-time {
+  font-family: monospace, Courier, monospace !important;
+  color: #ffffff !important;
+  font-weight: 400 !important;
+  font-size: 1rem !important;
+  margin-bottom: 0 !important;
+}
+
+/* ==========================================================================
+   Services Section Centering Override
+   ========================================================================== */
+.services-intro {
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  width: 100% !important;
+}
+
+.services-intro .section-badge {
+  display: inline-block !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  text-align: center !important;
+}
+
+.services-intro .section-title {
+  text-align: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.services-intro .section-subtitle {
+  text-align: center !important;
+  margin: 0 auto 3rem auto !important;
+}
+
+/* Ensure the map wrapper has relative positioning to lock absolute hotspots */
+.world-map-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  aspect-ratio: 784.077 / 458.627 !important;
+  margin-top: 4rem !important;
+  background: rgba(134, 134, 134, 0.02) !important;
+  border: 1px solid rgba(134, 134, 134, 0.15) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+/* ==========================================================================
+   Mobile Responsiveness Overrides (The 'No-Overlap' Guarantee)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Reset cursor styles on mobile/touch screens and hide custom follower */
+  #customCursor {
+    display: none !important;
+  }
+  
+  *,
+  *::before,
+  *::after,
+  a,
+  button,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  input[type="range"],
+  .map-hotspot,
+  .world-map-svg,
+  .world-map-svg path,
+  .timezone-tooltip,
+  .services-section,
+  .services-intro,
+  .service-card {
+    cursor: auto !important;
+  }
+
+  /* Prevent horizontal overflow on mobile & Viewport Lockdown */
+  html, body {
+    overflow-x: hidden !important;
+    width: 100vw !important;
+    position: relative !important;
+  }
+
+  /* Zero-Tolerance for Fixed Widths: override containers */
+  .hero-container,
+  .bottleneck-container,
+  .about-container,
+  .integration-container,
+  .matrix-container,
+  .services-container,
+  .global-ops-container,
+  .contact-container,
+  .testimonials-container,
+  .footer-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+
+  /* Hero Section Centering, Spacing & Re-Ordering (Mobile Only) */
+  .hero-section {
+    padding-top: 80px !important;
+    padding-bottom: 30px !important;
+  }
+
+  .hero-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding-top: 20px !important;
+    padding-bottom: 40px !important;
+  }
+
+  .hero-content {
+    display: contents !important;
+  }
+
+  .badge-container {
+    order: 1 !important;
+    display: flex !important;
+    justify-content: center !important;
+    margin: 0 auto 1.5rem auto !important;
+    width: fit-content !important;
+  }
+
+  .hero-title {
+    order: 2 !important;
+    font-size: 2.45rem !important; /* Scale down by 30% from 3.5rem */
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+    margin-bottom: 1.5rem !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .hero-subtitle {
+    order: 3 !important;
+    font-size: 1rem !important;
+    margin: 0 auto 2rem auto !important;
+    text-align: center !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .hero-cta-wrapper {
+    order: 4 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    width: 100% !important;
+  }
+
+  .hero-cta-wrapper .btn {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  .cta-urgency {
+    margin-left: 0 !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* Dashboard Mockup styles removed */
+
+  /* Header Button Scale & Alignment */
+  .header .btn-nav {
+    font-size: 10.5px !important;
+    min-width: auto !important;
+    white-space: nowrap !important;
+  }
+
+  .header .btn-nav span {
+    padding: 5px 10px !important;
+  }
+
+  .header .logo {
+    font-size: 0.95rem !important;
+    letter-spacing: 0.12em !important;
+  }
+
+  .header .nav-container {
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+
+  /* Hide Pagination Dots */
+  .scroll-dots-container {
+    display: none !important;
+  }
+
+  /* Full-Screen Mobile Menu with Blur Backdrop */
+  .nav-menu {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2rem !important;
+    z-index: 1999 !important;
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    pointer-events: none;
+  }
+
+  .nav-menu.active {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .mobile-toggle {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    z-index: 2005 !important;
+    position: relative !important;
+    background: none !important;
+    border: none !important;
+  }
+
+  .mobile-toggle .bar {
+    width: 24px !important;
+    height: 2px !important;
+    background-color: var(--text-primary) !important;
+    transition: var(--transition-smooth) !important;
+  }
+
+  .mobile-toggle.active .bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg) !important;
+  }
+
+  .mobile-toggle.active .bar:nth-child(2) {
+    opacity: 0 !important;
+  }
+
+  .mobile-toggle.active .bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg) !important;
+  }
+
+  /* Vertical Stacking: Force all side-by-side columns to stack vertically on mobile */
+  .bottleneck-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .services-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .contact-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .contact-info {
+    border-right: none !important;
+    border-bottom: 1px solid var(--accent-grey) !important;
+    padding: 2.5rem 1.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .contact-info .section-badge {
+    margin: 0 auto 1.5rem auto !important;
+  }
+
+  .contact-details {
+    align-items: center !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  .detail-item {
+    justify-content: center !important;
+  }
+
+  .contact-form-wrapper {
+    padding: 2.5rem 1.5rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .contact-section,
+  .contact-container,
+  #contactForm {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Increase vertical padding between form fields & tap accessibility */
+  input[type="text"],
+  input[type="email"],
+  select,
+  textarea {
+    padding: 18px 20px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .contact-form {
+    gap: 2.2rem !important;
+    width: 100% !important;
+    align-items: center !important;
+  }
+
+  .form-group {
+    gap: 0.8rem !important;
+    width: 100% !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .form-group label {
+    text-align: center !important;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 2.2rem !important;
+    width: 100% !important;
+  }
+
+  /* Stacking and padding fixes for Calculators */
+  .calculator-card {
+    padding: 1.75rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .calc-results {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .calc-tabs {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.5rem !important;
+  }
+
+  .calc-tab {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* Interactive World Map Mobile Bounding & Coordinates proportional lockdown */
+  .world-map-wrapper {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    width: 100% !important;
+    aspect-ratio: 784.077 / 458.627 !important;
+    margin-top: 2rem !important;
+  }
+
+  .world-map-svg {
+    min-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Hotspots Scale Down Override on Mobile */
+  .map-hotspot {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .map-hotspot .hotspot-dot {
+    width: 6px !important;
+    height: 6px !important;
+    top: 3px !important;
+    left: 3px !important;
+  }
+
+  .map-hotspot .pulse-ring {
+    width: 12px !important;
+    height: 12px !important;
+  }
+}
+
+/* Laptop mockup scale rules removed */
