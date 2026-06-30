@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jordan — Secure Client Workspace</title>
+  <meta name="description" content="Secure, private client project velocity portal for jordanworld.co.">
+  
+  <!-- Preconnect to Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- CSS Sheets -->
+  <link rel="stylesheet" href="styles.css"> <!-- Extends site base design system -->
+  <link rel="stylesheet" href="portal-clientname.css">
+</head>
+<body>
+
+  <!-- Background Ambient Glows -->
+  <div class="ambient-glow-animated bg-glow-1"></div>
+  <div class="ambient-glow-animated bg-glow-2"></div>
+
+  <!-- PASSWORD GATEWAY CONTAINER (Active on Load) -->
+  <div class="gateway-overlay" id="gatewayOverlay">
+    <div class="gateway-card card-3d">
+      <div class="logo-watermark">jordanworld<span>.co</span></div>
+      <h2>SECURE PORTAL ACCESS</h2>
+      <p>Enter your 6-digit project access code to unlock the velocity dashboard.</p>
+      
+      <form id="gatewayForm" class="gateway-form">
+        <div class="input-pin-group">
+          <input type="password" id="accessPin" placeholder="Access Code" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-submit btn-3d-lg">
+          <span>Verify Credentials</span>
+        </button>
+        <span class="error-msg" id="pinError">Access Denied: Invalid Access Code.</span>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN CLIENT OS DASHBOARD (Hidden initially) -->
+  <div class="client-os-container" id="clientDashboard" style="display: none;">
+    
+    <!-- Dashboard Top Header Bar -->
+    <header class="os-header">
+      <div class="header-branding">
+        <a href="index.html" class="logo">jordanworld<span>.co</span></a>
+        <span class="badge-tag">CLIENT WORKSPACE</span>
+      </div>
+      <div class="os-meta">
+        <div class="os-clock">
+          <span class="clock-icon">🕒</span>
+          <span id="osLiveClock">00:00:00 UTC</span>
+        </div>
+        <div class="os-status">
+          <span class="status-indicator-dot pulsing"></span>
+          VELOCITY ACTIVE
+        </div>
+        <button class="btn btn-secondary btn-logout" id="logoutBtn">
+          LOGOUT
+        </button>
+      </div>
+    </header>
+
+    <!-- 3-Column Workspace Grid -->
+    <main class="os-main">
+      
+      <!-- COLUMN 1: LIVE TIMELINE (Schedule) -->
+      <section class="portal-column card-3d" id="timelineCol">
+        <div class="column-header">
+          <div class="header-title-row">
+            <h3>Schedule Timeline</h3>
+            <button class="btn-add-action" id="addTimelineBtn" title="Schedule New Operational Event">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="icon-add">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+          <span class="header-subtitle">Real-Time Schedule Sync</span>
+        </div>
+        
+        <div class="timeline-container" id="timelineContainer">
+          <!-- Dynamic rendering destination -->
+        </div>
+      </section>
+
+      <!-- COLUMN 2: TASK MATRIX (Kanban) -->
+      <section class="portal-column card-3d" id="matrixCol">
+        <div class="column-header">
+          <div class="header-title-row">
+            <h3>Task Matrix</h3>
+            <button class="btn-add-action" id="addTaskBtn" title="Add New Sprint Task">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="icon-add">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+          <span class="header-subtitle">Sprint Status Logs</span>
+        </div>
+        
+        <div class="matrix-container" id="matrixContainer">
+          <!-- Dynamic rendering destination -->
+        </div>
+      </section>
+
+      <!-- COLUMN 3: MASTER SCHEDULE CALENDAR (Replaces Resource Folder) -->
+      <section class="portal-column card-3d" id="calendarCol">
+        <div class="column-header">
+          <div class="header-title-row">
+            <h3>Master Calendar</h3>
+            <div class="calendar-nav-buttons">
+              <button class="btn-cal-nav" id="calPrevMonth" title="Previous Month">‹</button>
+              <span id="calMonthYear">May 2026</span>
+              <button class="btn-cal-nav" id="calNextMonth" title="Next Month">›</button>
+            </div>
+          </div>
+          <span class="header-subtitle">Milestone Schedule Grid</span>
+        </div>
+        
+        <div class="calendar-container">
+          <div class="calendar-weekdays">
+            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+          </div>
+          <div class="calendar-days-grid" id="calendarDaysGrid">
+            <!-- Calendar days rendered dynamically -->
+          </div>
+          
+          <!-- Event descriptions panel for selected date -->
+          <div class="calendar-selected-details" id="calSelectedDetails">
+            <h4>Date Milestones</h4>
+            <div id="calSelectedEventsList">Click a highlighted day to view milestones.</div>
+          </div>
+        </div>
+      </section>
+      
+    </main>
+  </div>
+
+  <!-- MODAL DIALOGS -->
+  
+  <!-- Add/Edit Timeline Event Modal -->
+  <div class="modal-backdrop" id="timelineModal">
+    <div class="modal-card card-3d">
+      <h3 id="timelineModalHeading">ADD TIMELINE EVENT</h3>
+      <form id="timelineForm">
+        <div class="form-group">
+          <label for="eventDate">Target Date (e.g. 2026-05-27)</label>
+          <input type="text" id="eventDate" required placeholder="YYYY-MM-DD">
+        </div>
+        <div class="form-group">
+          <label for="eventTime">Time Indicator (e.g. 02:30 PM)</label>
+          <input type="text" id="eventTime" required placeholder="02:30 PM">
+        </div>
+        <div class="form-group">
+          <label for="eventTitle">Event Title</label>
+          <input type="text" id="eventTitle" required placeholder="Itinerary Draft Assembly">
+        </div>
+        <div class="form-group">
+          <label for="eventDesc">Description / Subtext</label>
+          <input type="text" id="eventDesc" required placeholder="Assembly of travel routes and stays.">
+        </div>
+        <div class="form-group">
+          <label for="eventStatus">Activity Status</label>
+          <select id="eventStatus" class="input-select">
+            <option value="upcoming">Upcoming Task</option>
+            <option value="active">Active (Current)</option>
+            <option value="past">Completed (Past)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary modal-close-btn">CANCEL</button>
+          <button type="submit" class="btn btn-accent" id="timelineSubmitBtn">SAVE</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add/Edit Task Modal -->
+  <div class="modal-backdrop" id="taskModal">
+    <div class="modal-card card-3d">
+      <h3 id="taskModalHeading">ADD SPRINT TASK</h3>
+      <form id="taskForm">
+        <div class="form-group">
+          <label for="taskName">Task Description</label>
+          <input type="text" id="taskName" required placeholder="Chasing outstanding deliverables">
+        </div>
+        <div class="form-group">
+          <label for="taskState">Matrix Status</label>
+          <select id="taskState" class="input-select">
+            <option value="pending">In Progress (Pending)</option>
+            <option value="backlog">Backlog (Next Sprint)</option>
+            <option value="done">Completed (Done)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary modal-close-btn">CANCEL</button>
+          <button type="submit" class="btn btn-accent" id="taskSubmitBtn">SAVE</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Cursor -->
+  <div class="custom-cursor" id="customCursor">
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+  </div>
+
+  <!-- JavaScript logic modules -->
+  <script src="portal-clientname.js"></script>
+</body>
+</html>
