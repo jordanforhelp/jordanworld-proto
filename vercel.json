@@ -3,6 +3,10 @@
     {
       "source": "/links/:path*",
       "destination": "https://test-4-2qge-olive.vercel.app/links/:path*"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "https://test-4-2qge-olive.vercel.app/assets/:path*"
     }
   ]
 }
