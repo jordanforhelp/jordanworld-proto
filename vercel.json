@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/links/:path*",
+      "destination": "https://test-4-2qge-olive.vercel.app/links/:path*"
+    }
+  ]
+}
