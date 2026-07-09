@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yoga: The Practice of Stillness in Motion</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          cream: '#FDFBF6',
+          parchment: '#F6F1E7',
+          charcoal: '#2B2723',
+          ink: '#3A342C',
+          gold: {
+            DEFAULT: '#C5A059',
+            deep: '#A9813F',
+            light: '#E4CC96',
+          },
+          midnight: {
+            DEFAULT: '#0E1A2B',
+            deep: '#0A1420',
+            soft: '#152438',
+          },
+        },
+        fontFamily: {
+          serif: ['"Playfair Display"', 'serif'],
+          sans: ['"Inter"', 'sans-serif'],
+        },
+        letterSpacing: {
+          widest2: '.3em',
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  :root{
+    --bg: #FDFBF6;
+    --bg-soft: #F6F1E7;
+    --ink: #2B2723;
+    --ink-soft: #5C5346;
+    --gold: #C5A059;
+    --gold-deep: #A9813F;
+    --line: rgba(43,39,35,0.1);
+  }
+  html.dark{
+    --bg: #0E1A2B;
+    --bg-soft: #152438;
+    --ink: #EFE7D6;
+    --ink-soft: #B9AF9C;
+    --gold: #D4B36A;
+    --gold-deep: #E4CC96;
+    --line: rgba(212,179,106,0.18);
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    transition: background .6s ease, color .6s ease;
+    overflow-x:hidden;
+  }
+  .font-serif{ font-family:'Playfair Display', serif; }
+
+  ::selection{ background:var(--gold); color:#fff; }
+
+  /* scroll-snap storytelling container */
+  .scroll-container{
+    scroll-snap-type: y proximity;
+  }
+  .snap-section{
+    scroll-snap-align: start;
+    scroll-snap-stop: normal;
+  }
+
+  .section-panel{
+    background:var(--bg);
+    transition: background .6s ease;
+  }
+  .section-panel:nth-of-type(even){ background:var(--bg-soft); }
+
+  .eyebrow{
+    letter-spacing:.35em;
+    font-size:.68rem;
+    color:var(--gold-deep);
+    font-weight:600;
+  }
+
+  .gold-underline{
+    position:relative;
+    display:inline-block;
+  }
+  .gold-underline::after{
+    content:'';
+    position:absolute;
+    left:0; right:0; bottom:-6px;
+    height:1px;
+    background:linear-gradient(90deg, transparent, var(--gold), transparent);
+    transform:scaleX(0);
+    transform-origin:center;
+    transition:transform .5s ease;
+  }
+  .gold-underline:hover::after{ transform:scaleX(1); }
+
+  .btn-gold{
+    position:relative;
+    overflow:hidden;
+    border:1px solid var(--gold);
+    color:var(--gold-deep);
+    transition: color .4s ease;
+  }
+  .btn-gold::before{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:var(--gold);
+    transform:translateX(-101%);
+    transition:transform .45s cubic-bezier(.65,0,.35,1);
+    z-index:0;
+  }
+  .btn-gold:hover::before{ transform:translateX(0); }
+  .btn-gold span{ position:relative; z-index:1; transition:color .4s ease; }
+  .btn-gold:hover span{ color:#fff; }
+  html.dark .btn-gold:hover span{ color:var(--midnight, #0E1A2B); }
+
+  .nav-link{ position:relative; }
+  .nav-link::after{
+    content:'';
+    position:absolute; left:0; bottom:-4px;
+    width:0; height:1px;
+    background:var(--gold);
+    transition:width .35s ease;
+  }
+  .nav-link:hover::after{ width:100%; }
+
+  /* mandala signature element */
+  .mandala{
+    transform-origin:center;
+    animation: spin-slow 90s linear infinite;
+  }
+  @keyframes spin-slow{ to{ transform:rotate(360deg); } }
+
+  /* breathing bubble */
+  .breath-circle{
+    transition: transform 4s ease-in-out, box-shadow 4s ease-in-out;
+  }
+
+  .card{
+    border:1px solid var(--line);
+    transition: transform .4s ease, box-shadow .4s ease, border-color .4s ease;
+  }
+  .card:hover{
+    transform:translateY(-6px);
+    border-color:var(--gold);
+    box-shadow:0 20px 40px -20px rgba(197,160,89,.35);
+  }
+
+  .tab-btn.active{
+    color:var(--gold-deep);
+    border-color:var(--gold);
+  }
+
+  .difficulty-dot{ display:inline-block; width:6px;height:6px;border-radius:50%; }
+
+  .pose-icon{
+    width:76px; height:76px;
+    margin:0 auto 1rem auto;
+  }
+  .pose-icon svg{
+    width:100%; height:100%;
+    stroke:var(--gold-deep);
+    stroke-width:3.2;
+    fill:none;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    transition: transform .5s cubic-bezier(.65,0,.35,1), stroke .4s ease;
+  }
+  .card:hover .pose-icon svg{
+    stroke:var(--gold);
+    transform: scale(1.08) rotate(-3deg);
+  }
+
+  .fade-up{ opacity:0; transform:translateY(40px); }
+
+  /* custom scrollbar */
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--gold); border-radius:10px; opacity:.5; }
+
+  .theme-toggle-track{
+    background:var(--bg-soft);
+    border:1px solid var(--line);
+  }
+  .theme-toggle-dot{
+    background:var(--gold);
+    transition: transform .4s cubic-bezier(.65,0,.35,1);
+  }
+  html.dark .theme-toggle-dot{ transform:translateX(22px); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; }
+  }
+</style>
+</head>
+
+<body class="antialiased">
+
+<!-- ============ NAV ============ -->
+<header class="fixed top-0 left-0 w-full z-50">
+  <nav id="mainNav" class="flex items-center justify-between px-6 md:px-12 py-5 transition-colors duration-500">
+    <a href="#hero" class="font-serif text-xl md:text-2xl tracking-wide" style="color:var(--ink)">
+      Yoga
+    </a>
+
+    <div class="hidden md:flex items-center gap-10 text-sm font-medium" style="color:var(--ink)">
+      <a href="#philosophy" class="nav-link">Philosophy</a>
+      <a href="#asanas" class="nav-link">Asanas</a>
+      <a href="#styles" class="nav-link">Styles</a>
+      <a href="#pranayama" class="nav-link">Breath</a>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <!-- theme toggle -->
+      <button id="themeToggle" aria-label="Toggle night mode" class="relative w-11 h-6 rounded-full theme-toggle-track">
+        <span class="theme-toggle-dot absolute top-[2px] left-[2px] w-[18px] h-[18px] rounded-full"></span>
+      </button>
+
+      <button id="menuBtn" class="md:hidden flex flex-col gap-[5px] w-7" aria-label="Open menu">
+        <span class="h-[1.5px] w-full" style="background:var(--ink)"></span>
+        <span class="h-[1.5px] w-full" style="background:var(--ink)"></span>
+        <span class="h-[1.5px] w-3/4 self-end" style="background:var(--ink)"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- mobile menu -->
+  <div id="mobileMenu" class="md:hidden hidden flex-col gap-6 px-8 py-10 text-lg font-serif" style="background:var(--bg); border-top:1px solid var(--line);">
+    <a href="#philosophy" class="mobile-link">Philosophy</a>
+    <a href="#asanas" class="mobile-link">Asanas</a>
+    <a href="#styles" class="mobile-link">Styles</a>
+    <a href="#pranayama" class="mobile-link">Breath</a>
+  </div>
+</header>
+
+<main class="scroll-container">
+
+<!-- ============ SECTION 1 : HERO ============ -->
+<section id="hero" class="snap-section section-panel relative min-h-screen flex items-center justify-center px-6 overflow-hidden">
+
+  <!-- signature mandala, drawn line-art, parallax -->
+  <svg id="heroMandala" class="mandala absolute opacity-[0.14] pointer-events-none" style="width:140vw; max-width:1100px; top:50%; left:50%; transform:translate(-50%,-50%);" viewBox="0 0 400 400" fill="none">
+    <g stroke="var(--gold)" stroke-width="0.6">
+      <circle cx="200" cy="200" r="180"/>
+      <circle cx="200" cy="200" r="140"/>
+      <circle cx="200" cy="200" r="100"/>
+      <g id="petalGroup"></g>
+    </g>
+  </svg>
+
+  <div class="relative z-10 text-center max-w-3xl mx-auto">
+    <p class="eyebrow mb-6 fade-up" data-fade>A QUIET DISCIPLINE</p>
+    <h1 class="font-serif text-[2.6rem] leading-[1.15] sm:text-6xl md:text-7xl font-medium mb-6 fade-up" data-fade style="color:var(--ink)">
+      Stillness is a<br class="hidden sm:block"> practice, <em class="italic" style="color:var(--gold-deep)">not</em> a place.
+    </h1>
+    <p class="max-w-xl mx-auto text-base md:text-lg mb-10 fade-up" data-fade style="color:var(--ink-soft)">
+      Yoga is a quiet corner of the internet dedicated to the union of breath, body, and attention, one asana at a time.
+    </p>
+    <a href="#philosophy" class="btn-gold inline-block px-9 py-4 rounded-full text-sm tracking-widest2 uppercase fade-up" data-fade>
+      <span>Explore the Practice</span>
+    </a>
+  </div>
+</section>
+
+<!-- ============ SECTION 2 : PHILOSOPHY ============ -->
+<section id="philosophy" class="snap-section section-panel relative min-h-screen flex items-center px-6 md:px-16 py-24">
+  <div class="max-w-6xl mx-auto w-full">
+    <div class="text-center max-w-2xl mx-auto mb-16">
+      <p class="eyebrow mb-4 fade-up" data-fade>THE PHILOSOPHY</p>
+      <h2 class="font-serif text-3xl md:text-5xl mb-6 fade-up" data-fade>A union of mind, body & spirit</h2>
+      <p class="fade-up" data-fade style="color:var(--ink-soft)">
+        Patanjali's Yoga Sutras describe eight interwoven limbs, known together as <em>Ashtanga</em>, that guide a practitioner from
+        outer conduct toward inner absorption. Together they form a single path, not eight separate steps.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-12 fade-up" data-fade>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">01</p>
+        <h3 class="font-serif text-lg mb-2">Yama</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Ethical restraints, how we relate to the world.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">02</p>
+        <h3 class="font-serif text-lg mb-2">Niyama</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Personal observances, how we relate to ourselves.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">03</p>
+        <h3 class="font-serif text-lg mb-2">Asana</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Steady, comfortable posture, the body as vessel.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">04</p>
+        <h3 class="font-serif text-lg mb-2">Pranayama</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Breath control, the bridge between body and mind.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">05</p>
+        <h3 class="font-serif text-lg mb-2">Pratyahara</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Withdrawal of the senses, turning attention inward.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">06</p>
+        <h3 class="font-serif text-lg mb-2">Dharana</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Concentration, resting the mind on a single point.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">07</p>
+        <h3 class="font-serif text-lg mb-2">Dhyana</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Meditation, an unbroken flow of attention.</p>
+      </div>
+      <div class="limb text-center">
+        <p class="font-serif text-2xl mb-1" style="color:var(--gold-deep)">08</p>
+        <h3 class="font-serif text-lg mb-2">Samadhi</h3>
+        <p class="text-sm" style="color:var(--ink-soft)">Absorption, union with the object of meditation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 3 : ASANA DIRECTORY ============ -->
+<section id="asanas" class="snap-section section-panel relative min-h-screen flex items-center px-6 md:px-16 py-24">
+  <div class="max-w-6xl mx-auto w-full">
+    <div class="text-center max-w-2xl mx-auto mb-14">
+      <p class="eyebrow mb-4 fade-up" data-fade>THE ASANA DIRECTORY</p>
+      <h2 class="font-serif text-3xl md:text-5xl mb-6 fade-up" data-fade>Five poses to begin with</h2>
+      <p class="fade-up" data-fade style="color:var(--ink-soft)">Every posture is an inquiry into balance, breath, and where the body still holds tension.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <div class="card fade-up rounded-2xl p-7" data-fade>
+        <div class="pose-icon">
+          <svg viewBox="0 0 100 100">
+            <circle cx="50" cy="14" r="7" data-n="50,14"/>
+            <line x1="50" y1="21" x2="50" y2="55" data-n="50,21,50,55"/>
+            <line x1="50" y1="26" x2="34" y2="8" data-n="50,28,40,55"/>
+            <line x1="50" y1="26" x2="66" y2="8" data-n="50,28,60,55"/>
+            <line x1="50" y1="55" x2="50" y2="92" data-n="50,55,50,92"/>
+            <line x1="50" y1="55" x2="68" y2="60" data-n="50,55,45,92"/>
+            <line x1="68" y1="60" x2="52" y2="48" data-n="45,92,45,92"/>
+          </svg>
+        </div>
+        <div class="flex items-center justify-between mb-5">
+          <span class="text-[11px] tracking-widest2 uppercase flex items-center gap-2" style="color:var(--ink-soft)">
+            <span class="difficulty-dot" style="background:var(--gold)"></span>Beginner
+          </span>
+        </div>
+        <h3 class="font-serif text-xl mb-1">Tree Pose</h3>
+        <p class="text-sm italic mb-4" style="color:var(--gold-deep)">Vrikshasana</p>
+        <p class="text-sm leading-relaxed" style="color:var(--ink-soft)">Roots the standing leg while the raised foot presses into the thigh, cultivating balance, focus, and quiet steadiness.</p>
+      </div>
+
+      <div class="card fade-up rounded-2xl p-7" data-fade>
+        <div class="pose-icon">
+          <svg viewBox="0 0 100 100">
+            <line x1="50" y1="25" x2="20" y2="85" data-n="50,21,50,90"/>
+            <line x1="50" y1="25" x2="80" y2="85" data-n="50,21,50,90"/>
+            <circle cx="35" cy="55" r="7" data-n="50,14"/>
+          </svg>
+        </div>
+        <div class="flex items-center justify-between mb-5">
+          <span class="text-[11px] tracking-widest2 uppercase flex items-center gap-2" style="color:var(--ink-soft)">
+            <span class="difficulty-dot" style="background:var(--gold)"></span>Beginner
+          </span>
+        </div>
+        <h3 class="font-serif text-xl mb-1">Downward-Facing Dog</h3>
+        <p class="text-sm italic mb-4" style="color:var(--gold-deep)">Adho Mukha Svanasana</p>
+        <p class="text-sm leading-relaxed" style="color:var(--ink-soft)">An inverted V that lengthens the spine and hamstrings while energizing the whole body, often used as a resting pose between flows.</p>
+      </div>
+
+      <div class="card fade-up rounded-2xl p-7" data-fade>
+        <div class="pose-icon">
+          <svg viewBox="0 0 100 100">
+            <circle cx="42" cy="20" r="7" data-n="50,15"/>
+            <line x1="42" y1="27" x2="60" y2="55" data-n="50,22,50,60"/>
+            <line x1="60" y1="55" x2="30" y2="90" data-n="50,60,42,95"/>
+            <line x1="60" y1="55" x2="85" y2="90" data-n="50,60,58,95"/>
+            <line x1="42" y1="30" x2="25" y2="75" data-n="50,28,38,55"/>
+            <line x1="55" y1="35" x2="75" y2="15" data-n="50,28,62,55"/>
+          </svg>
+        </div>
+        <div class="flex items-center justify-between mb-5">
+          <span class="text-[11px] tracking-widest2 uppercase flex items-center gap-2" style="color:var(--ink-soft)">
+            <span class="difficulty-dot" style="background:#B08D57"></span>Intermediate
+          </span>
+        </div>
+        <h3 class="font-serif text-xl mb-1">Triangle Pose</h3>
+        <p class="text-sm italic mb-4" style="color:var(--gold-deep)">Trikonasana</p>
+        <p class="text-sm leading-relaxed" style="color:var(--ink-soft)">A standing stretch that opens the hips and chest while strengthening the legs and core through a long lateral line.</p>
+      </div>
+
+      <div class="card fade-up rounded-2xl p-7" data-fade>
+        <div class="pose-icon">
+          <svg viewBox="0 0 100 100">
+            <circle cx="75" cy="35" r="7" data-n="50,14"/>
+            <line x1="70" y1="42" x2="35" y2="60" data-n="50,21,50,60"/>
+            <line x1="35" y1="60" x2="10" y2="62" data-n="50,60,50,92"/>
+            <line x1="60" y1="55" x2="55" y2="80" data-n="50,28,50,55"/>
+          </svg>
+        </div>
+        <div class="flex items-center justify-between mb-5">
+          <span class="text-[11px] tracking-widest2 uppercase flex items-center gap-2" style="color:var(--ink-soft)">
+            <span class="difficulty-dot" style="background:var(--gold)"></span>Beginner
+          </span>
+        </div>
+        <h3 class="font-serif text-xl mb-1">Cobra Pose</h3>
+        <p class="text-sm italic mb-4" style="color:var(--gold-deep)">Bhujangasana</p>
+        <p class="text-sm leading-relaxed" style="color:var(--ink-soft)">A gentle backbend that opens the chest and shoulders while building strength along the spine.</p>
+      </div>
+
+      <div class="card fade-up rounded-2xl p-7" data-fade>
+        <div class="pose-icon">
+          <svg viewBox="0 0 100 100">
+            <circle cx="45" cy="18" r="7" data-n="50,14"/>
+            <line x1="45" y1="25" x2="48" y2="55" data-n="50,21,50,60"/>
+            <line x1="48" y1="55" x2="45" y2="92" data-n="50,60,50,92"/>
+            <line x1="48" y1="55" x2="75" y2="45" data-n="50,60,45,92"/>
+            <line x1="75" y1="45" x2="70" y2="15" data-n="45,92,45,92"/>
+            <line x1="45" y1="30" x2="65" y2="18" data-n="50,28,62,55"/>
+            <line x1="45" y1="30" x2="20" y2="40" data-n="50,28,38,55"/>
+          </svg>
+        </div>
+        <div class="flex items-center justify-between mb-5">
+          <span class="text-[11px] tracking-widest2 uppercase flex items-center gap-2" style="color:var(--ink-soft)">
+            <span class="difficulty-dot" style="background:#7A4E4E"></span>Advanced
+          </span>
+        </div>
+        <h3 class="font-serif text-xl mb-1">Dancer's Pose</h3>
+        <p class="text-sm italic mb-4" style="color:var(--gold-deep)">Natarajasana</p>
+        <p class="text-sm leading-relaxed" style="color:var(--ink-soft)">A deep balancing backbend requiring flexibility through the shoulders and spine, and unwavering focus underfoot.</p>
+      </div>
+
+      <div class="card fade-up rounded-2xl p-7 flex flex-col justify-center items-start" data-fade style="background:var(--gold); border-color:var(--gold)">
+        <h3 class="font-serif text-xl mb-2 text-white">Find your pace</h3>
+        <p class="text-sm leading-relaxed text-white/90 mb-4">Every body arrives at a posture differently. Progress is not the goal. Presence is.</p>
+        <a href="#styles" class="text-sm text-white underline underline-offset-4">See the styles →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 4 : STYLES ============ -->
+<section id="styles" class="snap-section section-panel relative min-h-screen flex items-center px-6 md:px-16 py-24">
+  <div class="max-w-4xl mx-auto w-full">
+    <div class="text-center max-w-2xl mx-auto mb-14">
+      <p class="eyebrow mb-4 fade-up" data-fade>STYLES OF YOGA</p>
+      <h2 class="font-serif text-3xl md:text-5xl mb-6 fade-up" data-fade>Four paths, one destination</h2>
+      <p class="fade-up" data-fade style="color:var(--ink-soft)">Pace and intention differ. The invitation to presence does not.</p>
+    </div>
+
+    <div class="fade-up" data-fade>
+      <div class="flex flex-wrap justify-center gap-3 mb-10" id="styleTabs">
+        <button class="tab-btn active px-5 py-2 rounded-full text-sm border" style="border-color:var(--line)" data-style="hatha">Hatha</button>
+        <button class="tab-btn px-5 py-2 rounded-full text-sm border" style="border-color:var(--line)" data-style="vinyasa">Vinyasa</button>
+        <button class="tab-btn px-5 py-2 rounded-full text-sm border" style="border-color:var(--line)" data-style="yin">Yin</button>
+        <button class="tab-btn px-5 py-2 rounded-full text-sm border" style="border-color:var(--line)" data-style="ashtanga">Ashtanga</button>
+      </div>
+
+      <div class="rounded-2xl p-8 md:p-12 text-center card" id="styleContent">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 5 : PRANAYAMA ============ -->
+<section id="pranayama" class="snap-section section-panel relative min-h-screen flex items-center px-6 md:px-16 py-24 overflow-hidden">
+  <div class="max-w-4xl mx-auto w-full text-center">
+    <p class="eyebrow mb-4 fade-up" data-fade>PRANAYAMA & MEDITATION</p>
+    <h2 class="font-serif text-3xl md:text-5xl mb-6 fade-up" data-fade>Follow the breath</h2>
+    <p class="max-w-xl mx-auto mb-14 fade-up" data-fade style="color:var(--ink-soft)">
+      Sama Vritti, or equal breathing, steadies the nervous system. Let the circle guide you: inhale as it grows, exhale as it settles.
+    </p>
+
+    <div class="flex flex-col items-center justify-center fade-up" data-fade>
+      <div class="relative w-56 h-56 md:w-72 md:h-72 flex items-center justify-center mb-8">
+        <div id="breathCircle" class="breath-circle absolute rounded-full" style="width:55%; height:55%; background:radial-gradient(circle at 35% 30%, var(--gold-light,#E4CC96), var(--gold)); box-shadow:0 0 60px rgba(197,160,89,.35);"></div>
+        <div class="absolute inset-0 rounded-full border" style="border-color:var(--line)"></div>
+        <span id="breathLabel" class="relative z-10 font-serif text-lg md:text-xl" style="color:var(--ink)">Begin</span>
+      </div>
+
+      <button id="breathToggle" class="btn-gold px-8 py-3 rounded-full text-sm tracking-widest2 uppercase">
+        <span id="breathBtnLabel">Start Breathing</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECTION 6 : FOOTER ============ -->
+<section id="footer" class="snap-section relative min-h-screen flex items-end px-6 md:px-16 pb-14 pt-24" style="background:var(--bg-soft)">
+  <div class="max-w-6xl mx-auto w-full">
+
+    <!-- daily intention -->
+    <div class="text-center mb-20 fade-up" data-fade>
+      <p class="eyebrow mb-4">DAILY INTENTION</p>
+      <p id="quoteText" class="font-serif italic text-2xl md:text-3xl max-w-2xl mx-auto mb-8 transition-opacity duration-500" style="color:var(--ink)">
+        "Let the breath lead, and the body will follow."
+      </p>
+      <button id="newQuoteBtn" class="btn-gold px-7 py-3 rounded-full text-sm tracking-widest2 uppercase">
+        <span>Reveal Today's Intention</span>
+      </button>
+    </div>
+
+    <div class="w-full h-px mb-10" style="background:var(--line)"></div>
+
+    <div class="grid md:grid-cols-3 gap-10 mb-10">
+      <div class="md:col-span-2">
+        <a href="#hero" class="font-serif text-2xl block mb-3">Yoga</a>
+        <p class="text-sm max-w-xs" style="color:var(--ink-soft)">A quiet space for breath, body, and attention. Practice gently, and often.</p>
+      </div>
+
+      <div>
+        <h4 class="text-sm tracking-widest2 uppercase mb-4" style="color:var(--gold-deep)">Explore</h4>
+        <ul class="space-y-2 text-sm" style="color:var(--ink-soft)">
+          <li><a href="#philosophy" class="gold-underline">Philosophy</a></li>
+          <li><a href="#asanas" class="gold-underline">Asanas</a></li>
+          <li><a href="#styles" class="gold-underline">Styles</a></li>
+          <li><a href="#pranayama" class="gold-underline">Breathwork</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="text-center text-xs pt-6" style="color:var(--ink-soft); border-top:1px solid var(--line)">
+      © 2026 Yoga. Practiced gently, shared quietly.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+/* ============ NAV BEHAVIOR ============ */
+const nav = document.getElementById('mainNav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 40) {
+    nav.style.background = 'var(--bg)';
+    nav.style.boxShadow = '0 1px 0 var(--line)';
+  } else {
+    nav.style.background = 'transparent';
+    nav.style.boxShadow = 'none';
+  }
+});
+
+const menuBtn = document.getElementById('menuBtn');
+const mobileMenu = document.getElementById('mobileMenu');
+menuBtn.addEventListener('click', () => {
+  mobileMenu.classList.toggle('hidden');
+  mobileMenu.classList.toggle('flex');
+});
+document.querySelectorAll('.mobile-link').forEach(a => {
+  a.addEventListener('click', () => {
+    mobileMenu.classList.add('hidden');
+    mobileMenu.classList.remove('flex');
+  });
+});
+
+/* ============ THEME TOGGLE (Night / Yin mode) ============ */
+const themeToggle = document.getElementById('themeToggle');
+themeToggle.addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark');
+});
+
+/* ============ MANDALA PETALS (signature element) ============ */
+const petalGroup = document.getElementById('petalGroup');
+const petalCount = 16;
+for (let i = 0; i < petalCount; i++) {
+  const angle = (360 / petalCount) * i;
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  el.setAttribute('d', 'M200 20 Q215 60 200 100 Q185 60 200 20 Z');
+  el.setAttribute('transform', `rotate(${angle} 200 200)`);
+  petalGroup.appendChild(el);
+}
+
+/* ============ GSAP SCROLLTRIGGER: fade/scale reveals ============ */
+gsap.registerPlugin(ScrollTrigger);
+
+document.querySelectorAll('[data-fade]').forEach((el, i) => {
+  gsap.fromTo(el,
+    { opacity: 0, y: 50, scale: 0.97 },
+    {
+      opacity: 1, y: 0, scale: 1,
+      duration: 1,
+      ease: 'power3.out',
+      delay: (i % 6) * 0.06,
+      scrollTrigger: {
+        trigger: el,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse',
+      }
+    }
+  );
+});
+
+/* subtle scale-down/fade-out of whole section as it leaves, scale-in as it enters (storytelling feel) */
+document.querySelectorAll('.snap-section').forEach((sec) => {
+  gsap.fromTo(sec,
+    { opacity: 0.4, scale: 0.96 },
+    {
+      opacity: 1, scale: 1,
+      ease: 'power2.out',
+      scrollTrigger: {
+        trigger: sec,
+        start: 'top 90%',
+        end: 'top 30%',
+        scrub: 0.6,
+      }
+    }
+  );
+});
+
+/* parallax on hero mandala */
+gsap.to('#heroMandala', {
+  y: 120,
+  rotation: 15,
+  ease: 'none',
+  scrollTrigger: {
+    trigger: '#hero',
+    start: 'top top',
+    end: 'bottom top',
+    scrub: true,
+  }
+});
+
+/* ============ STYLES TAB CONTENT ============ */
+const styleData = {
+  hatha: {
+    title: 'Hatha',
+    tag: 'Slow · Foundational',
+    text: 'The grounding style beneath most modern practice. Poses are held for several breaths at a gentle pace, making Hatha an ideal entry point for building strength, alignment, and body awareness.'
+  },
+  vinyasa: {
+    title: 'Vinyasa',
+    tag: 'Dynamic · Flow-based',
+    text: 'Movement is linked to breath in a continuous sequence, one pose flowing into the next. Vinyasa builds heat, stamina, and rhythm, a moving meditation for those who like to sweat.'
+  },
+  yin: {
+    title: 'Yin',
+    tag: 'Passive · Deep & Still',
+    text: 'Postures are held for three to five minutes, targeting the connective tissue rather than the muscles. Yin cultivates patience and stillness, and pairs beautifully with an evening practice.'
+  },
+  ashtanga: {
+    title: 'Ashtanga',
+    tag: 'Rigorous · Structured',
+    text: 'A fixed, physically demanding sequence performed in the same order every time. Ashtanga builds discipline and strength through repetition, synchronizing breath with a precise flow of movement.'
+  }
+};
+
+const styleContent = document.getElementById('styleContent');
+function renderStyle(key) {
+  const d = styleData[key];
+  gsap.to(styleContent, {
+    opacity: 0, y: 10, duration: 0.25, onComplete: () => {
+      styleContent.innerHTML = `
+        <p class="text-xs tracking-widest2 uppercase mb-3" style="color:var(--gold-deep)">${d.tag}</p>
+        <h3 class="font-serif text-3xl mb-4">${d.title}</h3>
+        <p class="max-w-xl mx-auto leading-relaxed" style="color:var(--ink-soft)">${d.text}</p>
+      `;
+      gsap.to(styleContent, { opacity: 1, y: 0, duration: 0.4 });
+    }
+  });
+}
+renderStyle('hatha');
+
+/* ============ POSE ICON MORPH ANIMATION ============ */
+/* Each line/circle carries its final pose in its native attributes,
+   and a neutral "standing" position in data-n. We snap to neutral,
+   then loop a smooth morph into the pose and back, like easing
+   the body into an asana and releasing it again. */
+document.querySelectorAll('.pose-icon svg').forEach(svg => {
+  const els = [...svg.querySelectorAll('[data-n]')];
+
+  els.forEach((el, i) => {
+    const neutral = el.getAttribute('data-n').split(',').map(Number);
+    const isCircle = el.tagName.toLowerCase() === 'circle';
+
+    const poseAttrs = isCircle
+      ? { cx: parseFloat(el.getAttribute('cx')), cy: parseFloat(el.getAttribute('cy')) }
+      : {
+          x1: parseFloat(el.getAttribute('x1')), y1: parseFloat(el.getAttribute('y1')),
+          x2: parseFloat(el.getAttribute('x2')), y2: parseFloat(el.getAttribute('y2')),
+        };
+
+    const neutralAttrs = isCircle
+      ? { cx: neutral[0], cy: neutral[1] }
+      : { x1: neutral[0], y1: neutral[1], x2: neutral[2], y2: neutral[3] };
+
+    gsap.set(el, { attr: neutralAttrs });
+
+    gsap.to(el, {
+      attr: poseAttrs,
+      duration: 2.4,
+      ease: 'power2.inOut',
+      delay: i * 0.05,
+      yoyo: true,
+      repeat: -1,
+      repeatDelay: 1.1,
+    });
+  });
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderStyle(btn.dataset.style);
+  });
+});
+
+/* ============ BREATHING GUIDE (4-4 Sama Vritti) ============ */
+const breathCircle = document.getElementById('breathCircle');
+const breathLabel = document.getElementById('breathLabel');
+const breathToggle = document.getElementById('breathToggle');
+const breathBtnLabel = document.getElementById('breathBtnLabel');
+
+let breathing = false;
+let breathTimer = null;
+
+function breathCycle() {
+  // Inhale (4s, expand)
+  breathLabel.textContent = 'Inhale';
+  breathCircle.style.transform = 'scale(1.5)';
+  breathTimer = setTimeout(() => {
+    // Hold (2s)
+    breathLabel.textContent = 'Hold';
+    breathTimer = setTimeout(() => {
+      // Exhale (4s, contract)
+      breathLabel.textContent = 'Exhale';
+      breathCircle.style.transform = 'scale(0.75)';
+      breathTimer = setTimeout(() => {
+        // Hold (2s)
+        breathLabel.textContent = 'Hold';
+        breathTimer = setTimeout(() => {
+          if (breathing) breathCycle();
+        }, 2000);
+      }, 4000);
+    }, 2000);
+  }, 4000);
+}
+
+breathToggle.addEventListener('click', () => {
+  breathing = !breathing;
+  if (breathing) {
+    breathBtnLabel.textContent = 'Pause';
+    breathCycle();
+  } else {
+    breathBtnLabel.textContent = 'Start Breathing';
+    breathLabel.textContent = 'Paused';
+    clearTimeout(breathTimer);
+    breathCircle.style.transform = 'scale(1)';
+  }
+});
+
+/* ============ DAILY INTENTION GENERATOR ============ */
+const quotes = [
+  "Let the breath lead, and the body will follow.",
+  "Stillness is not the absence of motion, but its resolution.",
+  "The pose begins the moment you want to leave it.",
+  "Inhale possibility. Exhale certainty.",
+  "You are not stretching the body. You are listening to it.",
+  "Balance is not something you find. It's something you return to.",
+  "The mat asks nothing of you but honesty.",
+  "Roots before growth; breath before movement.",
+  "Softness is not weakness. It is intelligence in the body.",
+  "Where the mind goes, the breath follows. Where the breath goes, the mind can rest."
+];
+
+const quoteText = document.getElementById('quoteText');
+const newQuoteBtn = document.getElementById('newQuoteBtn');
+let lastQuoteIndex = 0;
+
+newQuoteBtn.addEventListener('click', () => {
+  let idx;
+  do { idx = Math.floor(Math.random() * quotes.length); } while (idx === lastQuoteIndex);
+  lastQuoteIndex = idx;
+
+  gsap.to(quoteText, {
+    opacity: 0, y: 8, duration: 0.3, onComplete: () => {
+      quoteText.textContent = `"${quotes[idx]}"`;
+      gsap.to(quoteText, { opacity: 1, y: 0, duration: 0.5 });
+    }
+  });
+});
+</script>
+</body>
+</html>
