@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/stake", "destination": "/stake/index.html" },
-    { "source": "/stake/(.*)", "destination": "/stake/index.html" }
-  ]
-}
