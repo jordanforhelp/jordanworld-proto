@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bankroll IQ — Optimal Stake Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #000; color: #efefef; font-family: Montserrat, system-ui, sans-serif; min-height: 100vh; }
+    .card { border-radius: 12px; border: 1px solid #2a2a2a; background: #0a0a0a; }
+    .input { width: 100%; border-radius: 8px; border: 1px solid #2a2a2a; background: #000; padding: 10px 12px; font-size: 14px; color: #efefef; font-family: inherit; }
+    .input:focus { outline: none; border-color: #efefef; }
+    .label { display: block; font-size: 10px; font-weight: 700; color: #868686; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.15em; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid #2a2a2a; background: transparent; padding: 6px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #efefef; cursor: pointer; font-family: inherit; }
+    .btn:hover { border-color: #efefef; }
+    .btn-active { background: #efefef; color: #000; border-color: #efefef; }
+    input[type=range] { accent-color: #efefef; width: 100%; margin-top: 8px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 900px) { .layout { grid-template-columns: 320px 1fr; } }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .muted { color: #868686; }
+    .header { border-bottom: 1px solid #2a2a2a; background: rgba(0,0,0,0.85); position: sticky; top: 0; z-index: 40; backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+(function() {
+  var useState = React.useState;
+  var useMemo = React.useMemo;
+  var e = React.createElement;
+
+  // ── Math ────────────────────────────────────────────────
+  function americanToDecimal(a) {
+    if (a === 0) return 1;
+    return a > 0 ? a / 100 + 1 : 100 / Math.abs(a) + 1;
+  }
+  function decimalToAmerican(d) {
+    if (d <= 1) return 0;
+    return d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1));
+  }
+  function parseOdds(input, format) {
+    var n = parseFloat(String(input).trim().replace(/,/g, ''));
+    if (isNaN(n)) return null;
+    if (format === 'decimal' && n <= 1) return null;
+    return n;
+  }
+  function impliedProb(d) { return d <= 1 ? 0 : 1 / d; }
+  function fullKelly(p, d) {
+    if (p <= 0 || p >= 1 || d <= 1) return 0;
+    var b = d - 1, q = 1 - p;
+    return Math.max(0, (p * b - q) / b);
+  }
+  function EV(p, d) { return p * d - 1; }
+  function usd(v) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
+  }
+  function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+  function calcKelly(bankroll, decimalOdds, p, minStake) {
+    var f = fullKelly(p, decimalOdds);
+    var half = f / 2, quarter = f / 4;
+    var fullS = f * bankroll, halfS = half * bankroll, qS = quarter * bankroll;
+    var flat = 0.02 * bankroll;
+    var ev = EV(p, decimalOdds);
+    var pos = ev > 0;
+    var rec = qS, label = 'Quarter Kelly';
+    if (qS < minStake && halfS >= minStake) { rec = halfS; label = 'Half Kelly (raised)'; }
+    else if (qS < minStake && fullS >= minStake) { rec = fullS; label = 'Full Kelly (raised)'; }
+    return {
+      qS: qS, halfS: halfS, flat: flat,
+      qF: quarter, halfF: half,
+      ev: ev, pos: pos,
+      below: rec > 0 && rec < minStake,
+      rec: rec, label: label
+    };
+  }
+
+  function removeVig(o1, o2) {
+    var i1 = 1 / o1, i2 = 1 / o2, over = i1 + i2;
+    if (over <= 0) return { p1: 0.5, p2: 0.5, vig: 0 };
+    return { p1: i1 / over, p2: i2 / over, vig: over - 1 };
+  }
+
+  function simulate(start, decimalOdds, winProb, n) {
+    n = n || 50;
+    var state = 42;
+    function rnd() {
+      state |= 0; state = (state + 0x6d2b79f5) | 0;
+      var t = Math.imul(state ^ (state >>> 15), 1 | state);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    var pts = [{ bet: 0, q: start, h: start, f: start }];
+    var qB = start, hB = start, fB = start;
+    var b = decimalOdds - 1;
+    var tk = fullKelly(winProb, decimalOdds);
+    var neg = tk <= 0;
+    var qFrac = neg ? 0.005 : tk / 4;
+    var hFrac = neg ? 0.01 : tk / 2;
+    for (var i = 1; i <= n; i++) {
+      var win = rnd() < winProb;
+      var qs = Math.min(qB * qFrac, qB);
+      if (qs > 0.0001) { qB = win ? qB + qs * b : qB - qs; qB = Math.max(0, qB); }
+      var hs = Math.min(hB * hFrac, hB);
+      if (hs > 0.0001) { hB = win ? hB + hs * b : hB - hs; hB = Math.max(0, hB); }
+      var fs = Math.min(fB * 0.02, fB);
+      if (fs > 0.0001) { fB = win ? fB + fs * b : fB - fs; fB = Math.max(0, fB); }
+      pts.push({ bet: i, q: Math.round(qB * 100) / 100, h: Math.round(hB * 100) / 100, f: Math.round(fB * 100) / 100 });
+    }
+    return pts;
+  }
+
+  // ── No-Vig Modal ────────────────────────────────────────
+  function NoVigModal(props) {
+    var fmt = props.oddsFormat;
+    var _a = useState(fmt === 'american' ? '-110' : '1.91'), o1 = _a[0], setO1 = _a[1];
+    var _b = useState(fmt === 'american' ? '-110' : '1.91'), o2 = _b[0], setO2 = _b[1];
+    var res = useMemo(function() {
+      var r1 = parseOdds(o1, fmt), r2 = parseOdds(o2, fmt);
+      if (r1 === null || r2 === null) return null;
+      var d1 = fmt === 'american' ? americanToDecimal(r1) : r1;
+      var d2 = fmt === 'american' ? americanToDecimal(r2) : r2;
+      if (d1 <= 1 || d2 <= 1) return null;
+      return removeVig(d1, d2);
+    }, [o1, o2, fmt]);
+
+    return e('div', { style: { position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 } },
+      e('div', { style: { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)' }, onClick: props.onClose }),
+      e('div', { className: 'card', style: { position: 'relative', width: '100%', maxWidth: 400, padding: 24 } },
+        e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 16 } },
+          e('div', { style: { fontWeight: 600, fontSize: 16 } }, 'No-Vig / Fair Odds'),
+          e('button', { className: 'btn', onClick: props.onClose }, 'X')
+        ),
+        e('p', { className: 'muted', style: { fontSize: 13, marginBottom: 16 } }, 'Enter both sides of a two-way market to remove the vig.'),
+        e('div', { className: 'grid-2', style: { marginBottom: 16 } },
+          e('div', null, e('label', { className: 'label' }, 'Side 1'), e('input', { className: 'input', value: o1, onChange: function(ev) { setO1(ev.target.value); } })),
+          e('div', null, e('label', { className: 'label' }, 'Side 2'), e('input', { className: 'input', value: o2, onChange: function(ev) { setO2(ev.target.value); } }))
+        ),
+        res
+          ? e('div', { style: { background: '#000', border: '1px solid #2a2a2a', borderRadius: 8, padding: 16 } },
+              e('div', { style: { display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12 } },
+                e('span', { className: 'muted' }, 'Overround (Vig)'),
+                e('span', { className: 'mono' }, pct(res.vig))
+              ),
+              e('div', { className: 'grid-2', style: { borderTop: '1px solid #2a2a2a', paddingTop: 12 } },
+                e('div', null, e('div', { className: 'label' }, 'Fair Prob 1'), e('div', { className: 'mono', style: { fontSize: 20, fontWeight: 600 } }, pct(res.p1))),
+                e('div', null, e('div', { className: 'label' }, 'Fair Prob 2'), e('div', { className: 'mono', style: { fontSize: 20, fontWeight: 600 } }, pct(res.p2)))
+              )
+            )
+          : e('div', { className: 'muted', style: { textAlign: 'center', fontSize: 13, padding: 16, border: '1px solid #2a2a2a', borderRadius: 8 } }, 'Enter valid odds')
+      )
+    );
+  }
+
+  // ── Chart ───────────────────────────────────────────────
+  function Chart(props) {
+    if (!props.data || props.data.length === 0) {
+      return e('div', { className: 'card', style: { padding: 20, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        e('span', { className: 'muted', style: { fontSize: 13 } }, 'Enter valid odds and win probability to run simulation')
+      );
+    }
+    var R = window.Recharts;
+    if (!R) {
+      return e('div', { className: 'card', style: { padding: 20, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+        e('span', { className: 'muted' }, 'Chart library loading...')
+      );
+    }
+    return e('div', { className: 'card', style: { padding: 20 } },
+      e('div', { style: { marginBottom: 12 } },
+        e('div', { style: { fontWeight: 600, fontSize: 14 } }, 'Bankroll Trajectory Simulator'),
+        e('div', { className: 'muted', style: { fontSize: 11, marginTop: 2 } }, '50-bet path · on negative EV, Kelly lines force small stakes so decline is visible')
+      ),
+      e('div', { style: { height: 280 } },
+        e(R.ResponsiveContainer, { width: '100%', height: '100%' },
+          e(R.LineChart, { data: props.data, margin: { top: 5, right: 10, left: 0, bottom: 5 } },
+            e(R.CartesianGrid, { strokeDasharray: '3 3', stroke: '#1a1a1a' }),
+            e(R.XAxis, { dataKey: 'bet', tick: { fill: '#868686', fontSize: 11 }, axisLine: { stroke: '#2a2a2a' } }),
+            e(R.YAxis, { tick: { fill: '#868686', fontSize: 11 }, axisLine: { stroke: '#2a2a2a' }, tickFormatter: function(v) { return '$' + v; }, width: 55 }),
+            e(R.Tooltip, {
+              contentStyle: { background: '#0a0a0a', border: '1px solid #2a2a2a', borderRadius: 8, fontSize: 12 },
+              labelStyle: { color: '#868686' },
+              formatter: function(v, name) {
+                var labels = { q: 'Quarter Kelly', h: 'Half Kelly', f: 'Flat 2%' };
+                return [usd(v), labels[name] || name];
+              }
+            }),
+            e(R.Legend, { wrapperStyle: { fontSize: 12 }, formatter: function(v) {
+              return { q: 'Quarter Kelly', h: 'Half Kelly', f: 'Flat 2%' }[v] || v;
+            }}),
+            e(R.Line, { type: 'monotone', dataKey: 'q', stroke: '#efefef', strokeWidth: 2, dot: false }),
+            e(R.Line, { type: 'monotone', dataKey: 'h', stroke: '#868686', strokeWidth: 2, dot: false }),
+            e(R.Line, { type: 'monotone', dataKey: 'f', stroke: '#5a5a5a', strokeWidth: 2, dot: false })
+          )
+        )
+      )
+    );
+  }
+
+  // ── Main App ────────────────────────────────────────────
+  function App() {
+    var _br = useState(20), bankroll = _br[0], setBankroll = _br[1];
+    var _fmt = useState('american'), oddsFormat = _fmt[0], setOddsFormat = _fmt[1];
+    var _oi = useState('+110'), oddsInput = _oi[0], setOddsInput = _oi[1];
+    var _wp = useState(52), winProbPct = _wp[0], setWinProbPct = _wp[1];
+    var _ms = useState(0.5), minStake = _ms[0], setMinStake = _ms[1];
+    var _nv = useState(false), noVigOpen = _nv[0], setNoVigOpen = _nv[1];
+
+    var decimalOdds = useMemo(function() {
+      var p = parseOdds(oddsInput, oddsFormat);
+      if (p === null) return null;
+      return oddsFormat === 'american' ? americanToDecimal(p) : p;
+    }, [oddsInput, oddsFormat]);
+
+    var result = useMemo(function() {
+      if (!decimalOdds || decimalOdds <= 1 || bankroll <= 0) return null;
+      var p = winProbPct / 100;
+      if (p <= 0 || p >= 1) return null;
+      return calcKelly(bankroll, decimalOdds, p, minStake);
+    }, [bankroll, decimalOdds, winProbPct, minStake]);
+
+    var chartOk = decimalOdds && decimalOdds > 1 && bankroll > 0 && winProbPct > 0 && winProbPct < 100;
+    var chartData = useMemo(function() {
+      if (!chartOk) return [];
+      return simulate(bankroll, decimalOdds, winProbPct / 100, 50);
+    }, [chartOk, bankroll, decimalOdds, winProbPct]);
+
+    function deriveImplied() {
+      if (decimalOdds && decimalOdds > 1) setWinProbPct(Math.round(impliedProb(decimalOdds) * 1000) / 10);
+    }
+
+    function switchFormat(f) {
+      if (decimalOdds) {
+        if (f === 'american') {
+          var am = decimalToAmerican(decimalOdds);
+          setOddsInput(am > 0 ? '+' + am : String(am));
+        } else {
+          setOddsInput(decimalOdds.toFixed(2));
+        }
+      }
+      setOddsFormat(f);
+    }
+
+    var profitWin = result && decimalOdds && result.rec > 0 ? result.rec * (decimalOdds - 1) : 0;
+
+    return e('div', { style: { minHeight: '100vh', background: '#000' } },
+      // Header
+      e('header', { className: 'header' },
+        e('div', { className: 'wrap', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, paddingBottom: 14 } },
+          e('div', null,
+            e('div', { style: { fontSize: 18, fontWeight: 700 } }, 'Bankroll IQ'),
+            e('div', { className: 'muted', style: { fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em' } }, 'Micro-bankroll stake optimizer')
+          ),
+          e('button', { className: 'btn', onClick: function() { setNoVigOpen(true); } }, 'No-Vig Tool')
+        )
+      ),
+
+      e('main', { className: 'wrap' },
+        e('div', { className: 'layout' },
+          // ── Inputs ──
+          e('div', null,
+            e('div', { className: 'card', style: { padding: 20 } },
+              e('div', { style: { fontWeight: 600, marginBottom: 20 } }, 'Inputs'),
+
+              e('div', { style: { marginBottom: 16 } },
+                e('label', { className: 'label' }, 'Starting Bankroll (USD)'),
+                e('input', { className: 'input', type: 'number', min: 1, value: bankroll,
+                  onChange: function(ev) { setBankroll(Math.max(0, parseFloat(ev.target.value) || 0)); } })
+              ),
+
+              e('div', { style: { marginBottom: 16 } },
+                e('label', { className: 'label' }, 'Odds Format'),
+                e('div', { style: { display: 'flex', borderRadius: 8, border: '1px solid #2a2a2a', overflow: 'hidden' } },
+                  e('button', {
+                    className: 'btn' + (oddsFormat === 'american' ? ' btn-active' : ''),
+                    style: { flex: 1, borderRadius: 0, border: 'none' },
+                    onClick: function() { switchFormat('american'); }
+                  }, 'American'),
+                  e('button', {
+                    className: 'btn' + (oddsFormat === 'decimal' ? ' btn-active' : ''),
+                    style: { flex: 1, borderRadius: 0, border: 'none' },
+                    onClick: function() { switchFormat('decimal'); }
+                  }, 'Decimal')
+                )
+              ),
+
+              e('div', { style: { marginBottom: 16 } },
+                e('label', { className: 'label' }, 'Bookie Odds'),
+                e('input', { className: 'input', type: 'text', value: oddsInput,
+                  onChange: function(ev) { setOddsInput(ev.target.value); },
+                  placeholder: oddsFormat === 'american' ? '+110' : '2.10' }),
+                decimalOdds && decimalOdds > 1
+                  ? e('p', { className: 'muted mono', style: { marginTop: 6, fontSize: 12 } },
+                      'Decimal: ' + decimalOdds.toFixed(3) + ' · Implied: ' + (impliedProb(decimalOdds) * 100).toFixed(1) + '%')
+                  : null
+              ),
+
+              e('div', { style: { marginBottom: 16 } },
+                e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 } },
+                  e('label', { className: 'label', style: { marginBottom: 0 } }, 'Win Probability (%)'),
+                  e('button', { className: 'btn', style: { fontSize: 10, padding: '4px 8px' },
+                    onClick: deriveImplied, disabled: !decimalOdds || decimalOdds <= 1 }, 'Derive Implied')
+                ),
+                e('input', { className: 'input', type: 'number', min: 1, max: 99, step: 0.1, value: winProbPct,
+                  onChange: function(ev) { setWinProbPct(Math.min(99, Math.max(0, parseFloat(ev.target.value) || 0))); } }),
+                e('input', { type: 'range', min: 1, max: 99, step: 0.5, value: winProbPct,
+                  onChange: function(ev) { setWinProbPct(parseFloat(ev.target.value)); } })
+              ),
+
+              e('div', null,
+                e('label', { className: 'label' }, 'Sportsbook Min Stake ($)'),
+                e('input', { className: 'input', type: 'number', min: 0.01, step: 0.01, value: minStake,
+                  onChange: function(ev) { setMinStake(Math.max(0.01, parseFloat(ev.target.value) || 0.5)); } })
+              )
+            ),
+            e('div', { className: 'card', style: { marginTop: 12, padding: 14, fontSize: 12, color: '#868686', lineHeight: 1.5 } },
+              e('strong', { style: { color: '#efefef' } }, 'Tip: '),
+              'With a $20 roll prefer Quarter Kelly. Always require a real edge (your win % > implied).'
+            )
+          ),
+
+          // ── Outputs ──
+          e('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+            !result
+              ? e('div', { className: 'card', style: { padding: 32, textAlign: 'center' } },
+                  e('span', { className: 'muted' }, 'Enter odds and win probability to see recommended stakes'))
+              : e(React.Fragment, null,
+                  // EV banner
+                  e('div', { className: 'card', style: { padding: 16, display: 'flex', alignItems: 'center', gap: 12,
+                    borderColor: result.pos ? 'rgba(239,239,239,0.25)' : 'rgba(134,134,134,0.4)' } },
+                    e('div', { style: { flex: 1 } },
+                      e('div', { style: { fontWeight: 600, fontSize: 14 } },
+                        result.pos ? 'Positive Expected Value' : 'Negative EV — Do Not Bet'),
+                      e('div', { className: 'muted', style: { fontSize: 12, marginTop: 2 } },
+                        'EV = ' + (result.ev >= 0 ? '+' : '') + (result.ev * 100).toFixed(2) + '% per unit risked')
+                    ),
+                    e('div', { className: 'mono', style: { fontSize: 18, fontWeight: 600, color: result.pos ? '#efefef' : '#868686' } },
+                      (result.ev >= 0 ? '+' : '') + pct(result.ev))
+                  ),
+
+                  // Profit / Loss
+                  result.rec > 0 && decimalOdds
+                    ? e('div', { className: 'card grid-2', style: { padding: 16 } },
+                        e('div', null,
+                          e('div', { className: 'label' }, 'Profit if Win'),
+                          e('div', { className: 'mono', style: { fontSize: 20, fontWeight: 600 } }, '+' + usd(profitWin)),
+                          e('div', { className: 'muted', style: { fontSize: 11, marginTop: 2 } },
+                            'Stake ' + usd(result.rec) + ' @ ' + decimalOdds.toFixed(2))
+                        ),
+                        e('div', null,
+                          e('div', { className: 'label' }, 'Loss if Lose'),
+                          e('div', { className: 'mono', style: { fontSize: 20, fontWeight: 600, color: '#868686' } }, usd(-result.rec)),
+                          e('div', { className: 'muted', style: { fontSize: 11, marginTop: 2 } }, 'Full stake at risk')
+                        )
+                      )
+                    : null,
+
+                  result.below && result.pos
+                    ? e('div', { className: 'card', style: { padding: 14, fontSize: 13 } },
+                        e('strong', null, 'Bankroll Guardrail: '),
+                        e('span', { className: 'muted' }, 'Bet size is below sportsbook minimum (' + usd(minStake) + '). Rounding up increases bankruptcy risk.')
+                      )
+                    : null,
+
+                  // Stake cards
+                  e('div', { className: 'grid-3' },
+                    [
+                      { title: 'Quarter Kelly', stake: result.qS, frac: result.qF, hl: result.label.indexOf('Quarter') === 0 },
+                      { title: 'Half Kelly', stake: result.halfS, frac: result.halfF, hl: result.label.indexOf('Half') === 0 },
+                      { title: 'Flat 2%', stake: result.flat, frac: 0.02, hl: false }
+                    ].map(function(c) {
+                      return e('div', { key: c.title, className: 'card', style: {
+                        padding: 14, opacity: result.pos ? 1 : 0.5,
+                        borderColor: c.hl ? 'rgba(239,239,239,0.4)' : '#2a2a2a',
+                        boxShadow: c.hl ? '0 0 0 1px rgba(239,239,239,0.3)' : 'none'
+                      }},
+                        e('div', { className: 'label' }, c.title),
+                        e('div', { className: 'mono', style: { fontSize: 20, fontWeight: 600 } }, usd(c.stake)),
+                        e('div', { className: 'muted mono', style: { fontSize: 12 } }, pct(c.frac) + ' of bankroll')
+                      );
+                    })
+                  ),
+
+                  result.pos
+                    ? e('div', { className: 'card', style: { padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderColor: 'rgba(239,239,239,0.2)' } },
+                        e('span', { className: 'muted', style: { fontSize: 14 } }, 'Recommended for $' + bankroll.toFixed(0) + ' bankroll:'),
+                        e('div', { style: { textAlign: 'right' } },
+                          e('div', { className: 'mono', style: { fontSize: 20, fontWeight: 600 } }, usd(result.rec)),
+                          e('div', { className: 'muted', style: { fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em' } }, result.label)
+                        )
+                      )
+                    : null
+                ),
+
+            // Chart
+            e(Chart, { data: chartData })
+          )
+        )
+      ),
+
+      noVigOpen ? e(NoVigModal, { oddsFormat: oddsFormat, onClose: function() { setNoVigOpen(false); } }) : null
+    );
+  }
+
+  ReactDOM.render(e(App), document.getElementById('root'));
+})();
+  </script>
+</body>
+</html>
