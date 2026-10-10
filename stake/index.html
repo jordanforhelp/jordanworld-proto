@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/react@17/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #000; color: #efefef; font-family: Montserrat, system-ui, sans-serif; min-height: 100vh; }
@@ -162,6 +162,16 @@
 
   // ── Chart ───────────────────────────────────────────────
   function Chart(props) {
+    var _tick = useState(0), tick = _tick[0], setTick = _tick[1];
+    // Poll until Recharts is available
+    React.useEffect(function() {
+      if (window.Recharts) return;
+      var id = setInterval(function() {
+        if (window.Recharts) { setTick(function(t) { return t + 1; }); clearInterval(id); }
+      }, 100);
+      return function() { clearInterval(id); };
+    }, []);
+
     if (!props.data || props.data.length === 0) {
       return e('div', { className: 'card', style: { padding: 20, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
         e('span', { className: 'muted', style: { fontSize: 13 } }, 'Enter valid odds and win probability to run simulation')
