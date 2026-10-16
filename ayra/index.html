@@ -661,10 +661,12 @@
           return;
         }
         try {
-          onPlaceOrder(items, effectiveTable);
+          const ok = onPlaceOrder(items, effectiveTable);
+          // false = guest gate opened; true/undefined = placed
+          if (ok === false) return;
           setItems([]);
           onClose();
-          showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
+          if (ok !== false) showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
         } catch (err) {
           console.error(err);
           showToast("Could not place order — try again");
@@ -744,9 +746,19 @@
       );
     };
 
-    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr }) => {
+    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins }) => {
       const [filter, setFilter] = useState("All");
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
+      const [guest, setGuest] = useState(() => {
+        try { return JSON.parse(sessionStorage.getItem("ayra_guest") || "null"); } catch { return null; }
+      });
+      const [showGuestGate, setShowGuestGate] = useState(false);
+      const [gateName, setGateName] = useState("");
+      const [gatePhone, setGatePhone] = useState("");
+      const [gateOtp, setGateOtp] = useState("");
+      const [otpSent, setOtpSent] = useState(false);
+      const [otpCode, setOtpCode] = useState("");
+      const pendingPlace = useRef(null);
       const [dietFilter, setDietFilter] = useState("All Diets");
       const [search, setSearch] = useState("");
       const [pairingDish, setPairingDish] = useState(null);
@@ -755,32 +767,7 @@
       const [drinkAdShown, setDrinkAdShown] = useState(false);
       const [cartOpen, setCartOpen] = useState(false);
       const [badgePulse, setBadgePulse] = useState(false);
-      const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-      const lastScrollY = useRef(0);
-      const scrollTicking = useRef(false);
-
-      // Hide category + diet tabs when scrolling down; show again when scrolling up or near top
-      useEffect(() => {
-        const onScroll = () => {
-          if (scrollTicking.current) return;
-          scrollTicking.current = true;
-          requestAnimationFrame(() => {
-            const y = window.scrollY || document.documentElement.scrollTop;
-            const delta = y - lastScrollY.current;
-            if (y < 40) {
-              setFiltersCollapsed(false);
-            } else if (delta > 6) {
-              setFiltersCollapsed(true);
-            } else if (delta < -6) {
-              setFiltersCollapsed(false);
-            }
-            lastScrollY.current = y;
-            scrollTicking.current = false;
-          });
-        };
-        window.addEventListener("scroll", onScroll, { passive: true });
-        return () => window.removeEventListener("scroll", onScroll);
-      }, []);
+      // Filters scroll away naturally (not sticky) — only search bar sticks. No JS collapse = no glitch.
 
       const filtered = useMemo(() => {
         let list = dishes.filter(d => d.visible);
@@ -864,6 +851,7 @@
           </header>
 
           {/* Sticky: search always; categories + diets collapse on scroll down */}
+          {/* Only search sticks — category/diet scroll away with the page (no JS hide = no glitch) */}
           <div className="sticky top-0 z-40 glass border-y border-champagne/10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             <div className="max-w-6xl mx-auto px-4 py-3">
               <div className="relative">
@@ -872,32 +860,24 @@
                   className="w-full min-h-[44px] bg-surface/80 border border-champagne/15 rounded-2xl pl-11 pr-4 text-[15px] leading-5 text-off-white placeholder:text-sage/50 focus:outline-none focus:border-champagne/40 transition"
                   aria-label="Search menu" autoComplete="off" />
               </div>
-              <div
-                className="overflow-hidden transition-all duration-300 ease-out"
-                style={{
-                  maxHeight: filtersCollapsed ? 0 : 160,
-                  opacity: filtersCollapsed ? 0 : 1,
-                  marginTop: filtersCollapsed ? 0 : 12,
-                }}
-                aria-hidden={filtersCollapsed}
-              >
-                <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
-                  {CATEGORIES.map(cat => (
-                    <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => setFilter(cat)}
-                      className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
-                        filter === cat ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
-                      }`}>{cat}</button>
-                  ))}
-                </div>
-                <div className="flex gap-2 overflow-x-auto pb-0.5 mt-2" role="group" aria-label="Dietary filters">
-                  {DIET_FILTERS.map(d => (
-                    <button key={d} aria-pressed={dietFilter === d} onClick={() => setDietFilter(d)}
-                      className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
-                        dietFilter === d ? "bg-emerald/40 text-champagne border border-champagne/30" : "text-sage border border-transparent hover:border-champagne/20"
-                      }`}>{d}</button>
-                  ))}
-                </div>
-              </div>
+            </div>
+          </div>
+          <div className="max-w-6xl mx-auto px-4 pt-3 pb-1 space-y-2">
+            <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
+              {CATEGORIES.map(cat => (
+                <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => setFilter(cat)}
+                  className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                    filter === cat ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
+                  }`}>{cat}</button>
+              ))}
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Dietary filters">
+              {DIET_FILTERS.map(d => (
+                <button key={d} aria-pressed={dietFilter === d} onClick={() => setDietFilter(d)}
+                  className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                    dietFilter === d ? "bg-emerald/40 text-champagne border border-champagne/30" : "text-sage border border-transparent hover:border-champagne/20"
+                  }`}>{d}</button>
+              ))}
             </div>
           </div>
 
@@ -958,8 +938,84 @@
           )}
 
           <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
-            onPlaceOrder={onPlaceOrder} showToast={showToast}
+            onPlaceOrder={(items, tableLabel) => {
+              if (guest && guest.name && guest.phone) {
+                onPlaceOrder(items, tableLabel, guest);
+                return true;
+              }
+              pendingPlace.current = { items, tableLabel };
+              setShowGuestGate(true);
+              return false;
+            }} showToast={showToast}
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
+
+          {showGuestGate && (
+            <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-obsidian/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+              <div className="glass-strong rounded-2xl max-w-md w-full p-6 shadow-float border border-champagne/20 animate-scale-in">
+                <h3 className="font-display text-2xl text-off-white mb-1">Verify to order</h3>
+                <p className="text-sage text-sm mb-4">Name & mobile required so staff can reach you. Stops random table spam.</p>
+                {!otpSent ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-sage">Your name *</label>
+                      <input value={gateName} onChange={e => setGateName(e.target.value)}
+                        className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Full name" />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-sage">Mobile (WhatsApp / SMS) *</label>
+                      <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
+                        className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="10-digit number" />
+                    </div>
+                    <p className="text-sage/60 text-[11px]">We verify mobile so only real guests order. (Demo OTP appears on the next screen — live WhatsApp/SMS needs Twilio later.)</p>
+                    <button type="button" onClick={() => {
+                      if (!gateName.trim() || gatePhone.replace(/\D/g,"").length < 10) { showToast("Enter name and valid mobile"); return; }
+                      // Table PIN check if staff set one
+                      const needPin = tablePins && tableFromQr && tablePins[String(tableFromQr)];
+                      if (needPin && pinFromQr !== needPin && !(window.__ayraPinOk)) {
+                        const entered = window.prompt("Enter table access PIN (on your QR card / from waiter):", pinFromQr || "");
+                        if (entered !== needPin) { showToast("Wrong table PIN"); return; }
+                        window.__ayraPinOk = true;
+                      }
+                      const code = String(Math.floor(100000 + Math.random() * 900000));
+                      setOtpCode(code);
+                      setOtpSent(true);
+                    }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Send OTP</button>
+                    <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-sage text-sm">Cancel</button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-sage">Enter the 6-digit code for {gatePhone}</p>
+                    <div className="rounded-xl bg-champagne/10 border border-champagne/30 px-4 py-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-sage mb-1">Demo OTP (would arrive on WhatsApp/SMS)</p>
+                      <p className="text-2xl font-semibold text-champagne tracking-[0.3em]">{otpCode}</p>
+                    </div>
+                    <input value={gateOtp} onChange={e => setGateOtp(e.target.value)} inputMode="numeric" maxLength={6}
+                      className="w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••••" />
+                    <button type="button" onClick={() => {
+                      if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
+                      const g = { name: gateName.trim(), phone: gatePhone.trim() };
+                      try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
+                      setGuest(g);
+                      setShowGuestGate(false);
+                      setOtpSent(false);
+                      setGateOtp("");
+                      if (pendingPlace.current) {
+                        const { items, tableLabel } = pendingPlace.current;
+                        onPlaceOrder(items, tableLabel, g);
+                        setSessionItems([]);
+                        setCartOpen(false);
+                        showToast("Order sent — Table " + tableLabel);
+                        pendingPlace.current = null;
+                      } else {
+                        showToast("Verified — you can place orders now");
+                      }
+                    }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify & place order</button>
+                    <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-sage text-sm">Resend / change number</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
           {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
           {showDrinkAd && <DrinkPopup drink={FEATURED_DRINK} onAdd={handleDrinkAdd} onDismiss={() => setShowDrinkAd(false)} />}
@@ -1052,7 +1108,7 @@
       delivered: "bg-champagne/20 text-champagne border-champagne/40",
     }[s] || "bg-surface text-sage");
 
-    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateOrderStatus, clearOrder, onLogout, showToast, onReset }) => {
+    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset }) => {
       const [editingDish, setEditingDish] = useState(null);
       const [staffTab, setStaffTab] = useState("live"); // live | menu | insights
       const totalOrders = dishes.reduce((s, d) => s + d.ordersToday, 0);
@@ -1162,7 +1218,7 @@
             </div>
             <div className="max-w-7xl mx-auto mt-5 flex gap-2 overflow-x-auto">
               {[
-                { id: "live", label: "Live Orders", count: liveOrders.filter(o => o.status !== "delivered").length },
+                { id: "live", label: "Live Tables", count: liveOrders.length },
                 { id: "menu", label: "Menu" },
                 { id: "insights", label: "Insights" },
               ].map(tab => (
@@ -1183,72 +1239,104 @@
                   <h2 className="font-display text-2xl text-off-white">Live Tables</h2>
                   <p className="text-sage text-sm">{liveOrders.length} order{liveOrders.length !== 1 ? "s" : ""} on board</p>
                 </div>
-                <div className="glass rounded-2xl p-4 border border-champagne/10 mb-6">
-                  <p className="text-sm text-off-white font-medium mb-2">Table QR links</p>
-                  <p className="text-sage text-xs mb-3">Print a QR for each table pointing to these URLs (guests open already tagged as that table):</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="glass rounded-2xl p-4 border border-champagne/10 mb-6 space-y-3">
+                  <p className="text-sm text-off-white font-medium">Table QR + access PIN</p>
+                  <p className="text-sage text-xs">Each table gets its own link. Optional PIN stops strangers ordering on the wrong table. Print QR with the full URL.</p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
                     {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
                       const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jordanworld.co/ayra/').replace(/\/?$/, '/');
-                      const url = base + '?table=' + n;
+                      const pin = (tablePins && tablePins[String(n)]) || "";
+                      const url = base + '?table=' + n + (pin ? ('&pin=' + pin) : '');
                       return (
-                        <button key={n} type="button" onClick={() => { navigator.clipboard.writeText(url); showToast('Copied Table ' + n + ' link'); }}
-                          className="text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne truncate" title={url}>
-                          T{n}
-                        </button>
+                        <div key={n} className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-off-white font-medium w-8">T{n}</span>
+                          <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
+                            value={pin}
+                            onChange={e => setTablePins(prev => ({ ...prev, [String(n)]: e.target.value.trim() }))}
+                            className="w-16 min-h-[36px] bg-surface border border-champagne/20 rounded-lg px-2 text-center text-off-white" />
+                          <button type="button" onClick={() => { navigator.clipboard.writeText(url); showToast('Copied Table ' + n); }}
+                            className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne" title={url}>
+                            Copy QR link
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
-                  <p className="text-sage/50 text-[10px] mt-2">Tip: use any free QR generator with the copied link</p>
                 </div>
                 {liveOrders.length === 0 ? (
                   <div className="glass rounded-2xl p-10 text-center border border-champagne/8">
                     <Icon name="shopping-bag" size={36} className="text-sage/40 mx-auto mb-3" />
-                    <p className="text-sage">No live orders yet</p>
-                    <p className="text-sage/60 text-sm mt-1">Guest Place Order → appears here as Pending confirm</p>
+                    <p className="text-sage">No live tables yet</p>
+                    <p className="text-sage/60 text-sm mt-1">Guest Place Order → one card per table, running bill</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {liveOrders.map(order => {
-                      const meta = statusMeta(order.status);
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {liveOrders.map(session => {
+                      const rounds = session.rounds || [];
+                      const grandTotal = rounds.reduce((s, r) => s + (r.total || 0), 0);
+                      const pending = rounds.filter(r => r.status === "new");
+                      const allServed = rounds.length > 0 && rounds.every(r => r.status === "delivered");
                       return (
-                        <div key={order.id} className="glass rounded-2xl p-5 border border-champagne/10 flex flex-col">
-                          <div className="flex items-start justify-between gap-2 mb-3">
+                        <div key={session.table} className="glass rounded-2xl p-5 border border-champagne/10 flex flex-col">
+                          <div className="flex items-start justify-between gap-2 mb-2">
                             <div>
-                              <p className="font-display text-xl text-off-white">Table {order.table}</p>
-                              <p className="text-sage text-xs mt-0.5">{new Date(order.createdAt).toLocaleTimeString()} · {order.id}</p>
+                              <p className="font-display text-xl text-off-white">Table {session.table}</p>
+                              {(session.guestName || session.guestPhone) && (
+                                <p className="text-sage text-xs mt-0.5">{session.guestName || "Guest"}{session.guestPhone ? ` · ${session.guestPhone}` : ""}</p>
+                              )}
+                              <p className="text-sage/60 text-[10px] mt-0.5">{rounds.length} order round{rounds.length !== 1 ? "s" : ""}</p>
                             </div>
-                            <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border font-semibold ${statusColor(order.status)}`}>{meta.label}</span>
+                            {pending.length > 0 && (
+                              <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border font-semibold ${statusColor("new")}`}>{pending.length} pending</span>
+                            )}
+                            {allServed && pending.length === 0 && (
+                              <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border font-semibold ${statusColor("delivered")}`}>All served</span>
+                            )}
                           </div>
-                          <ul className="space-y-1.5 flex-1 mb-4">
-                            {order.items.map((it, idx) => (
-                              <li key={idx} className="flex justify-between text-sm gap-2">
-                                <span className="text-off-white">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
-                                <span className="text-sage whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
-                              </li>
-                            ))}
-                          </ul>
+
+                          <div className="space-y-3 flex-1 mb-3 max-h-72 overflow-y-auto">
+                            {rounds.map((round, ri) => {
+                              const meta = statusMeta(round.status);
+                              return (
+                                <div key={round.id} className="rounded-xl bg-surface/60 border border-champagne/8 p-3">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs text-sage">Round {rounds.length - ri} · {new Date(round.createdAt).toLocaleTimeString()}</span>
+                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusColor(round.status)}`}>{meta.label}</span>
+                                  </div>
+                                  <ul className="space-y-1 mb-2">
+                                    {(round.items || []).map((it, idx) => (
+                                      <li key={idx} className="flex justify-between text-sm gap-2">
+                                        <span className="text-off-white">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                                        <span className="text-sage whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div className="flex flex-wrap gap-2">
+                                    {meta.next && (
+                                      <button type="button" onClick={() => { updateRoundStatus(session.table, round.id, meta.next); showToast(`Table ${session.table}: ${meta.nextLabel}`); }}
+                                        className="px-3 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-semibold hover:bg-champagne-deep transition">
+                                        {meta.nextLabel}
+                                      </button>
+                                    )}
+                                    {round.status === "new" && (
+                                      <button type="button" onClick={() => { if (window.confirm("Cancel this round?")) { cancelRound(session.table, round.id); showToast("Round cancelled"); } }}
+                                        className="px-3 py-1.5 rounded-lg text-sage text-xs hover:text-red-400 transition">Cancel</button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
                           <div className="flex justify-between items-center border-t border-champagne/10 pt-3 mb-3">
-                            <span className="text-sage text-sm">Total</span>
-                            <span className="font-semibold text-champagne">{formatPrice(order.total)}</span>
+                            <span className="text-sage text-sm">Bill total</span>
+                            <span className="font-semibold text-champagne text-lg">{formatPrice(grandTotal)}</span>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {meta.next && (
-                              <button onClick={() => { updateOrderStatus(order.id, meta.next); showToast(`Table ${order.table}: ${meta.nextLabel}`); }}
-                                className="flex-1 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition">
-                                {meta.nextLabel}
-                              </button>
-                            )}
-                            {order.status === "delivered" && (
-                              <button onClick={() => { if (window.confirm(`Clear Table ${order.table}? Mark as paid and remove from live board.`)) { clearOrder(order.id); showToast(`Table ${order.table} cleared`); } }}
-                                className="flex-1 py-2.5 rounded-xl border border-champagne/40 text-champagne text-sm font-semibold hover:bg-champagne/10 transition">
-                                Paid · Clear table
-                              </button>
-                            )}
-                            {order.status === "new" && (
-                              <button onClick={() => { if (window.confirm("Cancel this order?")) { clearOrder(order.id); showToast("Order cancelled"); } }}
-                                className="py-2.5 px-3 rounded-xl text-sage text-sm hover:text-red-400 transition">Cancel</button>
-                            )}
-                          </div>
+                          <button type="button"
+                            onClick={() => { if (window.confirm(`Clear Table ${session.table}? Mark bill paid (₹${grandTotal}) and remove from live board.`)) { clearTable(session.table); showToast(`Table ${session.table} paid & cleared`); } }}
+                            className="w-full py-2.5 rounded-xl border border-champagne/40 text-champagne text-sm font-semibold hover:bg-champagne/10 transition">
+                            Paid · Clear table
+                          </button>
                         </div>
                       );
                     })}
@@ -1261,7 +1349,7 @@
             <>
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: "Orders Today", value: totalOrders, icon: "shopping-bag", sub: liveOrders.length ? `${liveOrders.filter(o => o.status !== "delivered").length} live tables` : null },
+                { label: "Orders Today", value: totalOrders, icon: "shopping-bag", sub: liveOrders.length ? `${liveOrders.length} live tables` : null },
                 { label: "Avg Order Value", value: formatPrice(aov), icon: "dollar-sign" },
                 { label: "Top Margin Item", value: topMargin?.name || "—", icon: "trending-up", sub: topMargin ? `${topMargin.margin}% margin` : null },
                 { label: "Lowest Converter", value: lowestConverting?.name || "—", icon: "alert-triangle", sub: lowestConverting ? `${lowestConverting.ordersToday} orders` : null },
@@ -1450,6 +1538,12 @@
         return (t || "").trim();
       } catch { return ""; }
     }
+    function getPinFromUrl() {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return (q.get("pin") || q.get("code") || "").trim();
+      } catch { return ""; }
+    }
 
     function App() {
       const [view, setView] = useState("customer");
@@ -1458,20 +1552,50 @@
       const [dishes, setDishes] = useState(() => loadState("ayra_dishes", INITIAL_DISHES));
       const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
       const [sessionItems, setSessionItems] = useState([]);
-      const [liveOrders, setLiveOrders] = useState(() => loadState("ayra_orders", []));
+      const [liveOrders, setLiveOrders] = useState(() => {
+        const raw = loadState("ayra_orders", []);
+        // Merge legacy one-order-per-card into one session per table
+        const byTable = {};
+        for (const o of raw) {
+          if (o.rounds) {
+            const k = String(o.table);
+            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
+            byTable[k].rounds = [...(byTable[k].rounds || []), ...(o.rounds || [])];
+            if (o.guestName) byTable[k].guestName = o.guestName;
+            if (o.guestPhone) byTable[k].guestPhone = o.guestPhone;
+          } else {
+            const k = String(o.table);
+            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
+            byTable[k].rounds.push({
+              id: o.id || ("R-" + Date.now() + Math.random()),
+              status: o.status || "new",
+              items: o.items || [],
+              total: o.total || 0,
+              createdAt: o.createdAt || new Date().toISOString(),
+            });
+          }
+        }
+        return Object.values(byTable).map(s => ({
+          ...s,
+          rounds: (s.rounds || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        }));
+      });
+      const [tablePins, setTablePins] = useState(() => loadState("ayra_table_pins", {}));
       const [toast, setToast] = useState(null);
       const [tableFromQr] = useState(() => getTableFromUrl());
+      const [pinFromQr] = useState(() => getPinFromUrl());
 
       useEffect(() => { saveState("ayra_dishes", dishes); }, [dishes]);
       useEffect(() => { saveState("ayra_recs", recommendations); }, [recommendations]);
       useEffect(() => { saveState("ayra_orders", liveOrders); }, [liveOrders]);
+      useEffect(() => { saveState("ayra_table_pins", tablePins); }, [tablePins]);
 
       const showToast = useCallback((msg) => setToast(msg), []);
 
-      const placeOrder = useCallback((items, tableLabel) => {
-        const order = {
-          id: "ORD-" + Date.now(),
-          table: tableLabel,
+      const placeOrder = useCallback((items, tableLabel, guest) => {
+        const round = {
+          id: "R-" + Date.now(),
+          status: "new",
           items: items.map(i => ({
             id: i.id,
             name: i.name,
@@ -1480,11 +1604,39 @@
             qty: i.qty,
           })),
           total: items.reduce((s, i) => s + i.price * i.qty, 0),
-          status: "new",
           createdAt: new Date().toISOString(),
         };
-        setLiveOrders(prev => [order, ...prev]);
-        // bump ordersToday for analytics
+        const tableKey = String(tableLabel).trim();
+        setLiveOrders(prev => {
+          // Migrate legacy flat orders if any
+          const normalized = prev.map(o => {
+            if (o.rounds) return o;
+            return {
+              table: o.table,
+              guestName: o.guestName || "",
+              guestPhone: o.guestPhone || "",
+              rounds: [{ id: o.id, status: o.status || "new", items: o.items || [], total: o.total || 0, createdAt: o.createdAt }],
+              createdAt: o.createdAt || new Date().toISOString(),
+            };
+          });
+          const idx = normalized.findIndex(t => String(t.table) === tableKey);
+          if (idx >= 0) {
+            const copy = [...normalized];
+            const session = { ...copy[idx] };
+            session.rounds = [round, ...(session.rounds || [])];
+            if (guest?.name) session.guestName = guest.name;
+            if (guest?.phone) session.guestPhone = guest.phone;
+            copy[idx] = session;
+            return copy;
+          }
+          return [{
+            table: tableKey,
+            guestName: guest?.name || "",
+            guestPhone: guest?.phone || "",
+            rounds: [round],
+            createdAt: new Date().toISOString(),
+          }, ...normalized];
+        });
         setDishes(prev => {
           const next = prev.map(d => {
             const ordered = items.find(i => i.id === d.id);
@@ -1496,12 +1648,26 @@
         });
       }, []);
 
-      const updateOrderStatus = useCallback((orderId, status) => {
-        setLiveOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, updatedAt: new Date().toISOString() } : o));
+      const updateRoundStatus = useCallback((tableKey, roundId, status) => {
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          return {
+            ...session,
+            rounds: (session.rounds || []).map(r => r.id === roundId ? { ...r, status, updatedAt: new Date().toISOString() } : r),
+          };
+        }));
       }, []);
 
-      const clearOrder = useCallback((orderId) => {
-        setLiveOrders(prev => prev.filter(o => o.id !== orderId));
+      const clearTable = useCallback((tableKey) => {
+        setLiveOrders(prev => prev.filter(s => String(s.table) !== String(tableKey)));
+      }, []);
+
+      const cancelRound = useCallback((tableKey, roundId) => {
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          const rounds = (session.rounds || []).filter(r => r.id !== roundId);
+          return { ...session, rounds };
+        }).filter(s => (s.rounds || []).length > 0));
       }, []);
 
       const handleStaffAccess = () => {
@@ -1523,6 +1689,8 @@
         localStorage.removeItem("ayra_dishes");
         localStorage.removeItem("ayra_recs");
         localStorage.removeItem("ayra_orders");
+        localStorage.removeItem("ayra_table_pins");
+        setTablePins({});
         setDishes(INITIAL_DISHES);
         setRecommendations(AI_RECOMMENDATIONS);
         setLiveOrders([]);
@@ -1533,10 +1701,11 @@
       return (
         <div className="min-h-screen bg-obsidian">
           {(view === "customer" || !staffAuth) ? (
-            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} />
+            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} />
           ) : (
             <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
-              liveOrders={liveOrders} updateOrderStatus={updateOrderStatus} clearOrder={clearOrder}
+              liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+              tablePins={tablePins} setTablePins={setTablePins}
               onLogout={handleLogout} showToast={showToast} onReset={resetDemo} />
           )}
           {showPin && <PinModal onSuccess={handlePinSuccess} onClose={() => setShowPin(false)} />}
