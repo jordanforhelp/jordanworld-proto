@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0F1916" />
+  <title>Ayra — Restaurant Menu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0F1916',
+            surface: '#1B2421',
+            champagne: '#E0B873',
+            'champagne-deep': '#D4A359',
+            'off-white': '#F2F5F3',
+            sage: '#92A39B',
+            emerald: '#1A3A32',
+          },
+          fontFamily: {
+            display: ['Playfair Display', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'glow': '0 0 40px rgba(224, 184, 115, 0.18)',
+            'glow-sm': '0 0 20px rgba(224, 184, 115, 0.12)',
+            'card': '0 8px 32px rgba(0,0,0,0.35)',
+            'float': '0 16px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(224,184,115,0.15)',
+          },
+          keyframes: {
+            'fade-up': {
+              '0%': { opacity: '0', transform: 'translateY(16px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            'scale-in': {
+              '0%': { opacity: '0', transform: 'scale(0.92)' },
+              '100%': { opacity: '1', transform: 'scale(1)' },
+            },
+            'slide-in-right': {
+              '0%': { opacity: '0', transform: 'translateX(24px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            'slide-in-left': {
+              '0%': { opacity: '0', transform: 'translateX(-24px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            'pulse-gold': {
+              '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+              '50%': { transform: 'scale(1.02)', opacity: '0.92' },
+            },
+            'bounce-soft': {
+              '0%, 100%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.08)' },
+            },
+          },
+          animation: {
+            'fade-up': 'fade-up 0.45s cubic-bezier(0.16,1,0.3,1) forwards',
+            'scale-in': 'scale-in 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-in-right': 'slide-in-right 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-in-left': 'slide-in-left 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'pulse-gold': 'pulse-gold 2.4s ease-in-out infinite',
+            'bounce-soft': 'bounce-soft 0.35s cubic-bezier(0.16,1,0.3,1)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: #0F1916;
+      color: #F2F5F3;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-variant-ligatures: none;
+      overflow-x: hidden;
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+      line-height: 1.47;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0F1916; }
+    ::-webkit-scrollbar-thumb { background: #E0B873; border-radius: 3px; }
+
+    .glass {
+      background: linear-gradient(145deg, rgba(27,36,33,0.92), rgba(15,25,22,0.88));
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(224, 184, 115, 0.1);
+    }
+    .glass-strong {
+      background: linear-gradient(160deg, rgba(27,36,33,0.97), rgba(20,30,27,0.95));
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(224, 184, 115, 0.18);
+    }
+    .ambient-bg {
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(224,184,115,0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 20%, rgba(26,58,50,0.5), transparent),
+        radial-gradient(ellipse 50% 30% at 50% 100%, rgba(224,184,115,0.04), transparent),
+        #0F1916;
+    }
+    .tag-high { background: linear-gradient(135deg, #2A4A3E, #1A3A32); }
+    .tag-trending { background: linear-gradient(135deg, #E0B873, #D4A359); color: #0F1916 !important; }
+    .tag-chef { background: linear-gradient(135deg, #3D2A1A, #2A1E12); }
+    .tag-diet { background: linear-gradient(135deg, #1A3A32, #0F2922); border: 1px solid rgba(146,163,155,0.3); }
+
+    .menu-card {
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.35s ease;
+      border: 1px solid rgba(224,184,115,0.08);
+      border-radius: 16px;
+    }
+    .menu-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(224,184,115,0.28);
+    }
+    @media (hover: none) {
+      .menu-card:hover { transform: none; }
+    }
+
+    .chart-container { position: relative; height: 280px; }
+
+    .toast-progress {
+      height: 3px;
+      background: linear-gradient(90deg, #E0B873, #D4A359);
+      animation: toast-shrink 2.4s linear forwards;
+      transform-origin: left;
+    }
+    @keyframes toast-shrink {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+
+    .cat-enter { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(224,184,115,0.4);
+      transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.2s ease, border-color 0.2s ease;
+    }
+    .pin-dot.filled {
+      background: #E0B873;
+      border-color: #E0B873;
+      transform: scale(1.1);
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-8px); }
+      40%,80% { transform: translateX(8px); }
+    }
+
+    .cart-drawer { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); }
+    .cart-overlay { transition: opacity 0.3s ease; }
+
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+      outline: 2px solid #E0B873;
+      outline-offset: 3px;
+    }
+    .hit-target { min-height: 44px; min-width: 44px; }
+    button, [role="button"] { min-height: 44px; }
+    .hit-icon {
+      min-width: 44px; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .text-sage { color: #A8B5AE !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .menu-card:hover { transform: none; }
+      .animate-pulse-gold, .animate-bounce-soft { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========== AYRA MENU DATA (from restaurant menu pages) ==========
+    // Prices in INR. Multi-price items use base price; variants noted in description.
+    const INITIAL_DISHES = [
+      // —— APPETISERS VEG ——
+      { id: 1, name: "Veg Platter", description: "Assorted vegetarian starters for sharing.", price: 999, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 55, ordersToday: 18, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 2, name: "Wok Fried Veg", description: "Crispy wok-tossed mixed vegetables.", price: 269, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 24, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 3, name: "Salsa Nachos", description: "Loaded nachos with salsa and cheese.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 68, ordersToday: 31, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 4, name: "Thai Spring Roll", description: "Crispy Thai-style vegetable spring rolls.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 22, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 5, name: "Jalapeño Cheese Chilly Fritters", description: "Spicy jalapeño and cheese fritters.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 19, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 6, name: "Corn Cheese Kebab", description: "Grilled corn and cheese kebabs.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1606491956689-2ea866880067?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 66, ordersToday: 27, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 7, name: "Palak Corn Tikki", description: "Spinach and corn patties, crisp outside.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 63, ordersToday: 21, visible: true, pairWith: [], sortOrder: 70 },
+
+      // —— TANDOORI VEG ——
+      { id: 8, name: "Hara Bhara Kebab", description: "Spinach and green vegetable kebabs from the tandoor.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 60, ordersToday: 28, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 9, name: "Veg Seekh Kebab", description: "Minced vegetable seekh from the tandoor.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 25, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 10, name: "Veg Manchurian / Chilly", description: "Indo-Chinese veg balls in Manchurian or chilli sauce.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 36, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 11, name: "Mushroom Chilly / Manchurian", description: "Button mushrooms in chilli or Manchurian gravy.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 23, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 12, name: "Honey Chilly Potato", description: "Crispy potato tossed in honey chilli. Chicken variant ₹330.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 42, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 13, name: "Paneer Chilly / Manchurian", description: "Cottage cheese in Indo-Chinese sauces.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 33, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 14, name: "Naga Chilly Mushroom", description: "Mushrooms with fiery Naga chilli.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 61, ordersToday: 16, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 15, name: "Paneer Tikka", description: "Classic tandoori paneer tikka.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 58, ordersToday: 45, visible: true, pairWith: [80], sortOrder: 150 },
+      { id: 16, name: "Stuffed Mushroom", description: "Cheese-stuffed mushrooms, baked.", price: 380, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 14, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 17, name: "Cheese Ball", description: "Crispy cheese balls. ₹330–340.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1541529086526-db283c563270?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 20, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 18, name: "Boiled Veg / Sautéed Veg", description: "Light boiled or sautéed seasonal vegetables. From ₹200.", price: 249, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 12, visible: true, pairWith: [], sortOrder: 180 },
+
+      // —— APPETISER NON-VEG ——
+      { id: 19, name: "Lemon Chicken", description: "Tangy lemon-marinated chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 29, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 20, name: "Guntur Chicken", description: "Spicy Andhra-style Guntur chicken.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 34, visible: true, pairWith: [], sortOrder: 200 },
+      { id: 21, name: "Chicken 65", description: "Classic spicy chicken 65. Veg/Egg ₹240/260.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 55, ordersToday: 48, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 22, name: "Kungpao Chicken", description: "Sichuan-inspired kung pao chicken.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 26, visible: true, pairWith: [], sortOrder: 210 },
+      { id: 23, name: "Garlic Chicken", description: "Garlic-forward Indo-Chinese chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 53, ordersToday: 30, visible: true, pairWith: [], sortOrder: 220 },
+      { id: 24, name: "Non-Veg Platter", description: "Grand assortment of non-veg starters.", price: 1499, category: "Appetisers", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 11, visible: true, pairWith: [], sortOrder: 230 },
+      { id: 25, name: "Chicken Popcorn", description: "Bite-sized crispy chicken popcorn.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: ["Trending"], diet: [], margin: 60, ordersToday: 38, visible: true, pairWith: [], sortOrder: 240 },
+      { id: 26, name: "Chicken Tikka", description: "Tandoori chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 52, ordersToday: 41, visible: true, pairWith: [80], sortOrder: 250 },
+      { id: 27, name: "Hariyali Chicken Tikka", description: "Herb-marinated green chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 52, ordersToday: 22, visible: true, pairWith: [], sortOrder: 260 },
+      { id: 28, name: "Malai Chicken Tikka", description: "Creamy malai chicken tikka.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 50, ordersToday: 27, visible: true, pairWith: [], sortOrder: 270 },
+      { id: 29, name: "Tandoori Chicken", description: "Half ₹399 · Full ₹799.", price: 399, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 45, ordersToday: 35, visible: true, pairWith: [], sortOrder: 280 },
+      { id: 30, name: "Charcoal Chicken Tikka (9pc)", description: "Nine pieces of charcoal-grilled tikka.", price: 499, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 15, visible: true, pairWith: [], sortOrder: 290 },
+      { id: 31, name: "Chicken Lollipop / Heavens", description: "Lollipop ₹330 · Heavens ₹370.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 40, visible: true, pairWith: [], sortOrder: 300 },
+      { id: 32, name: "Seekh Kebab Chicken / Mutton", description: "Chicken ₹370 · Mutton ₹399.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 19, visible: true, pairWith: [], sortOrder: 310 },
+      { id: 33, name: "Ghee Roast Chicken / Mutton", description: "Mangalorean-style ghee roast. Chicken ₹370 · Mutton ₹430.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 17, visible: true, pairWith: [], sortOrder: 320 },
+      { id: 34, name: "Crispy Fried Chicken", description: "Crispy fried chicken pieces.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: [], margin: 56, ordersToday: 28, visible: true, pairWith: [], sortOrder: 330 },
+      { id: 35, name: "Crumb Fried Chicken / Fish", description: "Breaded and fried. ₹330.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 18, visible: true, pairWith: [], sortOrder: 340 },
+
+      // —— SOUP ——
+      { id: 36, name: "Classic Manchow Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 32, visible: true, pairWith: [], sortOrder: 350 },
+      { id: 37, name: "Hot & Sour Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 28, visible: true, pairWith: [], sortOrder: 360 },
+      { id: 38, name: "Tom Yum Soup", description: "Thai tom yum. Veg ₹180 · Non-veg ₹210.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: [], margin: 70, ordersToday: 21, visible: true, pairWith: [], sortOrder: 370 },
+      { id: 39, name: "Cream of Tomato / Mushroom", description: "Classic cream soup ₹149.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 78, ordersToday: 24, visible: true, pairWith: [], sortOrder: 380 },
+      { id: 40, name: "Shorba", description: "Indian broth. Veg ₹130 · Non-veg ₹159.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 15, visible: true, pairWith: [], sortOrder: 390 },
+
+      // —— BAR BITES & SALAD ——
+      { id: 41, name: "All Day Fries", description: "Potato fries.", price: 220, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 44, visible: true, pairWith: [], sortOrder: 400 },
+      { id: 42, name: "Basket Fries", description: "Veg ₹299 · Non-veg ₹359.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 20, visible: true, pairWith: [], sortOrder: 410 },
+      { id: 43, name: "3 Cheese Garlic Toast", description: "Toasted with three cheeses and garlic.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1573140401552-3fab0b24941f?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 26, visible: true, pairWith: [], sortOrder: 420 },
+      { id: 44, name: "Caesar Salad", description: "Veg ₹240 · Non-veg ₹260.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 18, visible: true, pairWith: [], sortOrder: 430 },
+      { id: 45, name: "Tandoori Tikka Salad", description: "Paneer ₹170 · Chicken ₹200.", price: 170, category: "Appetisers", image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 14, visible: true, pairWith: [], sortOrder: 440 },
+      { id: 46, name: "Garden Fresh Green Salad", description: "Fresh seasonal greens.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 75, ordersToday: 16, visible: true, pairWith: [], sortOrder: 450 },
+
+      // —— MAINS ——
+      { id: 50, name: "Dal Tadka / Fry", description: "Yellow dal tadka or fry style.", price: 270, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 38, visible: true, pairWith: [90], sortOrder: 10 },
+      { id: 51, name: "Dal Makhani", description: "Slow-cooked black lentils in butter cream.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 52, visible: true, pairWith: [90], sortOrder: 5 },
+      { id: 52, name: "Subzi Miloni", description: "Mixed vegetable curry.", price: 249, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 22, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 53, name: "Kadai Paneer", description: "Paneer in kadai masala. Veg/Chicken variants available.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 58, ordersToday: 41, visible: true, pairWith: [90], sortOrder: 30 },
+      { id: 54, name: "Kolhapuri Paneer", description: "Spicy Kolhapuri-style paneer. Veg/Chicken options.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 19, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 55, name: "Paneer Lababdar", description: "Rich tomato-cashew paneer gravy.", price: 330, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 56, ordersToday: 33, visible: true, pairWith: [90], sortOrder: 50 },
+      { id: 56, name: "Butter Chicken", description: "Classic creamy tomato butter chicken.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 50, ordersToday: 61, visible: true, pairWith: [90, 91], sortOrder: 1 },
+      { id: 57, name: "Chicken Lababdar", description: "Chicken in lababdar gravy.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 24, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 58, name: "Methi Murgh", description: "Chicken with fenugreek.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 18, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 59, name: "Chicken Tikka Masala", description: "Tikka pieces in spiced tomato masala.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 39, visible: true, pairWith: [90], sortOrder: 80 },
+      { id: 60, name: "Chicken Chettinad", description: "Fiery Chettinad chicken.", price: 300, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 27, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 61, name: "Rogan Josh", description: "Kashmiri-style mutton rogan josh.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 16, visible: true, pairWith: [92], sortOrder: 100 },
+      { id: 62, name: "Rara Gosht", description: "Rich mutton rara gosht.", price: 470, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 40, ordersToday: 12, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 63, name: "Mutton Saagwala", description: "Mutton in spinach gravy.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 42, ordersToday: 14, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 64, name: "Thai Green Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 23, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 65, name: "Thai Red Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 20, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 66, name: "Egg Curry / Masala", description: "₹260.", price: 260, category: "Mains", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 25, visible: true, pairWith: [], sortOrder: 150 },
+      { id: 67, name: "Sizzler Indian / Chinese", description: "Veg ₹499 · Non-veg ₹599.", price: 499, category: "Mains", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 45, ordersToday: 18, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 68, name: "Aloo Jeera", description: "Cumin-tempered potatoes.", price: 220, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 21, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 69, name: "Mix Veg Curry", description: "Seasonal mixed vegetables in gravy.", price: 310, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 19, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 70, name: "Veg Hyderabadi / Chicken", description: "Hyderabadi-style. Veg ₹299 · Chicken ₹340.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 17, visible: true, pairWith: [], sortOrder: 190 },
+
+      // —— SEAFOOD ——
+      { id: 71, name: "Sea Food Platter", description: "Grand mixed seafood platter.", price: 1699, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 38, ordersToday: 8, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 72, name: "Tandoori Pomfret", description: "Whole pomfret from the tandoor.", price: 599, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 42, ordersToday: 11, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 73, name: "Tandoori Prawns", description: "Prawns marinated and tandoor-grilled.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Trending"], diet: ["Gluten-Free"], margin: 45, ordersToday: 22, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 74, name: "Prawns Chilli / Manchurian", description: "Indo-Chinese prawns.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 45, ordersToday: 19, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 75, name: "Fish & Chips", description: "Classic battered fish with fries.", price: 340, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 24, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 76, name: "Amritsari Fish", description: "Punjabi-style fried fish.", price: 330, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 16, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 77, name: "Angel Fish Tawa / Rawa", description: "Tawa or rawa-fried angel fish ₹480.", price: 480, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 44, ordersToday: 10, visible: true, pairWith: [], sortOrder: 70 },
+
+      // —— PIZZA, DIM SUM, PASTA ——
+      { id: 78, name: "Margherita Pizza", description: "Traditional Neapolitan. Veg ₹329 · Non-veg ₹359.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 47, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 79, name: "Paneer Tikka Pizza", description: "Pizza topped with paneer tikka. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 28, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 80, name: "Chicken Tikka Pizza", description: "Chicken tikka pizza. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 35, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 81, name: "Farm House Pizza", description: "Loaded farmhouse toppings. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 22, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 82, name: "Veg Money Bags Dumpling", description: "Crispy money-bag style veg dumplings.", price: 299, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 20, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 83, name: "Classic Chicken Dumpling", description: "Steamed chicken dumplings.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: [], margin: 58, ordersToday: 18, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 84, name: "Prawn Har Gow", description: "Crystal classic prawn har gow.", price: 349, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 55, ordersToday: 15, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 85, name: "Pasta by Choice", description: "Penne/Spaghetti · Alfredo/Arrabbiata · Veg/Chicken/Prawns ₹249/279/299.", price: 249, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 31, visible: true, pairWith: [], sortOrder: 80 },
+
+      // —— RICE & BREADS ——
+      { id: 90, name: "Butter Naan", description: "Plain ₹65 · Butter ₹70 · Garlic ₹75 · Cheese ₹110.", price: 70, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 75, ordersToday: 89, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 91, name: "Tandoori Roti", description: "Roti ₹60 · Butter roti ₹65.", price: 60, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 56, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 92, name: "Lachha Paratha", description: "Layered flaky paratha.", price: 75, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 34, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 93, name: "Stuffed Paratha", description: "Aloo/Gobi ₹99 · Paneer ₹110 · Veg stuffed ₹200 · Chicken keema ₹200.", price: 99, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 28, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 94, name: "Chicken Biryani", description: "Aromatic chicken biryani.", price: 330, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 48, ordersToday: 55, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 95, name: "Mutton Biryani", description: "Slow-cooked mutton biryani.", price: 430, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 29, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 96, name: "Veg Biryani", description: "Vegetable biryani.", price: 280, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 55, ordersToday: 32, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 97, name: "Prawns Biryani", description: "Prawn biryani.", price: 449, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 40, ordersToday: 13, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 98, name: "Fried Rice", description: "Veg ₹229 · Egg ₹249 · Chicken ₹279 · Prawns ₹369.", price: 229, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 41, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 99, name: "Jeera Rice / Steam Rice", description: "Steam ₹160 · Jeera ₹160 · Ghee rice ₹260.", price: 160, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 78, ordersToday: 48, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 100, name: "Kashmiri Pulao", description: "Fragrant Kashmiri pulao.", price: 299, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 15, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 101, name: "Dal Khichdi", description: "Comfort dal khichdi ₹260. Curd rice ₹210.", price: 260, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 22, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 102, name: "Bread Basket", description: "Assorted breads for the table.", price: 199, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 19, visible: true, pairWith: [], sortOrder: 120 },
+
+      // —— DESSERTS ——
+      { id: 110, name: "Gulab Jamun", description: "Warm gulab jamun. With ice cream ₹200.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 78, ordersToday: 42, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 111, name: "Shahi Tukda", description: "Royal bread pudding with rabri.", price: 190, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 72, ordersToday: 24, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 112, name: "Carrot Halwa", description: "Gajar ka halwa.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 20, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 113, name: "Chocolate Brownie", description: "Brownie ₹199 · With ice cream ₹210 · Sizzler ₹250.", price: 199, category: "Desserts", image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 36, visible: true, pairWith: [], sortOrder: 5 },
+
+      // —— DRINKS: Signature & Cocktails ——
+      { id: 120, name: "Temple Run", description: "Whiskey, coconut soda, aromatic bitters, grape fruit as garnish.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 72, ordersToday: 28, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 121, name: "Miss You Matcha", description: "Mezcal, red apple juice, almond and citrus.", price: 599, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 68, ordersToday: 22, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 122, name: "Blue Lips", description: "Gin, butterfly pea flower soda with edible flower.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 25, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 123, name: "Spicy Senorita", description: "Tequila, pickled brine (jalapeño & cilantro) and coriander salt rim.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 70, ordersToday: 19, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 124, name: "Midnight Jamun", description: "Vodka, jamun carbonated soda with sea salt rim.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 21, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 125, name: "Pisco Sour", description: "Ayra Special — pisco, aromatic bitters, lime, sugar, vegan foam.", price: 549, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 68, ordersToday: 16, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 126, name: "Old Fashioned", description: "Whiskey, aromatic bitters and sugar syrup.", price: 395, category: "Drinks", image: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=600&q=80", tags: ["Trending"], diet: [], margin: 75, ordersToday: 34, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 127, name: "Espresso Martini", description: "Vodka, coffee liqueur, dark chocolate espresso.", price: 379, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 74, ordersToday: 31, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 128, name: "Spicy Margarita", description: "Tequila, jalapeño, lime and sugar.", price: 399, category: "Drinks", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 27, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 129, name: "Moscow Mule", description: "Vodka, lime, sugar, ginger beer.", price: 399, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 24, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 130, name: "South Side", description: "Gin, lime, sugar and mint.", price: 375, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 73, ordersToday: 18, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 131, name: "Jagerbomb", description: "Jägermeister, Red Bull.", price: 555, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 20, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 132, name: "Virgin Mojito", description: "Lime, mint, sweetener and soda.", price: 175, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 80, ordersToday: 38, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 133, name: "Blue Ocean", description: "Blue curaçao mocktail with lime and soda.", price: 175, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 22, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 134, name: "Fruit Punch", description: "Mixed fruit juices with sweeteners.", price: 175, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 82, ordersToday: 26, visible: true, pairWith: [], sortOrder: 140 },
+      // Bottled beer 330ml
+      { id: 135, name: "Kingfisher Premium (Bottle)", description: "330ml bottle.", price: 180, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 45, visible: true, pairWith: [], sortOrder: 150 },
+      { id: 136, name: "Heineken (Bottle)", description: "330ml bottle.", price: 270, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 30, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 137, name: "Budweiser Premium (Bottle)", description: "330ml bottle.", price: 225, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 28, visible: true, pairWith: [], sortOrder: 170 },
+      // Beer draught — Mug / Pitcher / Tower (choose on add)
+      { id: 145, name: "Kingfisher Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 150, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 26, visible: true, pairWith: [], sortOrder: 145,
+        variants: [{ label: "Mug", price: 150 }, { label: "Pitcher", price: 650 }, { label: "Tower", price: 1200 }] },
+      { id: 146, name: "Kingfisher Ultra Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 18, visible: true, pairWith: [], sortOrder: 146,
+        variants: [{ label: "Mug", price: 180 }, { label: "Pitcher", price: 750 }, { label: "Tower", price: 1450 }] },
+      { id: 147, name: "Kingfisher Witbier Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 14, visible: true, pairWith: [], sortOrder: 147,
+        variants: [{ label: "Mug", price: 180 }, { label: "Pitcher", price: 750 }, { label: "Tower", price: 1450 }] },
+      { id: 148, name: "Heineken Silver Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 16, visible: true, pairWith: [], sortOrder: 148,
+        variants: [{ label: "Mug", price: 240 }, { label: "Pitcher", price: 1000 }, { label: "Tower", price: 1900 }] },
+      { id: 149, name: "Geist Kamacitra Draught", description: "Choose Mug, Pitcher or Tower.", price: 260, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 12, visible: true, pairWith: [], sortOrder: 149,
+        variants: [{ label: "Mug", price: 260 }, { label: "Pitcher", price: 1050 }, { label: "Tower", price: 2000 }] },
+      { id: 150, name: "Geist Weiss Guy Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 11, visible: true, pairWith: [], sortOrder: 150,
+        variants: [{ label: "Mug", price: 240 }, { label: "Pitcher", price: 1000 }, { label: "Tower", price: 1900 }] },
+      { id: 151, name: "Toit Hefeweizen Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 13, visible: true, pairWith: [], sortOrder: 151,
+        variants: [{ label: "Mug", price: 170 }, { label: "Pitcher", price: 700 }, { label: "Tower", price: 1300 }] },
+      { id: 152, name: "Toit Basmati Blonde Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 12, visible: true, pairWith: [], sortOrder: 152,
+        variants: [{ label: "Mug", price: 170 }, { label: "Pitcher", price: 700 }, { label: "Tower", price: 1300 }] },
+      { id: 153, name: "Budweiser Magnum Draught", description: "Choose Mug, Pitcher or Tower.", price: 220, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 15, visible: true, pairWith: [], sortOrder: 153,
+        variants: [{ label: "Mug", price: 220 }, { label: "Pitcher", price: 900 }, { label: "Tower", price: 1700 }] },
+      { id: 154, name: "Budweiser Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 200, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 17, visible: true, pairWith: [], sortOrder: 154,
+        variants: [{ label: "Mug", price: 200 }, { label: "Pitcher", price: 850 }, { label: "Tower", price: 1600 }] },
+      { id: 138, name: "Soft Drinks", description: "Soda / soft drinks from ₹45. Mineral water ₹100.", price: 45, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 85, ordersToday: 62, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 139, name: "Red Bull / Monster", description: "Energy drinks ₹185.", price: 185, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 24, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 140, name: "Old Monk", description: "Rum — choose size.", price: 45, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 33, visible: true, pairWith: [], sortOrder: 200,
+        variants: [{ label: "30ml", price: 45 }, { label: "60ml", price: 85 }, { label: "750ml", price: 1070 }] },
+      { id: 141, name: "Absolut Vodka", description: "Choose size.", price: 190, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 21, visible: true, pairWith: [], sortOrder: 210,
+        variants: [{ label: "30ml", price: 190 }, { label: "60ml", price: 380 }] },
+      { id: 142, name: "Teachers 50", description: "Choose size.", price: 190, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 62, ordersToday: 29, visible: true, pairWith: [], sortOrder: 220,
+        variants: [{ label: "30ml", price: 190 }, { label: "60ml", price: 375 }] },
+      { id: 143, name: "Black Dog 12Y", description: "Choose size.", price: 200, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 17, visible: true, pairWith: [], sortOrder: 230,
+        variants: [{ label: "30ml", price: 200 }, { label: "60ml", price: 395 }] },
+      { id: 144, name: "Sula Shiraz", description: "Red wine 750ml.", price: 1395, category: "Drinks", image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 45, ordersToday: 9, visible: true, pairWith: [], sortOrder: 240 },
+    ];
+
+    const AI_RECOMMENDATIONS = [
+      { id: 1, title: "Push Butter Chicken + Naan combo", insight: "Butter Chicken is the top main. Auto-suggest Butter Naan on add to lift bread attachment.", impact: "+₹8,000 / week est.", type: "pairing", dishId: 56, targetId: 90, status: "pending" },
+      { id: 2, title: "Highlight Chicken 65", insight: "Chicken 65 leads appetiser orders. Pin it higher and add Most Ordered badge.", impact: "+12% starter AOV", type: "positioning", dishId: 21, status: "pending" },
+      { id: 3, title: "Dessert after biryani", insight: "Tables ordering Chicken Biryani under-order dessert. Suggest Gulab Jamun pop-up.", impact: "+₹4,200 / week", type: "pairing", dishId: 94, targetId: 110, status: "pending" },
+      { id: 4, title: "Feature Temple Run at peak", insight: "Signature cocktails convert best 8–11 PM. Feature Temple Run in session upsell.", impact: "+₹6,500 / weekend", type: "timing", dishId: 120, status: "pending" },
+    ];
+
+    const CATEGORIES = ["All", "Appetisers", "Mains", "Drinks", "Pizza & Pasta", "Rice & Breads", "Desserts", "Seafood"];
+    const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
+    const STAFF_PIN = "1234";
+    const FEATURED_DRINK = INITIAL_DISHES.find(d => d.id === 120);
+    const CUSTOMER_VISIBLE_TAGS = ["Trending", "Chef Special", "Most Ordered", "Peak Feature", "Test Copy"];
+
+    const loadState = (key, fallback) => {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch { return fallback; }
+    };
+    const saveState = (key, value) => {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    };
+
+    const ICONS = {
+      x: <path d="M18 6 6 18M6 6l12 12" />,
+      "shopping-bag": <><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></>,
+      "dollar-sign": <><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
+      "trending-up": <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>,
+      "alert-triangle": <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></>,
+      cake: <><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/></>,
+      sparkles: <><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></>,
+      utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>,
+      lock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+      "log-out": <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></>,
+      check: <polyline points="20 6 9 17 4 12" />,
+      wine: <><path d="M8 22h8"/><path d="M12 11v11"/><path d="m19 3-7 8-7-8Z"/></>,
+      search: <><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>,
+      plus: <><path d="M5 12h14"/><path d="M12 5v14"/></>,
+      minus: <path d="M5 12h14" />,
+      trash: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
+    };
+    const Icon = ({ name, size = 20, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+        {ICONS[name] || null}
+      </svg>
+    );
+
+    const formatPrice = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
+
+    const Tag = ({ label }) => {
+      const cls = label.includes("High") ? "tag-high" :
+                  label.includes("Trending") ? "tag-trending" :
+                  label.includes("Chef") ? "tag-chef" :
+                  (label === "Vegetarian" || label === "Non-Veg") ? "tag-diet" : "bg-surface";
+      return (
+        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full text-off-white ${cls}`}>
+          {label}
+        </span>
+      );
+    };
+
+    const Toast = ({ message, onDone }) => {
+      useEffect(() => {
+        const t = setTimeout(onDone, 2400);
+        return () => clearTimeout(t);
+      }, [onDone]);
+      // Top-center so it never covers the floating cart button at bottom
+      return (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] animate-fade-up px-4 w-full max-w-sm" role="status" aria-live="polite">
+          <div className="glass-strong rounded-xl shadow-float overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-champagne/20 flex items-center justify-center flex-shrink-0">
+                <Icon name="check" size={16} className="text-champagne" />
+              </div>
+              <p className="text-sm font-medium text-off-white flex-1">{message}</p>
+            </div>
+            <div className="toast-progress" />
+          </div>
+        </div>
+      );
+    };
+
+    // Size / variant picker (Mug · Pitcher · Tower, 30ml · 60ml, etc.)
+    const VariantPicker = ({ dish, onPick, onClose }) => {
+      if (!dish?.variants?.length) return null;
+      return (
+        <div className="fixed inset-0 z-[155] flex items-end sm:items-center justify-center p-4 bg-obsidian/70 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="variant-title">
+          <div className="glass-strong rounded-2xl max-w-sm w-full p-6 shadow-float border border-champagne/20 animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-1">
+              <h3 id="variant-title" className="font-display text-xl text-off-white pr-4">{dish.name}</h3>
+              <button onClick={onClose} className="hit-icon text-sage hover:text-off-white" aria-label="Close"><Icon name="x" size={20} /></button>
+            </div>
+            <p className="text-sage text-sm mb-5">Choose size</p>
+            <div className="space-y-2">
+              {dish.variants.map(v => (
+                <button
+                  key={v.label}
+                  onClick={() => onPick(v)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl bg-surface border border-champagne/15 hover:border-champagne/40 hover:bg-champagne/10 transition text-left"
+                >
+                  <span className="font-medium text-off-white">{v.label}</span>
+                  <span className="text-champagne font-semibold">{formatPrice(v.price)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PinModal = ({ onSuccess, onClose }) => {
+      const [pin, setPin] = useState("");
+      const [error, setError] = useState(false);
+      const [shake, setShake] = useState(false);
+
+      const handleDigit = (d) => {
+        if (pin.length >= 4) return;
+        const next = pin + d;
+        setPin(next);
+        setError(false);
+        if (next.length === 4) {
+          if (next === STAFF_PIN) setTimeout(() => onSuccess(), 180);
+          else {
+            setError(true);
+            setShake(true);
+            setTimeout(() => { setPin(""); setShake(false); }, 600);
+          }
+        }
+      };
+      const handleBack = () => setPin(p => p.slice(0, -1));
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (e.key >= "0" && e.key <= "9") handleDigit(e.key);
+          else if (e.key === "Backspace") handleBack();
+          else if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [pin]);
+
+      return (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-obsidian/80 backdrop-blur-md" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="pin-title">
+          <div className={`glass-strong rounded-2xl max-w-sm w-full p-8 shadow-float border border-champagne/20 ${shake ? "" : "animate-scale-in"}`}
+            onClick={e => e.stopPropagation()}
+            style={shake ? { animation: "shake 0.4s ease" } : undefined}>
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-full bg-champagne/15 flex items-center justify-center mx-auto mb-4">
+                <Icon name="lock" size={26} className="text-champagne" />
+              </div>
+              <h3 id="pin-title" className="font-display text-2xl text-off-white">Staff Access</h3>
+              <p className="text-sage text-sm mt-1">Enter Staff Access PIN</p>
+            </div>
+            <div className="flex justify-center gap-3 mb-6" aria-label="PIN progress">
+              {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${pin.length > i ? "filled" : ""}`} />)}
+            </div>
+            {error && <p className="text-center text-red-400 text-xs mb-3" role="alert">Incorrect PIN — try again</p>}
+            <div className="grid grid-cols-3 gap-2">
+              {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k, i) => (
+                <button key={i}
+                  onClick={() => { if (k === "⌫") handleBack(); else if (k !== "") handleDigit(String(k)); }}
+                  disabled={k === ""}
+                  aria-label={k === "⌫" ? "Backspace" : k === "" ? undefined : `Digit ${k}`}
+                  className={`h-14 rounded-xl text-lg font-medium transition-all ${
+                    k === "" ? "invisible" : k === "⌫" ? "text-sage hover:bg-surface" : "text-off-white hover:bg-champagne/15 active:bg-champagne/25"
+                  }`}>{k}</button>
+              ))}
+            </div>
+            <p className="text-center text-sage/50 text-xs mt-5">Demo PIN: 1234</p>
+          </div>
+        </div>
+      );
+    };
+
+    const DrinkPopup = ({ drink, onAdd, onDismiss }) => {
+      if (!drink) return null;
+      return (
+        <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-obsidian/70 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="glass-strong rounded-2xl max-w-md w-full overflow-hidden shadow-float border border-champagne/25 animate-scale-in">
+            <div className="h-1 bg-gradient-to-r from-transparent via-champagne to-transparent" />
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="tag-trending text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full">Featured</span>
+                <span className="text-champagne text-xs tracking-widest uppercase font-medium">Signature Cocktail</span>
+              </div>
+
+              <h3 className="font-display text-2xl text-off-white">{drink.name}</h3>
+              <p className="mt-2 text-sage text-sm leading-relaxed">{drink.description}</p>
+              <p className="mt-3 font-semibold text-champagne text-lg">{formatPrice(drink.price)}</p>
+              <div className="mt-5 flex flex-col gap-2.5">
+                <button onClick={() => onAdd(drink)}
+                  className="w-full py-3.5 rounded-xl bg-champagne text-obsidian font-semibold text-sm hover:bg-champagne-deep transition-all shadow-glow-sm animate-pulse-gold">
+                  Add to Session for {formatPrice(drink.price)}
+                </button>
+                <button onClick={onDismiss} className="w-full py-2.5 text-sage text-sm hover:text-off-white transition">No thanks, I'll pass</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const MenuCard = ({ dish, onAdd, onPair, sessionItems, index }) => {
+      const qty = sessionItems.filter(i => i.id === dish.id).reduce((s, i) => s + i.qty, 0);
+      const inSession = qty > 0;
+      const hasVariants = dish.variants && dish.variants.length > 0;
+      const priceLabel = hasVariants
+        ? `from ${formatPrice(Math.min(...dish.variants.map(v => v.price)))}`
+        : formatPrice(dish.price);
+      return (
+        <div className="menu-card glass rounded-2xl overflow-hidden group cat-enter" style={{ animationDelay: `${Math.min(index * 40, 200)}ms` }}>
+          <div className="p-5">
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {dish.tags.filter(t => CUSTOMER_VISIBLE_TAGS.includes(t)).map(t => <Tag key={t} label={t} />)}
+              {dish.category !== "Drinks" && (
+                dish.diet?.includes("Vegetarian")
+                  ? <Tag key="veg" label="Vegetarian" />
+                  : <Tag key="nonveg" label="Non-Veg" />
+              )}
+            </div>
+            <div className="flex justify-between items-start gap-3">
+              <h3 className="font-display text-xl text-off-white leading-tight">{dish.name}</h3>
+              <span className="font-semibold text-champagne whitespace-nowrap text-right text-sm sm:text-base flex-shrink-0">{priceLabel}</span>
+            </div>
+            <p className="mt-2 text-sm text-sage leading-relaxed line-clamp-2">{dish.description}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={() => onAdd(dish)}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
+                  inSession ? "bg-emerald/40 text-champagne border border-champagne/30" : "bg-champagne text-obsidian hover:bg-champagne-deep"
+                }`}>
+                {inSession ? `In Session (${qty})` : hasVariants ? "Choose size" : "Add to Session"}
+              </button>
+              {dish.pairWith && dish.pairWith.length > 0 && (
+                <button onClick={() => onPair(dish)}
+                  className="py-2.5 px-3 rounded-xl text-sm font-medium border border-champagne/35 text-champagne hover:bg-champagne/10 transition-all">
+                  Pair with…
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PairingModal = ({ dish, dishes, onClose, onAdd }) => {
+      if (!dish) return null;
+      const pairs = (dish.pairWith || []).map(id => dishes.find(d => d.id === id)).filter(Boolean);
+      return (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-obsidian/75 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true">
+          <div className="glass-strong rounded-2xl max-w-lg w-full p-6 shadow-float animate-scale-in border border-champagne/15" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-display text-2xl text-off-white">Pairs with {dish.name}</h3>
+              <button onClick={onClose} className="hit-icon text-sage hover:text-off-white transition" aria-label="Close"><Icon name="x" size={22} /></button>
+            </div>
+            <div className="space-y-3">
+              {pairs.map(p => (
+                <div key={p.id} className="flex gap-4 items-center p-3 rounded-xl bg-surface/80 border border-champagne/8">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-off-white">{p.name}</p>
+                    <p className="text-sm text-sage">{formatPrice(p.price)}</p>
+                  </div>
+                  <button onClick={() => { onAdd(p); onClose(); }}
+                    className="px-3.5 py-1.5 rounded-lg bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition">Add</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, showToast, tableNumber, setTableNumber, tableFromQr }) => {
+      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      const count = items.reduce((s, i) => s + i.qty, 0);
+      const lockedTable = (tableFromQr || "").toString().trim();
+      const effectiveTable = lockedTable || (tableNumber || "").toString().trim();
+
+      const handlePlaceOrder = () => {
+        if (!items.length) {
+          showToast("Add items first");
+          return;
+        }
+        if (!effectiveTable) {
+          showToast("Enter your table number above");
+          return;
+        }
+        try {
+          onPlaceOrder(items, effectiveTable);
+          setItems([]);
+          onClose();
+          showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
+        } catch (err) {
+          console.error(err);
+          showToast("Could not place order — try again");
+        }
+      };
+      const itemKey = (i) => i.sessionKey || String(i.id);
+      const updateQty = (key, delta) => {
+        setItems(prev => prev.map(i => {
+          if (itemKey(i) !== key) return i;
+          const next = i.qty + delta;
+          return next <= 0 ? null : { ...i, qty: next };
+        }).filter(Boolean));
+      };
+      const removeItem = (key) => {
+        setItems(prev => prev.filter(i => itemKey(i) !== key));
+        showToast("Item removed");
+      };
+      if (!open) return null;
+      return (
+        <>
+          <div className="fixed inset-0 z-[130] bg-obsidian/60 backdrop-blur-sm cart-overlay" onClick={onClose} aria-hidden="true" />
+          <div className="fixed top-0 right-0 bottom-0 z-[135] w-full max-w-md glass-strong border-l border-champagne/20 shadow-float cart-drawer animate-slide-in-right flex flex-col" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-champagne/10">
+              <h2 id="cart-title" className="font-display text-xl text-off-white">Your Session</h2>
+              <button onClick={onClose} className="hit-icon text-sage hover:text-off-white transition rounded-xl" aria-label="Close cart"><Icon name="x" size={22} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {items.length === 0 ? (
+                <div className="text-center py-16">
+                  <Icon name="shopping-bag" size={40} className="text-sage/40 mx-auto mb-3" />
+                  <p className="text-sage">Your session is empty</p>
+                  <p className="text-sage/60 text-sm mt-1">Add dishes from the menu</p>
+                </div>
+              ) : items.map(item => (
+                <div key={itemKey(item)} className="flex gap-3 p-3 rounded-xl bg-surface/60 border border-champagne/8">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-off-white text-sm leading-tight">
+                      {item.name}{item.variantLabel ? ` · ${item.variantLabel}` : ""}
+                    </p>
+                    <p className="text-champagne text-sm mt-0.5">{formatPrice(item.price)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={() => updateQty(itemKey(item), -1)} className="hit-icon rounded-xl bg-surface border border-champagne/20 text-sage hover:text-off-white transition" aria-label="Decrease quantity"><Icon name="minus" size={14} /></button>
+                      <span className="w-8 text-center text-sm font-medium text-off-white tabular-nums" aria-live="polite">{item.qty}</span>
+                      <button onClick={() => updateQty(itemKey(item), 1)} className="hit-icon rounded-xl bg-surface border border-champagne/20 text-sage hover:text-off-white transition" aria-label="Increase quantity"><Icon name="plus" size={14} /></button>
+                      <button onClick={() => removeItem(itemKey(item))} className="hit-icon ml-auto text-sage hover:text-red-400 transition" aria-label="Remove item"><Icon name="trash" size={14} /></button>
+                    </div>
+                  </div>
+                  <p className="text-sm font-semibold text-off-white whitespace-nowrap">{formatPrice(item.price * item.qty)}</p>
+                </div>
+              ))}
+            </div>
+            {items.length > 0 && (
+              <div className="border-t border-champagne/10 px-5 py-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-sage">{count} item{count !== 1 ? "s" : ""}</span>
+                  <span className="font-semibold text-off-white text-lg">{formatPrice(total)}</span>
+                </div>
+                {lockedTable ? (
+                  <p className="text-sm text-champagne text-center py-1">Ordering for <strong>Table {lockedTable}</strong></p>
+                ) : (
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Table number *</label>
+                    <input type="text" inputMode="numeric" placeholder="e.g. 5" value={tableNumber || ""}
+                      onChange={e => setTableNumber(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/25 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                  </div>
+                )}
+                <button type="button" onClick={handlePlaceOrder}
+                  className="w-full py-3.5 rounded-xl bg-champagne text-obsidian font-semibold text-sm hover:bg-champagne-deep transition">
+                  Place Order
+                </button>
+                <button type="button" onClick={() => { setItems([]); showToast("Session cleared"); }} className="w-full py-2 text-sage text-sm hover:text-off-white transition">Clear Session</button>
+              </div>
+            )}
+          </div>
+        </>
+      );
+    };
+
+    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr }) => {
+      const [filter, setFilter] = useState("All");
+      const [tableNumber, setTableNumber] = useState(tableFromQr || "");
+      const [dietFilter, setDietFilter] = useState("All Diets");
+      const [search, setSearch] = useState("");
+      const [pairingDish, setPairingDish] = useState(null);
+      const [variantDish, setVariantDish] = useState(null);
+      const [showDrinkAd, setShowDrinkAd] = useState(false);
+      const [drinkAdShown, setDrinkAdShown] = useState(false);
+      const [cartOpen, setCartOpen] = useState(false);
+      const [badgePulse, setBadgePulse] = useState(false);
+      const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+      const lastScrollY = useRef(0);
+      const scrollTicking = useRef(false);
+
+      // Hide category + diet tabs when scrolling down; show again when scrolling up or near top
+      useEffect(() => {
+        const onScroll = () => {
+          if (scrollTicking.current) return;
+          scrollTicking.current = true;
+          requestAnimationFrame(() => {
+            const y = window.scrollY || document.documentElement.scrollTop;
+            const delta = y - lastScrollY.current;
+            if (y < 40) {
+              setFiltersCollapsed(false);
+            } else if (delta > 6) {
+              setFiltersCollapsed(true);
+            } else if (delta < -6) {
+              setFiltersCollapsed(false);
+            }
+            lastScrollY.current = y;
+            scrollTicking.current = false;
+          });
+        };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+      }, []);
+
+      const filtered = useMemo(() => {
+        let list = dishes.filter(d => d.visible);
+        if (filter !== "All") list = list.filter(d => d.category === filter);
+        if (dietFilter === "Vegetarian") list = list.filter(d => d.diet?.includes("Vegetarian"));
+        else if (dietFilter === "Non-Veg") list = list.filter(d => !d.diet?.includes("Vegetarian") && d.category !== "Drinks");
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          // Name only — no description
+          list = list.filter(d => d.name.toLowerCase().includes(q));
+        }
+        return [...list].sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
+      }, [dishes, filter, dietFilter, search]);
+
+      const total = sessionItems.reduce((s, i) => s + i.price * i.qty, 0);
+      const itemCount = sessionItems.reduce((s, i) => s + i.qty, 0);
+
+      const triggerDrinkAd = useCallback(() => {
+        if (drinkAdShown) return;
+        setTimeout(() => { setShowDrinkAd(true); setDrinkAdShown(true); }, 4000);
+      }, [drinkAdShown]);
+
+      const addToSession = (item) => {
+        // item may include variantLabel + price override
+        const key = item.variantLabel ? `${item.id}::${item.variantLabel}` : String(item.id);
+        setSessionItems(prev => {
+          const existing = prev.find(i => (i.sessionKey || String(i.id)) === key);
+          if (existing) return prev.map(i => (i.sessionKey || String(i.id)) === key ? { ...i, qty: i.qty + 1 } : i);
+          return [...prev, { ...item, sessionKey: key, qty: 1 }];
+        });
+        setBadgePulse(true);
+        setTimeout(() => setBadgePulse(false), 400);
+        const label = item.variantLabel ? `${item.name} (${item.variantLabel})` : item.name;
+        showToast(`${label} added`);
+        const newTotal = total + item.price;
+        if ((item.category === "Mains" || newTotal >= 500) && !drinkAdShown) triggerDrinkAd();
+      };
+
+      const handleAdd = (dish) => {
+        if (dish.variants && dish.variants.length > 0) {
+          setVariantDish(dish);
+          return;
+        }
+        addToSession(dish);
+      };
+
+      const handleVariantPick = (variant) => {
+        if (!variantDish) return;
+        addToSession({
+          ...variantDish,
+          price: variant.price,
+          variantLabel: variant.label,
+          name: variantDish.name,
+        });
+        setVariantDish(null);
+      };
+
+      const handleDrinkAdd = (drink) => { handleAdd(drink); setShowDrinkAd(false); };
+
+      return (
+        <div className="min-h-screen ambient-bg pb-28">
+          <header className="relative pt-10 pb-10 px-4 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(224,184,115,0.1)_0%,_transparent_55%)]" />
+            <div className="relative max-w-5xl mx-auto text-center">
+              <p className="text-champagne tracking-[0.3em] uppercase text-xs font-medium mb-3">Restaurant & Bar</p>
+              <h1 className="font-display text-5xl md:text-7xl text-off-white tracking-tight">Ayra</h1>
+              {(tableFromQr || tableNumber) ? (
+                <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-champagne/15 border border-champagne/30">
+                  <span className="w-2 h-2 rounded-full bg-champagne animate-pulse" />
+                  <span className="text-champagne text-sm font-medium">Table {tableFromQr || tableNumber}</span>
+                </div>
+              ) : (
+                <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2">
+                  <label className="text-sage text-xs">Table no.</label>
+                  <input type="text" inputMode="numeric" placeholder="e.g. 7" value={tableNumber}
+                    onChange={e => setTableNumber(e.target.value)}
+                    className="w-28 min-h-[40px] bg-surface/80 border border-champagne/20 rounded-xl px-3 text-center text-off-white text-sm focus:outline-none focus:border-champagne/50" />
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Sticky: search always; categories + diets collapse on scroll down */}
+          <div className="sticky top-0 z-40 glass border-y border-champagne/10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+            <div className="max-w-6xl mx-auto px-4 py-3">
+              <div className="relative">
+                <Icon name="search" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sage pointer-events-none" aria-hidden="true" />
+                <input type="search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full min-h-[44px] bg-surface/80 border border-champagne/15 rounded-2xl pl-11 pr-4 text-[15px] leading-5 text-off-white placeholder:text-sage/50 focus:outline-none focus:border-champagne/40 transition"
+                  aria-label="Search menu" autoComplete="off" />
+              </div>
+              <div
+                className="overflow-hidden transition-all duration-300 ease-out"
+                style={{
+                  maxHeight: filtersCollapsed ? 0 : 160,
+                  opacity: filtersCollapsed ? 0 : 1,
+                  marginTop: filtersCollapsed ? 0 : 12,
+                }}
+                aria-hidden={filtersCollapsed}
+              >
+                <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
+                  {CATEGORIES.map(cat => (
+                    <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => setFilter(cat)}
+                      className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                        filter === cat ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
+                      }`}>{cat}</button>
+                  ))}
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-0.5 mt-2" role="group" aria-label="Dietary filters">
+                  {DIET_FILTERS.map(d => (
+                    <button key={d} aria-pressed={dietFilter === d} onClick={() => setDietFilter(d)}
+                      className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                        dietFilter === d ? "bg-emerald/40 text-champagne border border-champagne/30" : "text-sage border border-transparent hover:border-champagne/20"
+                      }`}>{d}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {!drinkAdShown && (
+            <div className="max-w-6xl mx-auto px-4 pt-5">
+              <button onClick={() => { setShowDrinkAd(true); setDrinkAdShown(true); }}
+                className="w-full glass rounded-xl px-5 py-3.5 flex items-center justify-between gap-4 border border-champagne/20 hover:border-champagne/40 transition group">
+                <div className="flex items-center gap-3">
+                  <Icon name="wine" size={20} className="text-champagne" />
+                  <span className="text-sm text-off-white">
+                    <span className="text-champagne font-medium">Signature Cocktail</span>
+                    <span className="text-sage"> — Try Temple Run</span>
+                  </span>
+                </div>
+                <span className="text-xs text-champagne group-hover:underline">View →</span>
+              </button>
+            </div>
+          )}
+
+          <main className="max-w-6xl mx-auto px-4 py-8">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-sage">{filtered.length} dish{filtered.length !== 1 ? "es" : ""}</p>
+              {(search || dietFilter !== "All Diets" || filter !== "All") && (
+                <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); }} className="text-xs text-champagne hover:underline">Clear filters</button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" key={`${filter}-${dietFilter}-${search}`}>
+              {filtered.map((dish, i) => (
+                <MenuCard key={dish.id} dish={dish} onAdd={handleAdd} onPair={setPairingDish} sessionItems={sessionItems} index={i} />
+              ))}
+            </div>
+            {filtered.length === 0 && (
+              <div className="text-center py-20">
+                <Icon name="search" size={36} className="text-sage/40 mx-auto mb-3" />
+                <p className="text-sage">No dishes match your filters.</p>
+                <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); }} className="mt-3 text-champagne text-sm hover:underline">Reset all filters</button>
+              </div>
+            )}
+          </main>
+
+          {itemCount > 0 && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+              <button onClick={() => setCartOpen(true)}
+                className="glass-strong rounded-2xl px-6 py-4 flex items-center gap-4 shadow-float border border-champagne/20 hover:border-champagne/40 transition">
+                <div className="relative">
+                  <div className={`w-9 h-9 rounded-full bg-champagne/20 flex items-center justify-center ${badgePulse ? "animate-bounce-soft" : ""}`}>
+                    <Icon name="shopping-bag" size={16} className="text-champagne" />
+                  </div>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-champagne text-obsidian text-[10px] font-bold flex items-center justify-center">{itemCount}</span>
+                </div>
+                <div className="text-left">
+                  <p className="text-xs text-sage uppercase tracking-wider">Session</p>
+                  <p className="font-medium text-off-white">{itemCount} items · {formatPrice(total)}</p>
+                </div>
+                <span className="text-champagne text-sm font-medium">View →</span>
+              </button>
+            </div>
+          )}
+
+          <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
+            onPlaceOrder={onPlaceOrder} showToast={showToast}
+            tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
+          {pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
+          {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
+          {showDrinkAd && <DrinkPopup drink={FEATURED_DRINK} onAdd={handleDrinkAdd} onDismiss={() => setShowDrinkAd(false)} />}
+
+          <footer className="border-t border-champagne/10 mt-16 py-10 px-4">
+            <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+              <div>
+                <p className="font-display text-lg text-champagne">Ayra</p>
+                <p className="text-sage/60 text-xs mt-1">Restaurant & Bar</p>
+              </div>
+              <button onClick={onStaffAccess} className="text-sage/50 hover:text-sage text-xs tracking-wide transition flex items-center gap-1.5">
+                <Icon name="lock" size={12} /> Staff Portal
+              </button>
+            </div>
+          </footer>
+        </div>
+      );
+    };
+
+    const OrdersChart = ({ dishes }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const sorted = [...dishes].sort((a, b) => b.ordersToday - a.ordersToday).slice(0, 8);
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: sorted.map(d => d.name.length > 14 ? d.name.slice(0, 12) + "…" : d.name),
+            datasets: [{
+              label: "Orders Today",
+              data: sorted.map(d => d.ordersToday),
+              backgroundColor: sorted.map((_, i) => i === 0 ? "rgba(224,184,115,0.9)" : i < 3 ? "rgba(224,184,115,0.5)" : "rgba(146,163,155,0.35)"),
+              borderRadius: 6, borderSkipped: false,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: "#1B2421", titleColor: "#F2F5F3", bodyColor: "#E0B873", borderColor: "rgba(224,184,115,0.3)", borderWidth: 1 } },
+            scales: {
+              x: { ticks: { color: "rgba(146,163,155,0.7)", font: { size: 11 } }, grid: { display: false } },
+              y: { ticks: { color: "rgba(146,163,155,0.5)" }, grid: { color: "rgba(255,255,255,0.04)" } }
+            }
+          }
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [dishes]);
+      return <div className="chart-container"><canvas ref={canvasRef} /></div>;
+    };
+
+    const CategoryChart = ({ dishes }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const cats = ["Appetisers", "Mains", "Seafood", "Pizza & Pasta", "Rice & Breads", "Desserts", "Drinks"];
+        const data = cats.map(c => dishes.filter(d => d.category === c).reduce((s, d) => s + d.ordersToday, 0));
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: cats,
+            datasets: [{ data, backgroundColor: ["rgba(224,184,115,0.85)", "rgba(26,58,50,0.9)", "rgba(146,163,155,0.7)", "rgba(212,163,89,0.6)", "rgba(224,184,115,0.45)", "rgba(146,163,155,0.5)", "rgba(26,58,50,0.6)"], borderWidth: 0 }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: "bottom", labels: { color: "rgba(146,163,155,0.8)", padding: 12, font: { size: 11 } } } },
+            cutout: "62%"
+          }
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [dishes]);
+      return <div className="chart-container"><canvas ref={canvasRef} /></div>;
+    };
+
+    const ORDER_FLOW = [
+      { key: "new", label: "Pending confirm", next: "accepted", nextLabel: "Confirm order" },
+      { key: "accepted", label: "Confirmed", next: "cooking", nextLabel: "Send to kitchen" },
+      { key: "cooking", label: "In kitchen", next: "ready", nextLabel: "Mark ready" },
+      { key: "ready", label: "Ready to serve", next: "delivered", nextLabel: "Mark served" },
+      { key: "delivered", label: "Served", next: null, nextLabel: null },
+    ];
+    const statusMeta = (s) => ORDER_FLOW.find(x => x.key === s) || ORDER_FLOW[0];
+    const statusColor = (s) => ({
+      new: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+      accepted: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+      cooking: "bg-orange-500/20 text-orange-300 border-orange-500/40",
+      ready: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+      delivered: "bg-champagne/20 text-champagne border-champagne/40",
+    }[s] || "bg-surface text-sage");
+
+    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateOrderStatus, clearOrder, onLogout, showToast, onReset }) => {
+      const [editingDish, setEditingDish] = useState(null);
+      const [staffTab, setStaffTab] = useState("live"); // live | menu | insights
+      const totalOrders = dishes.reduce((s, d) => s + d.ordersToday, 0);
+      const totalRevenue = dishes.reduce((s, d) => s + d.ordersToday * d.price, 0);
+      const aov = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+      const topMargin = [...dishes].sort((a, b) => b.margin - a.margin)[0];
+      const lowestConverting = [...dishes].filter(d => d.category === "Mains").sort((a, b) => a.ordersToday - b.ordersToday)[0];
+
+      const handleRecAction = (rec, action) => {
+        setRecommendations(prev => {
+          const next = prev.map(r => r.id === rec.id ? { ...r, status: action } : r);
+          saveState("ayra_recs", next);
+          return next;
+        });
+        if (action === "applied") {
+          setDishes(prev => {
+            let next = [...prev];
+            if (rec.type === "positioning" && rec.dishId) {
+              next = next.map(d => d.id === rec.dishId ? { ...d, tags: d.tags.includes("Most Ordered") ? d.tags : [...d.tags, "Most Ordered"], sortOrder: 1 } : d);
+            }
+            if (rec.type === "pairing" && rec.dishId && rec.targetId) {
+              next = next.map(d => d.id === rec.dishId ? { ...d, pairWith: d.pairWith.includes(rec.targetId) ? d.pairWith : [...d.pairWith, rec.targetId] } : d);
+            }
+            if (rec.type === "timing" && rec.dishId) {
+              next = next.map(d => d.id === rec.dishId ? { ...d, tags: d.tags.includes("Peak Feature") ? d.tags : [...d.tags, "Peak Feature"], sortOrder: 1 } : d);
+            }
+            saveState("ayra_dishes", next);
+            return next;
+          });
+          showToast(`Applied: ${rec.title}`);
+        } else if (action === "dismissed") showToast("Recommendation dismissed");
+        else showToast("A/B test scheduled");
+      };
+
+      const saveDish = (updated) => {
+        if (updated.id === null) {
+          setDishes(prev => {
+            const newId = Math.max(0, ...prev.map(d => d.id)) + 1;
+            const dish = { ...updated, id: newId, tags: updated.tags || [], diet: updated.diet || [], margin: updated.margin ?? 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 99 };
+            const next = [...prev, dish];
+            saveState("ayra_dishes", next);
+            return next;
+          });
+          showToast(`"${updated.name}" added to menu`);
+        } else {
+          setDishes(prev => {
+            const next = prev.map(d => d.id === updated.id ? updated : d);
+            saveState("ayra_dishes", next);
+            return next;
+          });
+          showToast("Dish updated successfully");
+        }
+        setEditingDish(null);
+      };
+
+      const deleteDish = (id) => {
+        const dish = dishes.find(d => d.id === id);
+        if (!dish || !window.confirm(`Remove "${dish.name}" from the menu?`)) return;
+        setDishes(prev => {
+          const next = prev.filter(d => d.id !== id);
+          saveState("ayra_dishes", next);
+          return next;
+        });
+        showToast(`"${dish.name}" removed`);
+      };
+
+      const openAddDish = () => setEditingDish({
+        id: null, name: "", description: "", price: 0, category: "Appetisers",
+        image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80",
+        tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 99,
+      });
+
+      const toggleVisible = (id) => {
+        setDishes(prev => {
+          const next = prev.map(x => x.id === id ? { ...x, visible: !x.visible } : x);
+          saveState("ayra_dishes", next);
+          return next;
+        });
+      };
+
+      return (
+        <div className="min-h-screen ambient-bg pb-16">
+          <div className="bg-champagne/10 border-b border-champagne/20 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-champagne animate-pulse" />
+              <span className="text-champagne font-medium">Staff Mode Active</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {onReset && <button onClick={onReset} className="text-sage/60 hover:text-sage text-xs transition" title="Reset demo data">Reset Demo</button>}
+              <button onClick={onLogout} className="flex items-center gap-1.5 text-sage hover:text-off-white text-sm transition">
+                <Icon name="log-out" size={14} /> Logout
+              </button>
+            </div>
+          </div>
+
+          <header className="border-b border-champagne/10 px-4 py-6">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display text-3xl text-off-white">Staff Portal</h1>
+                <p className="text-sage text-sm mt-1">Ayra · Live tables & menu control</p>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-sage">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald animate-pulse" /> Live</span>
+                <span>·</span>
+                <span>{new Date().toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric" })}</span>
+              </div>
+            </div>
+            <div className="max-w-7xl mx-auto mt-5 flex gap-2 overflow-x-auto">
+              {[
+                { id: "live", label: "Live Orders", count: liveOrders.filter(o => o.status !== "delivered").length },
+                { id: "menu", label: "Menu" },
+                { id: "insights", label: "Insights" },
+              ].map(tab => (
+                <button key={tab.id} onClick={() => setStaffTab(tab.id)}
+                  className={`px-5 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap transition ${
+                    staffTab === tab.id ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
+                  }`}>
+                  {tab.label}{tab.count != null ? ` (${tab.count})` : ""}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
+            {staffTab === "live" && (
+              <section>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                  <h2 className="font-display text-2xl text-off-white">Live Tables</h2>
+                  <p className="text-sage text-sm">{liveOrders.length} order{liveOrders.length !== 1 ? "s" : ""} on board</p>
+                </div>
+                <div className="glass rounded-2xl p-4 border border-champagne/10 mb-6">
+                  <p className="text-sm text-off-white font-medium mb-2">Table QR links</p>
+                  <p className="text-sage text-xs mb-3">Print a QR for each table pointing to these URLs (guests open already tagged as that table):</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
+                      const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jordanworld.co/ayra/').replace(/\/?$/, '/');
+                      const url = base + '?table=' + n;
+                      return (
+                        <button key={n} type="button" onClick={() => { navigator.clipboard.writeText(url); showToast('Copied Table ' + n + ' link'); }}
+                          className="text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne truncate" title={url}>
+                          T{n}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-sage/50 text-[10px] mt-2">Tip: use any free QR generator with the copied link</p>
+                </div>
+                {liveOrders.length === 0 ? (
+                  <div className="glass rounded-2xl p-10 text-center border border-champagne/8">
+                    <Icon name="shopping-bag" size={36} className="text-sage/40 mx-auto mb-3" />
+                    <p className="text-sage">No live orders yet</p>
+                    <p className="text-sage/60 text-sm mt-1">Guest Place Order → appears here as Pending confirm</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {liveOrders.map(order => {
+                      const meta = statusMeta(order.status);
+                      return (
+                        <div key={order.id} className="glass rounded-2xl p-5 border border-champagne/10 flex flex-col">
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div>
+                              <p className="font-display text-xl text-off-white">Table {order.table}</p>
+                              <p className="text-sage text-xs mt-0.5">{new Date(order.createdAt).toLocaleTimeString()} · {order.id}</p>
+                            </div>
+                            <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border font-semibold ${statusColor(order.status)}`}>{meta.label}</span>
+                          </div>
+                          <ul className="space-y-1.5 flex-1 mb-4">
+                            {order.items.map((it, idx) => (
+                              <li key={idx} className="flex justify-between text-sm gap-2">
+                                <span className="text-off-white">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                                <span className="text-sage whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="flex justify-between items-center border-t border-champagne/10 pt-3 mb-3">
+                            <span className="text-sage text-sm">Total</span>
+                            <span className="font-semibold text-champagne">{formatPrice(order.total)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {meta.next && (
+                              <button onClick={() => { updateOrderStatus(order.id, meta.next); showToast(`Table ${order.table}: ${meta.nextLabel}`); }}
+                                className="flex-1 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition">
+                                {meta.nextLabel}
+                              </button>
+                            )}
+                            {order.status === "delivered" && (
+                              <button onClick={() => { if (window.confirm(`Clear Table ${order.table}? Mark as paid and remove from live board.`)) { clearOrder(order.id); showToast(`Table ${order.table} cleared`); } }}
+                                className="flex-1 py-2.5 rounded-xl border border-champagne/40 text-champagne text-sm font-semibold hover:bg-champagne/10 transition">
+                                Paid · Clear table
+                              </button>
+                            )}
+                            {order.status === "new" && (
+                              <button onClick={() => { if (window.confirm("Cancel this order?")) { clearOrder(order.id); showToast("Order cancelled"); } }}
+                                className="py-2.5 px-3 rounded-xl text-sage text-sm hover:text-red-400 transition">Cancel</button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {staffTab === "insights" && (
+            <>
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: "Orders Today", value: totalOrders, icon: "shopping-bag", sub: liveOrders.length ? `${liveOrders.filter(o => o.status !== "delivered").length} live tables` : null },
+                { label: "Avg Order Value", value: formatPrice(aov), icon: "dollar-sign" },
+                { label: "Top Margin Item", value: topMargin?.name || "—", icon: "trending-up", sub: topMargin ? `${topMargin.margin}% margin` : null },
+                { label: "Lowest Converter", value: lowestConverting?.name || "—", icon: "alert-triangle", sub: lowestConverting ? `${lowestConverting.ordersToday} orders` : null },
+              ].map((kpi, i) => (
+                <div key={i} className="glass rounded-2xl p-5 border border-champagne/8">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs uppercase tracking-wider text-sage">{kpi.label}</p>
+                    <Icon name={kpi.icon} size={18} className="text-champagne" />
+                  </div>
+                  <p className="font-display text-2xl text-off-white truncate">{kpi.value}</p>
+                  {kpi.sub && <p className="text-xs text-champagne/80 mt-1">{kpi.sub}</p>}
+                </div>
+              ))}
+            </section>
+
+            <section className="grid lg:grid-cols-2 gap-6">
+              <div className="glass rounded-2xl p-6 border border-champagne/8">
+                <h2 className="font-display text-xl text-off-white mb-4">Orders by Dish</h2>
+                <OrdersChart dishes={dishes} />
+              </div>
+              <div className="glass rounded-2xl p-6 border border-champagne/8">
+                <h2 className="font-display text-xl text-off-white mb-4">Orders by Category</h2>
+                <CategoryChart dishes={dishes} />
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center gap-3 mb-5">
+                <Icon name="sparkles" size={22} className="text-champagne" />
+                <h2 className="font-display text-2xl text-off-white">AI Menu Engineering</h2>
+              </div>
+              <div className="space-y-4">
+                {recommendations.filter(r => r.status === "pending").map(rec => (
+                  <div key={rec.id} className="glass rounded-2xl p-6 border border-champagne/10">
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-champagne/15 text-champagne font-semibold">{rec.type}</span>
+                          <span className="text-xs text-champagne/90 font-medium">{rec.impact}</span>
+                        </div>
+                        <h3 className="font-semibold text-lg text-off-white">{rec.title}</h3>
+                        <p className="mt-2 text-sm text-sage leading-relaxed">{rec.insight}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 lg:flex-col lg:min-w-[140px]">
+                        <button onClick={() => handleRecAction(rec, "applied")} className="px-4 py-2 rounded-xl bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition">Apply to Menu</button>
+                        <button onClick={() => handleRecAction(rec, "testing")} className="px-4 py-2 rounded-xl border border-champagne/40 text-champagne text-sm font-medium hover:bg-champagne/10 transition">A/B Test</button>
+                        <button onClick={() => handleRecAction(rec, "dismissed")} className="px-4 py-2 rounded-xl text-sage text-sm hover:text-off-white transition">Dismiss</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {recommendations.every(r => r.status !== "pending") && (
+                  <p className="text-center text-sage py-8">All recommendations actioned. New insights generate overnight.</p>
+                )}
+              </div>
+            </section>
+            </>
+            )}
+
+            {staffTab === "menu" && (
+            <section>
+              <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <Icon name="utensils" size={22} className="text-champagne" />
+                  <h2 className="font-display text-2xl text-off-white">Dish Management</h2>
+                </div>
+                <button onClick={openAddDish} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition shadow-glow-sm">
+                  <Icon name="plus" size={16} /> Add Dish
+                </button>
+              </div>
+              <div className="glass rounded-2xl overflow-hidden border border-champagne/8">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-champagne/10 text-sage text-xs uppercase tracking-wider">
+                        <th className="px-5 py-3 font-medium">Dish</th>
+                        <th className="px-5 py-3 font-medium">Category</th>
+                        <th className="px-5 py-3 font-medium">Price</th>
+                        <th className="px-5 py-3 font-medium">Margin</th>
+                        <th className="px-5 py-3 font-medium">Orders</th>
+                        <th className="px-5 py-3 font-medium">Visible</th>
+                        <th className="px-5 py-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dishes.map(d => (
+                        <tr key={d.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <img src={d.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                              <span className="font-medium text-off-white">{d.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-sage">{d.category}</td>
+                          <td className="px-5 py-3 text-champagne">{formatPrice(d.price)}</td>
+                          <td className="px-5 py-3 text-off-white">{d.margin}%</td>
+                          <td className="px-5 py-3 text-off-white">{d.ordersToday}</td>
+                          <td className="px-5 py-3">
+                            <button onClick={() => toggleVisible(d.id)}
+                              className={`w-10 h-5 rounded-full transition relative ${d.visible ? "bg-champagne" : "bg-surface"}`}
+                              aria-label={d.visible ? "Hide dish" : "Show dish"}>
+                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-off-white transition-all ${d.visible ? "left-5" : "left-0.5"}`} />
+                            </button>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <button onClick={() => setEditingDish({ ...d })} className="text-champagne hover:text-champagne-deep text-sm font-medium">Edit</button>
+                              <button onClick={() => deleteDish(d.id)} className="text-red-400/80 hover:text-red-400 text-sm font-medium">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+            )}
+          </div>
+
+          {editingDish && (
+            <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-obsidian/75 backdrop-blur-sm" onClick={() => setEditingDish(null)} role="dialog" aria-modal="true">
+              <div className="glass-strong rounded-2xl max-w-lg w-full p-6 shadow-float max-h-[90vh] overflow-y-auto animate-scale-in border border-champagne/15" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="font-display text-2xl text-off-white">{editingDish.id === null ? "Add New Dish" : "Edit Dish"}</h3>
+                  <button onClick={() => setEditingDish(null)} className="text-sage hover:text-off-white" aria-label="Close"><Icon name="x" size={22} /></button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Image URL</label>
+                    <input type="text" value={editingDish.image} onChange={e => setEditingDish({ ...editingDish, image: e.target.value })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                    {editingDish.image && <img src={editingDish.image} alt="Preview" className="mt-2 w-full h-32 object-cover rounded-xl" onError={e => { e.target.style.display = "none"; }} />}
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Name *</label>
+                    <input type="text" value={editingDish.name} onChange={e => setEditingDish({ ...editingDish, name: e.target.value })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Description</label>
+                    <textarea rows={3} value={editingDish.description} onChange={e => setEditingDish({ ...editingDish, description: e.target.value })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne resize-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-sage">Price (₹)</label>
+                      <input type="number" min="0" value={editingDish.price} onChange={e => setEditingDish({ ...editingDish, price: parseFloat(e.target.value) || 0 })}
+                        className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-sage">Category</label>
+                      <select value={editingDish.category} onChange={e => setEditingDish({ ...editingDish, category: e.target.value })}
+                        className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne">
+                        {CATEGORIES.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Margin (%)</label>
+                    <input type="number" min="0" max="100" value={editingDish.margin ?? 50} onChange={e => setEditingDish({ ...editingDish, margin: parseFloat(e.target.value) || 0 })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                    <p className="text-sage/60 text-xs mt-1">Staff can set real food-cost margin here</p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <button onClick={() => {
+                      if (!editingDish.name.trim()) { showToast("Please enter a dish name"); return; }
+                      saveDish(editingDish);
+                    }} className="flex-1 py-3 rounded-xl bg-champagne text-obsidian font-semibold hover:bg-champagne-deep transition">
+                      {editingDish.id === null ? "Add to Menu" : "Save Changes"}
+                    </button>
+                    <button onClick={() => setEditingDish(null)} className="px-5 py-3 rounded-xl text-sage hover:text-off-white">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    function getTableFromUrl() {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        const t = q.get("table") || q.get("t") || "";
+        return (t || "").trim();
+      } catch { return ""; }
+    }
+
+    function App() {
+      const [view, setView] = useState("customer");
+      const [staffAuth, setStaffAuth] = useState(false);
+      const [showPin, setShowPin] = useState(false);
+      const [dishes, setDishes] = useState(() => loadState("ayra_dishes", INITIAL_DISHES));
+      const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
+      const [sessionItems, setSessionItems] = useState([]);
+      const [liveOrders, setLiveOrders] = useState(() => loadState("ayra_orders", []));
+      const [toast, setToast] = useState(null);
+      const [tableFromQr] = useState(() => getTableFromUrl());
+
+      useEffect(() => { saveState("ayra_dishes", dishes); }, [dishes]);
+      useEffect(() => { saveState("ayra_recs", recommendations); }, [recommendations]);
+      useEffect(() => { saveState("ayra_orders", liveOrders); }, [liveOrders]);
+
+      const showToast = useCallback((msg) => setToast(msg), []);
+
+      const placeOrder = useCallback((items, tableLabel) => {
+        const order = {
+          id: "ORD-" + Date.now(),
+          table: tableLabel,
+          items: items.map(i => ({
+            id: i.id,
+            name: i.name,
+            variantLabel: i.variantLabel || null,
+            price: i.price,
+            qty: i.qty,
+          })),
+          total: items.reduce((s, i) => s + i.price * i.qty, 0),
+          status: "new",
+          createdAt: new Date().toISOString(),
+        };
+        setLiveOrders(prev => [order, ...prev]);
+        // bump ordersToday for analytics
+        setDishes(prev => {
+          const next = prev.map(d => {
+            const ordered = items.find(i => i.id === d.id);
+            if (!ordered) return d;
+            return { ...d, ordersToday: (d.ordersToday || 0) + ordered.qty };
+          });
+          saveState("ayra_dishes", next);
+          return next;
+        });
+      }, []);
+
+      const updateOrderStatus = useCallback((orderId, status) => {
+        setLiveOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, updatedAt: new Date().toISOString() } : o));
+      }, []);
+
+      const clearOrder = useCallback((orderId) => {
+        setLiveOrders(prev => prev.filter(o => o.id !== orderId));
+      }, []);
+
+      const handleStaffAccess = () => {
+        if (staffAuth) setView("owner");
+        else setShowPin(true);
+      };
+      const handlePinSuccess = () => {
+        setStaffAuth(true);
+        setShowPin(false);
+        setView("owner");
+        showToast("Staff access granted");
+      };
+      const handleLogout = () => {
+        setStaffAuth(false);
+        setView("customer");
+        showToast("Logged out of Staff Mode");
+      };
+      const resetDemo = () => {
+        localStorage.removeItem("ayra_dishes");
+        localStorage.removeItem("ayra_recs");
+        localStorage.removeItem("ayra_orders");
+        setDishes(INITIAL_DISHES);
+        setRecommendations(AI_RECOMMENDATIONS);
+        setLiveOrders([]);
+        setSessionItems([]);
+        showToast("Demo data reset");
+      };
+
+      return (
+        <div className="min-h-screen bg-obsidian">
+          {(view === "customer" || !staffAuth) ? (
+            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} />
+          ) : (
+            <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+              liveOrders={liveOrders} updateOrderStatus={updateOrderStatus} clearOrder={clearOrder}
+              onLogout={handleLogout} showToast={showToast} onReset={resetDemo} />
+          )}
+          {showPin && <PinModal onSuccess={handlePinSuccess} onClose={() => setShowPin(false)} />}
+          {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
