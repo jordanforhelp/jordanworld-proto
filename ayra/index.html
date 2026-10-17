@@ -559,9 +559,15 @@
     const CATEGORIES = ["All", "Appetisers", "Mains", "Drinks", "Pizza & Pasta", "Rice & Breads", "Desserts", "Seafood"];
     const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
     const DRINK_TYPES = ["All drinks", "Signature", "Cocktails", "Shooters", "Beer", "Whiskey", "Vodka", "Rum", "Wine", "Mocktails", "Soft drinks"];
-    const STAFF_PIN = "1234"; // Move to server auth before production
+    // Staff access: only a hash is stored (PIN itself is not in source). SHA-256("ayra-staff-v1:" + pin)
+    const STAFF_PIN_HASH = "b4bf6ca75c454a0214239cdc7475e7b122ff6f0f629dd0fe1035ab88a3e3cab5";
+    async function hashStaffPin(pin) {
+      const data = new TextEncoder().encode("ayra-staff-v1:" + pin);
+      const buf = await crypto.subtle.digest("SHA-256", data);
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
     const DEFAULT_TABLE_PINS = Object.fromEntries(
-      Array.from({ length: 20 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
+      Array.from({ length: 12 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
     );
 
     // —— Supabase backend ——
@@ -833,12 +839,18 @@
         setPin(next);
         setError(false);
         if (next.length === 4) {
-          if (next === STAFF_PIN) setTimeout(() => onSuccess(), 180);
-          else {
+          hashStaffPin(next).then(h => {
+            if (h === STAFF_PIN_HASH) setTimeout(() => onSuccess(), 180);
+            else {
+              setError(true);
+              setShake(true);
+              setTimeout(() => { setPin(""); setShake(false); }, 600);
+            }
+          }).catch(() => {
             setError(true);
             setShake(true);
             setTimeout(() => { setPin(""); setShake(false); }, 600);
-          }
+          });
         }
       };
       const handleBack = () => setPin(p => p.slice(0, -1));
@@ -1044,7 +1056,7 @@
                 ) : (
                   <div>
                     <label className="text-xs uppercase tracking-wider text-sage">Table number *</label>
-                    <input type="text" inputMode="numeric" placeholder="e.g. 5" value={tableNumber || ""}
+                    <input type="text" inputMode="numeric" placeholder="" value={tableNumber || ""}
                       onChange={e => setTableNumber(e.target.value)}
                       className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/25 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" />
                   </div>
@@ -1064,15 +1076,34 @@
     const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins }) => {
       const [filter, setFilter] = useState("All");
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
-      const [guest, setGuest] = useState(() => {
+      const loadDiningGuest = (tableHint) => {
         try {
-          const raw = sessionStorage.getItem("ayra_guest");
-          if (!raw) return null;
-          const g = JSON.parse(raw);
-          if (!g || !g.exp || Date.now() > g.exp) { sessionStorage.removeItem("ayra_guest"); return null; }
-          return g;
+          const tables = [];
+          if (tableHint) tables.push(String(tableHint));
+          tables.push("any");
+          for (const tkey of tables) {
+            const raw = localStorage.getItem("ayra_dining_" + tkey);
+            if (!raw) continue;
+            const g = JSON.parse(raw);
+            if (g && g.exp && Date.now() < g.exp) return g;
+            localStorage.removeItem("ayra_dining_" + tkey);
+          }
+          return null;
         } catch { return null; }
-      });
+      };
+      const saveDiningGuest = (g, tableKey) => {
+        const payload = {
+          ...g,
+          table: String(tableKey || g.table || ""),
+          exp: Date.now() + 12 * 60 * 60 * 1000, // 12h dining window
+        };
+        try {
+          if (payload.table) localStorage.setItem("ayra_dining_" + payload.table, JSON.stringify(payload));
+          localStorage.setItem("ayra_dining_any", JSON.stringify(payload));
+        } catch {}
+        return payload;
+      };
+      const [guest, setGuest] = useState(() => loadDiningGuest(typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("table") || "") : ""));
       const [showGuestGate, setShowGuestGate] = useState(false);
       const [gateName, setGateName] = useState("");
       const [gatePhone, setGatePhone] = useState("");
@@ -1172,7 +1203,7 @@
               ) : (
                 <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2">
                   <label className="text-sage text-xs">Table no.</label>
-                  <input type="text" inputMode="numeric" placeholder="e.g. 7" value={tableNumber}
+                  <input type="text" inputMode="numeric" placeholder="" value={tableNumber}
                     onChange={e => setTableNumber(e.target.value)}
                     className="w-28 min-h-[40px] bg-surface/80 border border-champagne/20 rounded-xl px-3 text-center text-off-white text-sm focus:outline-none focus:border-champagne/50" />
                 </div>
@@ -1265,14 +1296,15 @@
 
           <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
             onPlaceOrder={(items, tableLabel) => {
-              // Already verified this browser session (PIN or OTP) — don't ask again
-              if (guest && guest.exp && Date.now() < guest.exp &&
-                  (guest.method === "pin" || guest.method === "otp" || (guest.name && guest.phone)) &&
-                  (!guest.table || String(guest.table) === String(tableLabel))) {
-                onPlaceOrder(items, tableLabel, guest);
+              const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
+              // Same phone during the meal: reuse saved dining unlock (12h)
+              const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
+              if (saved && saved.exp && Date.now() < saved.exp) {
+                if (!guest) setGuest(saved);
+                onPlaceOrder(items, tkey, saved);
                 return true;
               }
-              pendingPlace.current = { items, tableLabel };
+              pendingPlace.current = { items, tableLabel: tkey };
               setShowGuestGate(true);
               return false;
             }} showToast={showToast}
@@ -1310,8 +1342,8 @@
                             className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Name for the bill" />
                         </div>
                         <button type="button" onClick={() => {
-                          const tableKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "").trim();
-                          const expected = (tablePins && tableKey && tablePins[tableKey]) || "";
+                          const tKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || String(tableFromQr || tableNumber || "").trim() || "any";
+                          const expected = (tablePins && tKey && tablePins[tKey]) || "";
                           if (!expected) {
                             showToast("No PIN set for this table — ask staff, or use Name + OTP");
                             return;
@@ -1321,24 +1353,19 @@
                             return;
                           }
                           const g = { name: gateName.trim() || "Guest", phone: "", method: "pin" };
-                          try {
-                          const tableKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "");
-                          const payload = { ...g, table: tableKey, exp: Date.now() + 4 * 60 * 60 * 1000 };
-                          sessionStorage.setItem("ayra_guest", JSON.stringify(payload));
+                          const payload = saveDiningGuest(g, tKey);
                           setGuest(payload);
-                        } catch {}
-                          setGuest(g);
                           setShowGuestGate(false);
                           setGatePin("");
                           if (pendingPlace.current) {
                             const { items, tableLabel } = pendingPlace.current;
                             pendingPlace.current = null;
-                            onPlaceOrder(items, tableLabel, g);
+                            onPlaceOrder(items, tableLabel, payload);
                             setSessionItems([]);
                             setCartOpen(false);
                             showToast("Order sent — Table " + tableLabel);
                           } else {
-                            showToast("Table verified — you can order");
+                            showToast("Table verified — you can order again on this phone without re-entering PIN");
                           }
                         }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify with PIN</button>
                       </div>
@@ -1377,20 +1404,16 @@
                     <button type="button" onClick={() => {
                       if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
                       const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
-                      try {
-                          const tableKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "");
-                          const payload = { ...g, table: tableKey, exp: Date.now() + 4 * 60 * 60 * 1000 };
-                          sessionStorage.setItem("ayra_guest", JSON.stringify(payload));
-                          setGuest(payload);
-                        } catch {}
-                      setGuest(g);
+                      const tKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                      const payload = saveDiningGuest(g, tKey);
+                      setGuest(payload);
                       setShowGuestGate(false);
                       setOtpSent(false);
                       setGateOtp("");
                       if (pendingPlace.current) {
                         const { items, tableLabel } = pendingPlace.current;
                         pendingPlace.current = null;
-                        onPlaceOrder(items, tableLabel, g);
+                        onPlaceOrder(items, tableLabel, payload);
                         setSessionItems([]);
                         setCartOpen(false);
                         showToast("Order sent — Table " + tableLabel);
@@ -1654,24 +1677,46 @@
                   </div>
                 </div>
                 <div className="glass rounded-2xl p-4 border border-champagne/10 mb-6 space-y-3">
-                  <p className="text-sm text-off-white font-medium">Table QR + access PIN</p>
-                  <p className="text-sage text-xs">Each table gets its own link. Optional PIN stops strangers ordering on the wrong table. Print QR with the full URL.</p>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => {
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <p className="text-sm text-off-white font-medium">Tables · PIN · QR</p>
+                      <p className="text-sage text-xs">Add or remove tables. Copy the QR link for each table card.</p>
+                    </div>
+                    <button type="button" onClick={() => {
+                      const nums = Object.keys(tablePins || {}).map(Number).filter(n => !isNaN(n));
+                      const next = (nums.length ? Math.max(...nums) : 0) + 1;
+                      const pin = String(1000 + next);
+                      setTablePins(prev => ({ ...prev, [String(next)]: pin }));
+                      cloudUpsertPin(next, pin);
+                      showToast("Table " + next + " added · PIN " + pin);
+                    }} className="px-3 py-2 rounded-xl bg-champagne text-obsidian text-xs font-semibold">+ Add table</button>
+                  </div>
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
                       const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jordanworld.co/ayra/').replace(/\/?$/, '/');
                       const pin = (tablePins && tablePins[String(n)]) || "";
                       const url = base + '?table=' + n + (pin ? ('&pin=' + pin) : '');
                       return (
                         <div key={n} className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="text-off-white font-medium w-8">T{n}</span>
+                          <span className="text-off-white font-medium w-10">T{n}</span>
                           <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
                             value={pin}
                             onChange={e => { const v = e.target.value.trim(); setTablePins(prev => ({ ...prev, [String(n)]: v })); if (v) cloudUpsertPin(n, v); }}
                             className="w-16 min-h-[36px] bg-surface border border-champagne/20 rounded-lg px-2 text-center text-off-white" />
-                          <button type="button" onClick={() => { navigator.clipboard.writeText(url); showToast('Copied Table ' + n); }}
+                          <button type="button" onClick={() => { navigator.clipboard.writeText(url).then(() => showToast('Copied T' + n + ' QR link')).catch(() => showToast(url)); }}
                             className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne" title={url}>
                             Copy QR link
                           </button>
+                          <button type="button" onClick={() => {
+                            if (!window.confirm("Remove table " + n + "?")) return;
+                            setTablePins(prev => {
+                              const copy = { ...prev };
+                              delete copy[String(n)];
+                              return copy;
+                            });
+                            if (sb) sb.from("table_pins").delete().eq("table_no", String(n)).then(() => {});
+                            showToast("Table " + n + " removed");
+                          }} className="px-2 py-2 rounded-lg text-sage hover:text-red-400 border border-champagne/10">Remove</button>
                         </div>
                       );
                     })}
@@ -1790,36 +1835,6 @@
               </div>
             </section>
 
-            <section>
-              <div className="flex items-center gap-3 mb-5">
-                <Icon name="sparkles" size={22} className="text-champagne" />
-                <h2 className="font-display text-2xl text-off-white">Sample recommendations (demo)</h2>
-              </div>
-              <div className="space-y-4">
-                {recommendations.filter(r => r.status === "pending").map(rec => (
-                  <div key={rec.id} className="glass rounded-2xl p-6 border border-champagne/10">
-                    <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-champagne/15 text-champagne font-semibold">{rec.type}</span>
-                          <span className="text-xs text-champagne/90 font-medium">{rec.impact}</span>
-                        </div>
-                        <h3 className="font-semibold text-lg text-off-white">{rec.title}</h3>
-                        <p className="mt-2 text-sm text-sage leading-relaxed">{rec.insight}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 lg:flex-col lg:min-w-[140px]">
-                        <button onClick={() => handleRecAction(rec, "applied")} className="px-4 py-2 rounded-xl bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition">Apply to Menu</button>
-                        <button onClick={() => handleRecAction(rec, "testing")} className="px-4 py-2 rounded-xl border border-champagne/40 text-champagne text-sm font-medium hover:bg-champagne/10 transition">A/B Test</button>
-                        <button onClick={() => handleRecAction(rec, "dismissed")} className="px-4 py-2 rounded-xl text-sage text-sm hover:text-off-white transition">Dismiss</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {recommendations.every(r => r.status !== "pending") && (
-                  <p className="text-center text-sage py-8">All recommendations actioned. New insights generate overnight.</p>
-                )}
-              </div>
-            </section>
             </>
             )}
 
