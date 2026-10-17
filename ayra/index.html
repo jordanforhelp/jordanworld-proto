@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0F1916" />
   <title>Ayra — Restaurant Menu</title>
@@ -78,6 +80,12 @@
   <style>
     * { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    html, body, #root {
+      margin: 0;
+      max-width: 100vw;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
     body {
       margin: 0;
       background: #0F1916;
@@ -85,12 +93,173 @@
       font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-variant-ligatures: none;
       overflow-x: hidden;
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      padding-bottom: env(safe-area-inset-bottom);
+      width: 100%;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
       line-height: 1.47;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      overscroll-behavior-x: none;
+    }
+    /* iPhone mobile polish */
+    img, video, canvas, svg { max-width: 100%; height: auto; }
+    button, a, input, select, textarea { max-width: 100%; }
+    .menu-card { min-width: 0; }
+    .menu-card h3, .menu-card p { overflow-wrap: anywhere; word-break: break-word; }
+    [role="tablist"], [role="group"] {
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      max-width: 100%;
+    }
+    [role="tablist"]::-webkit-scrollbar,
+    [role="group"]::-webkit-scrollbar { display: none; }
+    /* Floating session cart — clear Home Indicator */
+    .session-fab {
+      bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem)) !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: min(100% - 1.5rem, 22rem) !important;
+      max-width: calc(100vw - 1.5rem) !important;
+      z-index: 40 !important;
+    }
+    /* Toast — below notch / Dynamic Island */
+    .toast-host {
+      top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: min(100% - 1.5rem, 22rem) !important;
+      z-index: 200 !important;
+      pointer-events: none;
+    }
+    /* Cart drawer full iPhone height */
+    .cart-drawer {
+      height: 100dvh !important;
+      height: -webkit-fill-available !important;
+      max-height: 100dvh !important;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    @media (min-width: 480px) {
+      .cart-drawer { max-width: 28rem !important; }
+    }
+    /* Modals fit iPhone height */
+    .iphone-modal {
+      max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: env(safe-area-inset-top, 0px);
+      margin-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    /* Sticky search under Dynamic Island */
+    .sticky-search {
+      padding-top: max(0.5rem, env(safe-area-inset-top, 0px)) !important;
+    }
+    /* Device preview chrome */
+    .device-shell {
+      min-height: 100dvh;
+      background: #0a0f0d;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .device-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      width: 100%;
+      background: #121a17;
+      border-bottom: 1px solid rgba(224,184,115,0.2);
+      padding: 0.5rem 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+    }
+    .device-toolbar button {
+      min-height: 36px;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(224,184,115,0.25);
+      background: transparent;
+      color: #92A39B;
+      cursor: pointer;
+    }
+    .device-toolbar button.active {
+      background: #E0B873;
+      color: #0F1916;
+      border-color: #E0B873;
+    }
+    .device-frame-outer {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 12px;
+      overflow: auto;
+    }
+    .device-frame {
+      position: relative;
+      background: #0F1916;
+      overflow: hidden;
+      box-shadow: 0 0 0 3px #1a2420, 0 0 0 6px #2a3530, 0 24px 64px rgba(0,0,0,0.55);
+      border-radius: 44px;
+      transition: width 0.25s ease, height 0.25s ease;
+    }
+    .device-frame.full {
+      width: 100% !important;
+      height: auto !important;
+      min-height: calc(100dvh - 56px);
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .device-frame-inner {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+    .device-frame.full .device-frame-inner {
+      min-height: calc(100dvh - 56px);
+      height: auto;
+      overflow: visible;
+    }
+    .audit-panel {
+      position: fixed;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      width: min(100% - 24px, 420px);
+      max-height: 40vh;
+      overflow: auto;
+      background: #1B2421;
+      border: 1px solid rgba(224,184,115,0.35);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #F2F5F3;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    .audit-pass { color: #6ee7b7; }
+    .audit-fail { color: #fca5a5; }
+    @media (max-width: 480px) {
+      .device-toolbar .hide-on-real-phone { display: none; }
+      .device-frame, .device-frame.full {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .device-frame-outer { padding: 0; }
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0F1916; }
@@ -201,176 +370,176 @@
     // Prices in INR. Multi-price items use base price; variants noted in description.
     const INITIAL_DISHES = [
       // —— APPETISERS VEG ——
-      { id: 1, name: "Veg Platter", description: "Assorted vegetarian starters for sharing.", price: 999, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 55, ordersToday: 18, visible: true, pairWith: [], sortOrder: 10 },
-      { id: 2, name: "Wok Fried Veg", description: "Crispy wok-tossed mixed vegetables.", price: 269, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 24, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 3, name: "Salsa Nachos", description: "Loaded nachos with salsa and cheese.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 68, ordersToday: 31, visible: true, pairWith: [], sortOrder: 30 },
-      { id: 4, name: "Thai Spring Roll", description: "Crispy Thai-style vegetable spring rolls.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 22, visible: true, pairWith: [], sortOrder: 40 },
-      { id: 5, name: "Jalapeño Cheese Chilly Fritters", description: "Spicy jalapeño and cheese fritters.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 19, visible: true, pairWith: [], sortOrder: 50 },
-      { id: 6, name: "Corn Cheese Kebab", description: "Grilled corn and cheese kebabs.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1606491956689-2ea866880067?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 66, ordersToday: 27, visible: true, pairWith: [], sortOrder: 60 },
-      { id: 7, name: "Palak Corn Tikki", description: "Spinach and corn patties, crisp outside.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 63, ordersToday: 21, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 1, name: "Veg Platter", description: "Assorted vegetarian starters for sharing.", price: 999, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 2, name: "Wok Fried Veg", description: "Crispy wok-tossed mixed vegetables.", price: 269, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 3, name: "Salsa Nachos", description: "Loaded nachos with salsa and cheese.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 4, name: "Thai Spring Roll", description: "Crispy Thai-style vegetable spring rolls.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 5, name: "Jalapeño Cheese Chilly Fritters", description: "Spicy jalapeño and cheese fritters.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 6, name: "Corn Cheese Kebab", description: "Grilled corn and cheese kebabs.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1606491956689-2ea866880067?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 66, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 7, name: "Palak Corn Tikki", description: "Spinach and corn patties, crisp outside.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 63, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
 
       // —— TANDOORI VEG ——
-      { id: 8, name: "Hara Bhara Kebab", description: "Spinach and green vegetable kebabs from the tandoor.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 60, ordersToday: 28, visible: true, pairWith: [], sortOrder: 80 },
-      { id: 9, name: "Veg Seekh Kebab", description: "Minced vegetable seekh from the tandoor.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 25, visible: true, pairWith: [], sortOrder: 90 },
-      { id: 10, name: "Veg Manchurian / Chilly", description: "Indo-Chinese veg balls in Manchurian or chilli sauce.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 36, visible: true, pairWith: [], sortOrder: 100 },
-      { id: 11, name: "Mushroom Chilly / Manchurian", description: "Button mushrooms in chilli or Manchurian gravy.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 23, visible: true, pairWith: [], sortOrder: 110 },
-      { id: 12, name: "Honey Chilly Potato", description: "Crispy potato tossed in honey chilli. Chicken variant ₹330.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 42, visible: true, pairWith: [], sortOrder: 120 },
-      { id: 13, name: "Paneer Chilly / Manchurian", description: "Cottage cheese in Indo-Chinese sauces.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 33, visible: true, pairWith: [], sortOrder: 130 },
-      { id: 14, name: "Naga Chilly Mushroom", description: "Mushrooms with fiery Naga chilli.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 61, ordersToday: 16, visible: true, pairWith: [], sortOrder: 140 },
-      { id: 15, name: "Paneer Tikka", description: "Classic tandoori paneer tikka.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 58, ordersToday: 45, visible: true, pairWith: [80], sortOrder: 150 },
-      { id: 16, name: "Stuffed Mushroom", description: "Cheese-stuffed mushrooms, baked.", price: 380, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 14, visible: true, pairWith: [], sortOrder: 160 },
-      { id: 17, name: "Cheese Ball", description: "Crispy cheese balls. ₹330–340.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1541529086526-db283c563270?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 20, visible: true, pairWith: [], sortOrder: 170 },
-      { id: 18, name: "Boiled Veg / Sautéed Veg", description: "Light boiled or sautéed seasonal vegetables. From ₹200.", price: 249, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 12, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 8, name: "Hara Bhara Kebab", description: "Spinach and green vegetable kebabs from the tandoor.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 9, name: "Veg Seekh Kebab", description: "Minced vegetable seekh from the tandoor.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 10, name: "Veg Manchurian / Chilly", description: "Indo-Chinese veg balls in Manchurian or chilli sauce.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 11, name: "Mushroom Chilly / Manchurian", description: "Button mushrooms in chilli or Manchurian gravy.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 12, name: "Honey Chilly Potato", description: "Crispy potato tossed in honey chilli. Chicken variant ₹330.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 13, name: "Paneer Chilly / Manchurian", description: "Cottage cheese in Indo-Chinese sauces.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 14, name: "Naga Chilly Mushroom", description: "Mushrooms with fiery Naga chilli.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 61, ordersToday: 0, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 15, name: "Paneer Tikka", description: "Classic tandoori paneer tikka.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [80], sortOrder: 150 },
+      { id: 16, name: "Stuffed Mushroom", description: "Cheese-stuffed mushrooms, baked.", price: 380, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 17, name: "Cheese Ball", description: "Crispy cheese balls. ₹330–340.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1541529086526-db283c563270?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 18, name: "Boiled Veg / Sautéed Veg", description: "Light boiled or sautéed seasonal vegetables. From ₹200.", price: 249, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 180 },
 
       // —— APPETISER NON-VEG ——
-      { id: 19, name: "Lemon Chicken", description: "Tangy lemon-marinated chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 29, visible: true, pairWith: [], sortOrder: 190 },
-      { id: 20, name: "Guntur Chicken", description: "Spicy Andhra-style Guntur chicken.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 34, visible: true, pairWith: [], sortOrder: 200 },
-      { id: 21, name: "Chicken 65", description: "Classic spicy chicken 65. Veg/Egg ₹240/260.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 55, ordersToday: 48, visible: true, pairWith: [], sortOrder: 5 },
-      { id: 22, name: "Kungpao Chicken", description: "Sichuan-inspired kung pao chicken.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 26, visible: true, pairWith: [], sortOrder: 210 },
-      { id: 23, name: "Garlic Chicken", description: "Garlic-forward Indo-Chinese chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 53, ordersToday: 30, visible: true, pairWith: [], sortOrder: 220 },
-      { id: 24, name: "Non-Veg Platter", description: "Grand assortment of non-veg starters.", price: 1499, category: "Appetisers", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 11, visible: true, pairWith: [], sortOrder: 230 },
-      { id: 25, name: "Chicken Popcorn", description: "Bite-sized crispy chicken popcorn.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: ["Trending"], diet: [], margin: 60, ordersToday: 38, visible: true, pairWith: [], sortOrder: 240 },
-      { id: 26, name: "Chicken Tikka", description: "Tandoori chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 52, ordersToday: 41, visible: true, pairWith: [80], sortOrder: 250 },
-      { id: 27, name: "Hariyali Chicken Tikka", description: "Herb-marinated green chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 52, ordersToday: 22, visible: true, pairWith: [], sortOrder: 260 },
-      { id: 28, name: "Malai Chicken Tikka", description: "Creamy malai chicken tikka.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 50, ordersToday: 27, visible: true, pairWith: [], sortOrder: 270 },
-      { id: 29, name: "Tandoori Chicken", description: "Half ₹399 · Full ₹799.", price: 399, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 45, ordersToday: 35, visible: true, pairWith: [], sortOrder: 280 },
-      { id: 30, name: "Charcoal Chicken Tikka (9pc)", description: "Nine pieces of charcoal-grilled tikka.", price: 499, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 15, visible: true, pairWith: [], sortOrder: 290 },
-      { id: 31, name: "Chicken Lollipop / Heavens", description: "Lollipop ₹330 · Heavens ₹370.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 40, visible: true, pairWith: [], sortOrder: 300 },
-      { id: 32, name: "Seekh Kebab Chicken / Mutton", description: "Chicken ₹370 · Mutton ₹399.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 19, visible: true, pairWith: [], sortOrder: 310 },
-      { id: 33, name: "Ghee Roast Chicken / Mutton", description: "Mangalorean-style ghee roast. Chicken ₹370 · Mutton ₹430.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 17, visible: true, pairWith: [], sortOrder: 320 },
-      { id: 34, name: "Crispy Fried Chicken", description: "Crispy fried chicken pieces.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: [], margin: 56, ordersToday: 28, visible: true, pairWith: [], sortOrder: 330 },
-      { id: 35, name: "Crumb Fried Chicken / Fish", description: "Breaded and fried. ₹330.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 18, visible: true, pairWith: [], sortOrder: 340 },
+      { id: 19, name: "Lemon Chicken", description: "Tangy lemon-marinated chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 20, name: "Guntur Chicken", description: "Spicy Andhra-style Guntur chicken.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 200 },
+      { id: 21, name: "Chicken 65", description: "Classic spicy chicken 65. Veg/Egg ₹240/260.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 22, name: "Kungpao Chicken", description: "Sichuan-inspired kung pao chicken.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 0, visible: true, pairWith: [], sortOrder: 210 },
+      { id: 23, name: "Garlic Chicken", description: "Garlic-forward Indo-Chinese chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 53, ordersToday: 0, visible: true, pairWith: [], sortOrder: 220 },
+      { id: 24, name: "Non-Veg Platter", description: "Grand assortment of non-veg starters.", price: 1499, category: "Appetisers", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 230 },
+      { id: 25, name: "Chicken Popcorn", description: "Bite-sized crispy chicken popcorn.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: ["Trending"], diet: [], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 240 },
+      { id: 26, name: "Chicken Tikka", description: "Tandoori chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 52, ordersToday: 0, visible: true, pairWith: [80], sortOrder: 250 },
+      { id: 27, name: "Hariyali Chicken Tikka", description: "Herb-marinated green chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 260 },
+      { id: 28, name: "Malai Chicken Tikka", description: "Creamy malai chicken tikka.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 270 },
+      { id: 29, name: "Tandoori Chicken", description: "Half ₹399 · Full ₹799.", price: 399, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 280 },
+      { id: 30, name: "Charcoal Chicken Tikka (9pc)", description: "Nine pieces of charcoal-grilled tikka.", price: 499, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 290 },
+      { id: 31, name: "Chicken Lollipop / Heavens", description: "Lollipop ₹330 · Heavens ₹370.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 300 },
+      { id: 32, name: "Seekh Kebab Chicken / Mutton", description: "Chicken ₹370 · Mutton ₹399.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 310 },
+      { id: 33, name: "Ghee Roast Chicken / Mutton", description: "Mangalorean-style ghee roast. Chicken ₹370 · Mutton ₹430.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 320 },
+      { id: 34, name: "Crispy Fried Chicken", description: "Crispy fried chicken pieces.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: [], margin: 56, ordersToday: 0, visible: true, pairWith: [], sortOrder: 330 },
+      { id: 35, name: "Crumb Fried Chicken / Fish", description: "Breaded and fried. ₹330.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 0, visible: true, pairWith: [], sortOrder: 340 },
 
       // —— SOUP ——
-      { id: 36, name: "Classic Manchow Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 32, visible: true, pairWith: [], sortOrder: 350 },
-      { id: 37, name: "Hot & Sour Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 28, visible: true, pairWith: [], sortOrder: 360 },
-      { id: 38, name: "Tom Yum Soup", description: "Thai tom yum. Veg ₹180 · Non-veg ₹210.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: [], margin: 70, ordersToday: 21, visible: true, pairWith: [], sortOrder: 370 },
-      { id: 39, name: "Cream of Tomato / Mushroom", description: "Classic cream soup ₹149.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 78, ordersToday: 24, visible: true, pairWith: [], sortOrder: 380 },
-      { id: 40, name: "Shorba", description: "Indian broth. Veg ₹130 · Non-veg ₹159.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 15, visible: true, pairWith: [], sortOrder: 390 },
+      { id: 36, name: "Classic Manchow Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 350 },
+      { id: 37, name: "Hot & Sour Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 360 },
+      { id: 38, name: "Tom Yum Soup", description: "Thai tom yum. Veg ₹180 · Non-veg ₹210.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 370 },
+      { id: 39, name: "Cream of Tomato / Mushroom", description: "Classic cream soup ₹149.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 380 },
+      { id: 40, name: "Shorba", description: "Indian broth. Veg ₹130 · Non-veg ₹159.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 390 },
 
       // —— BAR BITES & SALAD ——
-      { id: 41, name: "All Day Fries", description: "Potato fries.", price: 220, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 44, visible: true, pairWith: [], sortOrder: 400 },
-      { id: 42, name: "Basket Fries", description: "Veg ₹299 · Non-veg ₹359.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 20, visible: true, pairWith: [], sortOrder: 410 },
-      { id: 43, name: "3 Cheese Garlic Toast", description: "Toasted with three cheeses and garlic.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1573140401552-3fab0b24941f?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 26, visible: true, pairWith: [], sortOrder: 420 },
-      { id: 44, name: "Caesar Salad", description: "Veg ₹240 · Non-veg ₹260.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 18, visible: true, pairWith: [], sortOrder: 430 },
-      { id: 45, name: "Tandoori Tikka Salad", description: "Paneer ₹170 · Chicken ₹200.", price: 170, category: "Appetisers", image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 14, visible: true, pairWith: [], sortOrder: 440 },
-      { id: 46, name: "Garden Fresh Green Salad", description: "Fresh seasonal greens.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 75, ordersToday: 16, visible: true, pairWith: [], sortOrder: 450 },
+      { id: 41, name: "All Day Fries", description: "Potato fries.", price: 220, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 400 },
+      { id: 42, name: "Basket Fries", description: "Veg ₹299 · Non-veg ₹359.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 410 },
+      { id: 43, name: "3 Cheese Garlic Toast", description: "Toasted with three cheeses and garlic.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1573140401552-3fab0b24941f?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 420 },
+      { id: 44, name: "Caesar Salad", description: "Veg ₹240 · Non-veg ₹260.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 430 },
+      { id: 45, name: "Tandoori Tikka Salad", description: "Paneer ₹170 · Chicken ₹200.", price: 170, category: "Appetisers", image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 440 },
+      { id: 46, name: "Garden Fresh Green Salad", description: "Fresh seasonal greens.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 450 },
 
       // —— MAINS ——
-      { id: 50, name: "Dal Tadka / Fry", description: "Yellow dal tadka or fry style.", price: 270, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 38, visible: true, pairWith: [90], sortOrder: 10 },
-      { id: 51, name: "Dal Makhani", description: "Slow-cooked black lentils in butter cream.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 52, visible: true, pairWith: [90], sortOrder: 5 },
-      { id: 52, name: "Subzi Miloni", description: "Mixed vegetable curry.", price: 249, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 22, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 53, name: "Kadai Paneer", description: "Paneer in kadai masala. Veg/Chicken variants available.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 58, ordersToday: 41, visible: true, pairWith: [90], sortOrder: 30 },
-      { id: 54, name: "Kolhapuri Paneer", description: "Spicy Kolhapuri-style paneer. Veg/Chicken options.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 19, visible: true, pairWith: [], sortOrder: 40 },
-      { id: 55, name: "Paneer Lababdar", description: "Rich tomato-cashew paneer gravy.", price: 330, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 56, ordersToday: 33, visible: true, pairWith: [90], sortOrder: 50 },
-      { id: 56, name: "Butter Chicken", description: "Classic creamy tomato butter chicken.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 50, ordersToday: 61, visible: true, pairWith: [90, 91], sortOrder: 1 },
-      { id: 57, name: "Chicken Lababdar", description: "Chicken in lababdar gravy.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 24, visible: true, pairWith: [], sortOrder: 60 },
-      { id: 58, name: "Methi Murgh", description: "Chicken with fenugreek.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 18, visible: true, pairWith: [], sortOrder: 70 },
-      { id: 59, name: "Chicken Tikka Masala", description: "Tikka pieces in spiced tomato masala.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 39, visible: true, pairWith: [90], sortOrder: 80 },
-      { id: 60, name: "Chicken Chettinad", description: "Fiery Chettinad chicken.", price: 300, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 27, visible: true, pairWith: [], sortOrder: 90 },
-      { id: 61, name: "Rogan Josh", description: "Kashmiri-style mutton rogan josh.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 16, visible: true, pairWith: [92], sortOrder: 100 },
-      { id: 62, name: "Rara Gosht", description: "Rich mutton rara gosht.", price: 470, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 40, ordersToday: 12, visible: true, pairWith: [], sortOrder: 110 },
-      { id: 63, name: "Mutton Saagwala", description: "Mutton in spinach gravy.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 42, ordersToday: 14, visible: true, pairWith: [], sortOrder: 120 },
-      { id: 64, name: "Thai Green Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 23, visible: true, pairWith: [], sortOrder: 130 },
-      { id: 65, name: "Thai Red Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 20, visible: true, pairWith: [], sortOrder: 140 },
-      { id: 66, name: "Egg Curry / Masala", description: "₹260.", price: 260, category: "Mains", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 25, visible: true, pairWith: [], sortOrder: 150 },
-      { id: 67, name: "Sizzler Indian / Chinese", description: "Veg ₹499 · Non-veg ₹599.", price: 499, category: "Mains", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 45, ordersToday: 18, visible: true, pairWith: [], sortOrder: 160 },
-      { id: 68, name: "Aloo Jeera", description: "Cumin-tempered potatoes.", price: 220, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 21, visible: true, pairWith: [], sortOrder: 170 },
-      { id: 69, name: "Mix Veg Curry", description: "Seasonal mixed vegetables in gravy.", price: 310, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 19, visible: true, pairWith: [], sortOrder: 180 },
-      { id: 70, name: "Veg Hyderabadi / Chicken", description: "Hyderabadi-style. Veg ₹299 · Chicken ₹340.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 17, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 50, name: "Dal Tadka / Fry", description: "Yellow dal tadka or fry style.", price: 270, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 10 },
+      { id: 51, name: "Dal Makhani", description: "Slow-cooked black lentils in butter cream.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 5 },
+      { id: 52, name: "Subzi Miloni", description: "Mixed vegetable curry.", price: 249, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 53, name: "Kadai Paneer", description: "Paneer in kadai masala. Veg/Chicken variants available.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 30 },
+      { id: 54, name: "Kolhapuri Paneer", description: "Spicy Kolhapuri-style paneer. Veg/Chicken options.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 55, name: "Paneer Lababdar", description: "Rich tomato-cashew paneer gravy.", price: 330, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 56, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 50 },
+      { id: 56, name: "Butter Chicken", description: "Classic creamy tomato butter chicken.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 50, ordersToday: 0, visible: true, pairWith: [90, 91], sortOrder: 1 },
+      { id: 57, name: "Chicken Lababdar", description: "Chicken in lababdar gravy.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 58, name: "Methi Murgh", description: "Chicken with fenugreek.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 59, name: "Chicken Tikka Masala", description: "Tikka pieces in spiced tomato masala.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 80 },
+      { id: 60, name: "Chicken Chettinad", description: "Fiery Chettinad chicken.", price: 300, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 61, name: "Rogan Josh", description: "Kashmiri-style mutton rogan josh.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 0, visible: true, pairWith: [92], sortOrder: 100 },
+      { id: 62, name: "Rara Gosht", description: "Rich mutton rara gosht.", price: 470, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 40, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 63, name: "Mutton Saagwala", description: "Mutton in spinach gravy.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 42, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 64, name: "Thai Green Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 65, name: "Thai Red Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 66, name: "Egg Curry / Masala", description: "₹260.", price: 260, category: "Mains", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 150 },
+      { id: 67, name: "Sizzler Indian / Chinese", description: "Veg ₹499 · Non-veg ₹599.", price: 499, category: "Mains", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 68, name: "Aloo Jeera", description: "Cumin-tempered potatoes.", price: 220, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 69, name: "Mix Veg Curry", description: "Seasonal mixed vegetables in gravy.", price: 310, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 70, name: "Veg Hyderabadi / Chicken", description: "Hyderabadi-style. Veg ₹299 · Chicken ₹340.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 190 },
 
       // —— SEAFOOD ——
-      { id: 71, name: "Sea Food Platter", description: "Grand mixed seafood platter.", price: 1699, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 38, ordersToday: 8, visible: true, pairWith: [], sortOrder: 10 },
-      { id: 72, name: "Tandoori Pomfret", description: "Whole pomfret from the tandoor.", price: 599, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 42, ordersToday: 11, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 73, name: "Tandoori Prawns", description: "Prawns marinated and tandoor-grilled.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Trending"], diet: ["Gluten-Free"], margin: 45, ordersToday: 22, visible: true, pairWith: [], sortOrder: 30 },
-      { id: 74, name: "Prawns Chilli / Manchurian", description: "Indo-Chinese prawns.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 45, ordersToday: 19, visible: true, pairWith: [], sortOrder: 40 },
-      { id: 75, name: "Fish & Chips", description: "Classic battered fish with fries.", price: 340, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 24, visible: true, pairWith: [], sortOrder: 50 },
-      { id: 76, name: "Amritsari Fish", description: "Punjabi-style fried fish.", price: 330, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 16, visible: true, pairWith: [], sortOrder: 60 },
-      { id: 77, name: "Angel Fish Tawa / Rawa", description: "Tawa or rawa-fried angel fish ₹480.", price: 480, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 44, ordersToday: 10, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 71, name: "Sea Food Platter", description: "Grand mixed seafood platter.", price: 1699, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 38, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 72, name: "Tandoori Pomfret", description: "Whole pomfret from the tandoor.", price: 599, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 42, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 73, name: "Tandoori Prawns", description: "Prawns marinated and tandoor-grilled.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Trending"], diet: ["Gluten-Free"], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 74, name: "Prawns Chilli / Manchurian", description: "Indo-Chinese prawns.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 75, name: "Fish & Chips", description: "Classic battered fish with fries.", price: 340, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 76, name: "Amritsari Fish", description: "Punjabi-style fried fish.", price: 330, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 77, name: "Angel Fish Tawa / Rawa", description: "Tawa or rawa-fried angel fish ₹480.", price: 480, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 44, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
 
       // —— PIZZA, DIM SUM, PASTA ——
-      { id: 78, name: "Margherita Pizza", description: "Traditional Neapolitan. Veg ₹329 · Non-veg ₹359.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 47, visible: true, pairWith: [], sortOrder: 10 },
-      { id: 79, name: "Paneer Tikka Pizza", description: "Pizza topped with paneer tikka. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 28, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 80, name: "Chicken Tikka Pizza", description: "Chicken tikka pizza. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 35, visible: true, pairWith: [], sortOrder: 30 },
-      { id: 81, name: "Farm House Pizza", description: "Loaded farmhouse toppings. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 22, visible: true, pairWith: [], sortOrder: 40 },
-      { id: 82, name: "Veg Money Bags Dumpling", description: "Crispy money-bag style veg dumplings.", price: 299, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 20, visible: true, pairWith: [], sortOrder: 50 },
-      { id: 83, name: "Classic Chicken Dumpling", description: "Steamed chicken dumplings.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: [], margin: 58, ordersToday: 18, visible: true, pairWith: [], sortOrder: 60 },
-      { id: 84, name: "Prawn Har Gow", description: "Crystal classic prawn har gow.", price: 349, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 55, ordersToday: 15, visible: true, pairWith: [], sortOrder: 70 },
-      { id: 85, name: "Pasta by Choice", description: "Penne/Spaghetti · Alfredo/Arrabbiata · Veg/Chicken/Prawns ₹249/279/299.", price: 249, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 31, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 78, name: "Margherita Pizza", description: "Traditional Neapolitan. Veg ₹329 · Non-veg ₹359.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 79, name: "Paneer Tikka Pizza", description: "Pizza topped with paneer tikka. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 80, name: "Chicken Tikka Pizza", description: "Chicken tikka pizza. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 81, name: "Farm House Pizza", description: "Loaded farmhouse toppings. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 82, name: "Veg Money Bags Dumpling", description: "Crispy money-bag style veg dumplings.", price: 299, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 83, name: "Classic Chicken Dumpling", description: "Steamed chicken dumplings.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: [], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 84, name: "Prawn Har Gow", description: "Crystal classic prawn har gow.", price: 349, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 85, name: "Pasta by Choice", description: "Penne/Spaghetti · Alfredo/Arrabbiata · Veg/Chicken/Prawns ₹249/279/299.", price: 249, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
 
       // —— RICE & BREADS ——
-      { id: 90, name: "Butter Naan", description: "Plain ₹65 · Butter ₹70 · Garlic ₹75 · Cheese ₹110.", price: 70, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 75, ordersToday: 89, visible: true, pairWith: [], sortOrder: 10 },
-      { id: 91, name: "Tandoori Roti", description: "Roti ₹60 · Butter roti ₹65.", price: 60, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 56, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 92, name: "Lachha Paratha", description: "Layered flaky paratha.", price: 75, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 34, visible: true, pairWith: [], sortOrder: 30 },
-      { id: 93, name: "Stuffed Paratha", description: "Aloo/Gobi ₹99 · Paneer ₹110 · Veg stuffed ₹200 · Chicken keema ₹200.", price: 99, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 28, visible: true, pairWith: [], sortOrder: 40 },
-      { id: 94, name: "Chicken Biryani", description: "Aromatic chicken biryani.", price: 330, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 48, ordersToday: 55, visible: true, pairWith: [], sortOrder: 5 },
-      { id: 95, name: "Mutton Biryani", description: "Slow-cooked mutton biryani.", price: 430, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 29, visible: true, pairWith: [], sortOrder: 50 },
-      { id: 96, name: "Veg Biryani", description: "Vegetable biryani.", price: 280, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 55, ordersToday: 32, visible: true, pairWith: [], sortOrder: 60 },
-      { id: 97, name: "Prawns Biryani", description: "Prawn biryani.", price: 449, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 40, ordersToday: 13, visible: true, pairWith: [], sortOrder: 70 },
-      { id: 98, name: "Fried Rice", description: "Veg ₹229 · Egg ₹249 · Chicken ₹279 · Prawns ₹369.", price: 229, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 41, visible: true, pairWith: [], sortOrder: 80 },
-      { id: 99, name: "Jeera Rice / Steam Rice", description: "Steam ₹160 · Jeera ₹160 · Ghee rice ₹260.", price: 160, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 78, ordersToday: 48, visible: true, pairWith: [], sortOrder: 90 },
-      { id: 100, name: "Kashmiri Pulao", description: "Fragrant Kashmiri pulao.", price: 299, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 15, visible: true, pairWith: [], sortOrder: 100 },
-      { id: 101, name: "Dal Khichdi", description: "Comfort dal khichdi ₹260. Curd rice ₹210.", price: 260, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 22, visible: true, pairWith: [], sortOrder: 110 },
-      { id: 102, name: "Bread Basket", description: "Assorted breads for the table.", price: 199, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 19, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 90, name: "Butter Naan", description: "Plain ₹65 · Butter ₹70 · Garlic ₹75 · Cheese ₹110.", price: 70, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 91, name: "Tandoori Roti", description: "Roti ₹60 · Butter roti ₹65.", price: 60, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 92, name: "Lachha Paratha", description: "Layered flaky paratha.", price: 75, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 93, name: "Stuffed Paratha", description: "Aloo/Gobi ₹99 · Paneer ₹110 · Veg stuffed ₹200 · Chicken keema ₹200.", price: 99, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 94, name: "Chicken Biryani", description: "Aromatic chicken biryani.", price: 330, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 95, name: "Mutton Biryani", description: "Slow-cooked mutton biryani.", price: 430, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 96, name: "Veg Biryani", description: "Vegetable biryani.", price: 280, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 97, name: "Prawns Biryani", description: "Prawn biryani.", price: 449, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 40, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 98, name: "Fried Rice", description: "Veg ₹229 · Egg ₹249 · Chicken ₹279 · Prawns ₹369.", price: 229, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 99, name: "Jeera Rice / Steam Rice", description: "Steam ₹160 · Jeera ₹160 · Ghee rice ₹260.", price: 160, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 100, name: "Kashmiri Pulao", description: "Fragrant Kashmiri pulao.", price: 299, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 101, name: "Dal Khichdi", description: "Comfort dal khichdi ₹260. Curd rice ₹210.", price: 260, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 102, name: "Bread Basket", description: "Assorted breads for the table.", price: 199, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
 
       // —— DESSERTS ——
-      { id: 110, name: "Gulab Jamun", description: "Warm gulab jamun. With ice cream ₹200.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 78, ordersToday: 42, visible: true, pairWith: [], sortOrder: 10 },
-      { id: 111, name: "Shahi Tukda", description: "Royal bread pudding with rabri.", price: 190, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 72, ordersToday: 24, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 112, name: "Carrot Halwa", description: "Gajar ka halwa.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 20, visible: true, pairWith: [], sortOrder: 30 },
-      { id: 113, name: "Chocolate Brownie", description: "Brownie ₹199 · With ice cream ₹210 · Sizzler ₹250.", price: 199, category: "Desserts", image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 36, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 110, name: "Gulab Jamun", description: "Warm gulab jamun. With ice cream ₹200.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 111, name: "Shahi Tukda", description: "Royal bread pudding with rabri.", price: 190, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 112, name: "Carrot Halwa", description: "Gajar ka halwa.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 113, name: "Chocolate Brownie", description: "Brownie ₹199 · With ice cream ₹210 · Sizzler ₹250.", price: 199, category: "Desserts", image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
 
       // —— DRINKS: Signature & Cocktails ——
-      { id: 120, name: "Temple Run", description: "Whiskey, coconut soda, aromatic bitters, grape fruit as garnish.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 72, ordersToday: 28, visible: true, pairWith: [], sortOrder: 5 },
-      { id: 121, name: "Miss You Matcha", description: "Mezcal, red apple juice, almond and citrus.", price: 599, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 68, ordersToday: 22, visible: true, pairWith: [], sortOrder: 10 },
-      { id: 122, name: "Blue Lips", description: "Gin, butterfly pea flower soda with edible flower.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 25, visible: true, pairWith: [], sortOrder: 20 },
-      { id: 123, name: "Spicy Senorita", description: "Tequila, pickled brine (jalapeño & cilantro) and coriander salt rim.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 70, ordersToday: 19, visible: true, pairWith: [], sortOrder: 30 },
-      { id: 124, name: "Midnight Jamun", description: "Vodka, jamun carbonated soda with sea salt rim.", price: 499, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 21, visible: true, pairWith: [], sortOrder: 40 },
-      { id: 125, name: "Pisco Sour", description: "Ayra Special — pisco, aromatic bitters, lime, sugar, vegan foam.", price: 549, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 68, ordersToday: 16, visible: true, pairWith: [], sortOrder: 50 },
-      { id: 126, name: "Old Fashioned", description: "Whiskey, aromatic bitters and sugar syrup.", price: 395, category: "Drinks", image: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=600&q=80", tags: ["Trending"], diet: [], margin: 75, ordersToday: 34, visible: true, pairWith: [], sortOrder: 60 },
-      { id: 127, name: "Espresso Martini", description: "Vodka, coffee liqueur, dark chocolate espresso.", price: 379, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 74, ordersToday: 31, visible: true, pairWith: [], sortOrder: 70 },
-      { id: 128, name: "Spicy Margarita", description: "Tequila, jalapeño, lime and sugar.", price: 399, category: "Drinks", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 27, visible: true, pairWith: [], sortOrder: 80 },
-      { id: 129, name: "Moscow Mule", description: "Vodka, lime, sugar, ginger beer.", price: 399, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 24, visible: true, pairWith: [], sortOrder: 90 },
-      { id: 130, name: "South Side", description: "Gin, lime, sugar and mint.", price: 375, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 73, ordersToday: 18, visible: true, pairWith: [], sortOrder: 100 },
-      { id: 131, name: "Jagerbomb", description: "Jägermeister, Red Bull.", price: 555, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 20, visible: true, pairWith: [], sortOrder: 110 },
-      { id: 132, name: "Virgin Mojito", description: "Lime, mint, sweetener and soda.", price: 175, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 80, ordersToday: 38, visible: true, pairWith: [], sortOrder: 120 },
-      { id: 133, name: "Blue Ocean", description: "Blue curaçao mocktail with lime and soda.", price: 175, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 22, visible: true, pairWith: [], sortOrder: 130 },
-      { id: 134, name: "Fruit Punch", description: "Mixed fruit juices with sweeteners.", price: 175, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 82, ordersToday: 26, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 120, name: "Temple Run", description: "Whiskey, coconut soda, aromatic bitters, grape fruit as garnish.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 121, name: "Miss You Matcha", description: "Mezcal, red apple juice, almond and citrus.", price: 599, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 122, name: "Blue Lips", description: "Gin, butterfly pea flower soda with edible flower.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 123, name: "Spicy Senorita", description: "Tequila, pickled brine (jalapeño & cilantro) and coriander salt rim.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 124, name: "Midnight Jamun", description: "Vodka, jamun carbonated soda with sea salt rim.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 125, name: "Pisco Sour", description: "Ayra Special — pisco, aromatic bitters, lime, sugar, vegan foam.", price: 549, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 126, name: "Old Fashioned", description: "Whiskey, aromatic bitters and sugar syrup.", price: 395, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=600&q=80", tags: ["Trending"], diet: [], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 127, name: "Espresso Martini", description: "Vodka, coffee liqueur, dark chocolate espresso.", price: 379, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 74, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 128, name: "Spicy Margarita", description: "Tequila, jalapeño, lime and sugar.", price: 399, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 129, name: "Moscow Mule", description: "Vodka, lime, sugar, ginger beer.", price: 399, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 130, name: "South Side", description: "Gin, lime, sugar and mint.", price: 375, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 73, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 131, name: "Jagerbomb", description: "Jägermeister, Red Bull.", price: 555, category: "Drinks", drinkType: "Shooters", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 132, name: "Virgin Mojito", description: "Lime, mint, sweetener and soda.", price: 175, category: "Drinks", drinkType: "Mocktails", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 133, name: "Blue Ocean", description: "Blue curaçao mocktail with lime and soda.", price: 175, category: "Drinks", drinkType: "Mocktails", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 134, name: "Fruit Punch", description: "Mixed fruit juices with sweeteners.", price: 175, category: "Drinks", drinkType: "Mocktails", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 82, ordersToday: 0, visible: true, pairWith: [], sortOrder: 140 },
       // Bottled beer 330ml
-      { id: 135, name: "Kingfisher Premium (Bottle)", description: "330ml bottle.", price: 180, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 45, visible: true, pairWith: [], sortOrder: 150 },
-      { id: 136, name: "Heineken (Bottle)", description: "330ml bottle.", price: 270, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 30, visible: true, pairWith: [], sortOrder: 160 },
-      { id: 137, name: "Budweiser Premium (Bottle)", description: "330ml bottle.", price: 225, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 28, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 135, name: "Kingfisher Premium (Bottle)", description: "330ml bottle.", price: 180, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 150 },
+      { id: 136, name: "Heineken (Bottle)", description: "330ml bottle.", price: 270, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 137, name: "Budweiser Premium (Bottle)", description: "330ml bottle.", price: 225, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 170 },
       // Beer draught — Mug / Pitcher / Tower (choose on add)
-      { id: 145, name: "Kingfisher Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 150, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 26, visible: true, pairWith: [], sortOrder: 145,
+      { id: 145, name: "Kingfisher Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 150, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 145,
         variants: [{ label: "Mug", price: 150 }, { label: "Pitcher", price: 650 }, { label: "Tower", price: 1200 }] },
-      { id: 146, name: "Kingfisher Ultra Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 18, visible: true, pairWith: [], sortOrder: 146,
+      { id: 146, name: "Kingfisher Ultra Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 146,
         variants: [{ label: "Mug", price: 180 }, { label: "Pitcher", price: 750 }, { label: "Tower", price: 1450 }] },
-      { id: 147, name: "Kingfisher Witbier Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 14, visible: true, pairWith: [], sortOrder: 147,
+      { id: 147, name: "Kingfisher Witbier Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 147,
         variants: [{ label: "Mug", price: 180 }, { label: "Pitcher", price: 750 }, { label: "Tower", price: 1450 }] },
-      { id: 148, name: "Heineken Silver Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 16, visible: true, pairWith: [], sortOrder: 148,
+      { id: 148, name: "Heineken Silver Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 148,
         variants: [{ label: "Mug", price: 240 }, { label: "Pitcher", price: 1000 }, { label: "Tower", price: 1900 }] },
-      { id: 149, name: "Geist Kamacitra Draught", description: "Choose Mug, Pitcher or Tower.", price: 260, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 12, visible: true, pairWith: [], sortOrder: 149,
+      { id: 149, name: "Geist Kamacitra Draught", description: "Choose Mug, Pitcher or Tower.", price: 260, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 149,
         variants: [{ label: "Mug", price: 260 }, { label: "Pitcher", price: 1050 }, { label: "Tower", price: 2000 }] },
-      { id: 150, name: "Geist Weiss Guy Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 11, visible: true, pairWith: [], sortOrder: 150,
+      { id: 150, name: "Geist Weiss Guy Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 150,
         variants: [{ label: "Mug", price: 240 }, { label: "Pitcher", price: 1000 }, { label: "Tower", price: 1900 }] },
-      { id: 151, name: "Toit Hefeweizen Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 13, visible: true, pairWith: [], sortOrder: 151,
+      { id: 151, name: "Toit Hefeweizen Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 151,
         variants: [{ label: "Mug", price: 170 }, { label: "Pitcher", price: 700 }, { label: "Tower", price: 1300 }] },
-      { id: 152, name: "Toit Basmati Blonde Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 12, visible: true, pairWith: [], sortOrder: 152,
+      { id: 152, name: "Toit Basmati Blonde Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 152,
         variants: [{ label: "Mug", price: 170 }, { label: "Pitcher", price: 700 }, { label: "Tower", price: 1300 }] },
-      { id: 153, name: "Budweiser Magnum Draught", description: "Choose Mug, Pitcher or Tower.", price: 220, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 15, visible: true, pairWith: [], sortOrder: 153,
+      { id: 153, name: "Budweiser Magnum Draught", description: "Choose Mug, Pitcher or Tower.", price: 220, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 153,
         variants: [{ label: "Mug", price: 220 }, { label: "Pitcher", price: 900 }, { label: "Tower", price: 1700 }] },
-      { id: 154, name: "Budweiser Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 200, category: "Drinks", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 17, visible: true, pairWith: [], sortOrder: 154,
+      { id: 154, name: "Budweiser Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 200, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 154,
         variants: [{ label: "Mug", price: 200 }, { label: "Pitcher", price: 850 }, { label: "Tower", price: 1600 }] },
-      { id: 138, name: "Soft Drinks", description: "Soda / soft drinks from ₹45. Mineral water ₹100.", price: 45, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 85, ordersToday: 62, visible: true, pairWith: [], sortOrder: 180 },
-      { id: 139, name: "Red Bull / Monster", description: "Energy drinks ₹185.", price: 185, category: "Drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 24, visible: true, pairWith: [], sortOrder: 190 },
-      { id: 140, name: "Old Monk", description: "Rum — choose size.", price: 45, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 33, visible: true, pairWith: [], sortOrder: 200,
+      { id: 138, name: "Soft Drinks", description: "Soda / soft drinks from ₹45. Mineral water ₹100.", price: 45, category: "Drinks", drinkType: "Soft drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 85, ordersToday: 0, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 139, name: "Red Bull / Monster", description: "Energy drinks ₹185.", price: 185, category: "Drinks", drinkType: "Soft drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 140, name: "Old Monk", description: "Rum — choose size.", price: 45, category: "Drinks", drinkType: "Rum", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 200,
         variants: [{ label: "30ml", price: 45 }, { label: "60ml", price: 85 }, { label: "750ml", price: 1070 }] },
-      { id: 141, name: "Absolut Vodka", description: "Choose size.", price: 190, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 21, visible: true, pairWith: [], sortOrder: 210,
+      { id: 141, name: "Absolut Vodka", description: "Choose size.", price: 190, category: "Drinks", drinkType: "Vodka", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 210,
         variants: [{ label: "30ml", price: 190 }, { label: "60ml", price: 380 }] },
-      { id: 142, name: "Teachers 50", description: "Choose size.", price: 190, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 62, ordersToday: 29, visible: true, pairWith: [], sortOrder: 220,
+      { id: 142, name: "Teachers 50", description: "Choose size.", price: 190, category: "Drinks", drinkType: "Whiskey", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 220,
         variants: [{ label: "30ml", price: 190 }, { label: "60ml", price: 375 }] },
-      { id: 143, name: "Black Dog 12Y", description: "Choose size.", price: 200, category: "Drinks", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 17, visible: true, pairWith: [], sortOrder: 230,
+      { id: 143, name: "Black Dog 12Y", description: "Choose size.", price: 200, category: "Drinks", drinkType: "Whiskey", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 230,
         variants: [{ label: "30ml", price: 200 }, { label: "60ml", price: 395 }] },
-      { id: 144, name: "Sula Shiraz", description: "Red wine 750ml.", price: 1395, category: "Drinks", image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 45, ordersToday: 9, visible: true, pairWith: [], sortOrder: 240 },
+      { id: 144, name: "Sula Shiraz", description: "Red wine 750ml.", price: 1395, category: "Drinks", drinkType: "Wine", image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 240 },
     ];
 
     const AI_RECOMMENDATIONS = [
@@ -382,8 +551,8 @@
 
     const CATEGORIES = ["All", "Appetisers", "Mains", "Drinks", "Pizza & Pasta", "Rice & Breads", "Desserts", "Seafood"];
     const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
+    const DRINK_TYPES = ["All drinks", "Signature", "Cocktails", "Shooters", "Beer", "Whiskey", "Vodka", "Rum", "Wine", "Mocktails", "Soft drinks"];
     const STAFF_PIN = "1234";
-    const FEATURED_DRINK = INITIAL_DISHES.find(d => d.id === 120);
     const CUSTOMER_VISIBLE_TAGS = ["Trending", "Chef Special", "Most Ordered", "Peak Feature", "Test Copy"];
 
     const loadState = (key, fallback) => {
@@ -413,6 +582,7 @@
       plus: <><path d="M5 12h14"/><path d="M12 5v14"/></>,
       minus: <path d="M5 12h14" />,
       trash: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
+      "refresh-cw": <><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>,
     };
     const Icon = ({ name, size = 20, className = "" }) => (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -442,7 +612,7 @@
       }, [onDone]);
       // Top-center so it never covers the floating cart button at bottom
       return (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] animate-fade-up px-4 w-full max-w-sm" role="status" aria-live="polite">
+        <div className="toast-host fixed animate-fade-up" role="status" aria-live="polite">
           <div className="glass-strong rounded-xl shadow-float overflow-hidden">
             <div className="px-4 py-3 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-champagne/20 flex items-center justify-center flex-shrink-0">
@@ -548,33 +718,6 @@
       );
     };
 
-    const DrinkPopup = ({ drink, onAdd, onDismiss }) => {
-      if (!drink) return null;
-      return (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-obsidian/70 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <div className="glass-strong rounded-2xl max-w-md w-full overflow-hidden shadow-float border border-champagne/25 animate-scale-in">
-            <div className="h-1 bg-gradient-to-r from-transparent via-champagne to-transparent" />
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="tag-trending text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full">Featured</span>
-                <span className="text-champagne text-xs tracking-widest uppercase font-medium">Signature Cocktail</span>
-              </div>
-
-              <h3 className="font-display text-2xl text-off-white">{drink.name}</h3>
-              <p className="mt-2 text-sage text-sm leading-relaxed">{drink.description}</p>
-              <p className="mt-3 font-semibold text-champagne text-lg">{formatPrice(drink.price)}</p>
-              <div className="mt-5 flex flex-col gap-2.5">
-                <button onClick={() => onAdd(drink)}
-                  className="w-full py-3.5 rounded-xl bg-champagne text-obsidian font-semibold text-sm hover:bg-champagne-deep transition-all shadow-glow-sm animate-pulse-gold">
-                  Add to Session for {formatPrice(drink.price)}
-                </button>
-                <button onClick={onDismiss} className="w-full py-2.5 text-sage text-sm hover:text-off-white transition">No thanks, I'll pass</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    };
 
     const MenuCard = ({ dish, onAdd, onPair, sessionItems, index }) => {
       const qty = sessionItems.filter(i => i.id === dish.id).reduce((s, i) => s + i.qty, 0);
@@ -584,7 +727,7 @@
         ? `from ${formatPrice(Math.min(...dish.variants.map(v => v.price)))}`
         : formatPrice(dish.price);
       return (
-        <div className="menu-card glass rounded-2xl overflow-hidden group cat-enter" style={{ animationDelay: `${Math.min(index * 40, 200)}ms` }}>
+        <div className="menu-card glass rounded-2xl overflow-hidden group cat-enter iphone-modal" style={{ animationDelay: `${Math.min(index * 40, 200)}ms` }}>
           <div className="p-5">
             <div className="flex flex-wrap gap-1.5 mb-3">
               {dish.tags.filter(t => CUSTOMER_VISIBLE_TAGS.includes(t)).map(t => <Tag key={t} label={t} />)}
@@ -758,13 +901,14 @@
       const [gateOtp, setGateOtp] = useState("");
       const [otpSent, setOtpSent] = useState(false);
       const [otpCode, setOtpCode] = useState("");
+      const [verifyMode, setVerifyMode] = useState("pin");
+      const [gatePin, setGatePin] = useState(pinFromQr || "");
       const pendingPlace = useRef(null);
       const [dietFilter, setDietFilter] = useState("All Diets");
+      const [drinkTypeFilter, setDrinkTypeFilter] = useState("All drinks");
       const [search, setSearch] = useState("");
       const [pairingDish, setPairingDish] = useState(null);
       const [variantDish, setVariantDish] = useState(null);
-      const [showDrinkAd, setShowDrinkAd] = useState(false);
-      const [drinkAdShown, setDrinkAdShown] = useState(false);
       const [cartOpen, setCartOpen] = useState(false);
       const [badgePulse, setBadgePulse] = useState(false);
       // Filters scroll away naturally (not sticky) — only search bar sticks. No JS collapse = no glitch.
@@ -772,23 +916,25 @@
       const filtered = useMemo(() => {
         let list = dishes.filter(d => d.visible);
         if (filter !== "All") list = list.filter(d => d.category === filter);
-        if (dietFilter === "Vegetarian") list = list.filter(d => d.diet?.includes("Vegetarian"));
-        else if (dietFilter === "Non-Veg") list = list.filter(d => !d.diet?.includes("Vegetarian") && d.category !== "Drinks");
+        if (filter === "Drinks") {
+          if (drinkTypeFilter && drinkTypeFilter !== "All drinks") {
+            list = list.filter(d => d.drinkType === drinkTypeFilter);
+          }
+        } else {
+          if (dietFilter === "Vegetarian") list = list.filter(d => d.diet?.includes("Vegetarian"));
+          else if (dietFilter === "Non-Veg") list = list.filter(d => !d.diet?.includes("Vegetarian") && d.category !== "Drinks");
+        }
         if (search.trim()) {
           const q = search.toLowerCase();
           // Name only — no description
           list = list.filter(d => d.name.toLowerCase().includes(q));
         }
         return [...list].sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
-      }, [dishes, filter, dietFilter, search]);
+      }, [dishes, filter, dietFilter, drinkTypeFilter, search]);
 
       const total = sessionItems.reduce((s, i) => s + i.price * i.qty, 0);
       const itemCount = sessionItems.reduce((s, i) => s + i.qty, 0);
 
-      const triggerDrinkAd = useCallback(() => {
-        if (drinkAdShown) return;
-        setTimeout(() => { setShowDrinkAd(true); setDrinkAdShown(true); }, 4000);
-      }, [drinkAdShown]);
 
       const addToSession = (item) => {
         // item may include variantLabel + price override
@@ -803,7 +949,6 @@
         const label = item.variantLabel ? `${item.name} (${item.variantLabel})` : item.name;
         showToast(`${label} added`);
         const newTotal = total + item.price;
-        if ((item.category === "Mains" || newTotal >= 500) && !drinkAdShown) triggerDrinkAd();
       };
 
       const handleAdd = (dish) => {
@@ -825,10 +970,8 @@
         setVariantDish(null);
       };
 
-      const handleDrinkAdd = (drink) => { handleAdd(drink); setShowDrinkAd(false); };
-
       return (
-        <div className="min-h-screen ambient-bg pb-28">
+        <div className="min-h-screen ambient-bg pb-32" style={{ paddingBottom: "max(8rem, calc(env(safe-area-inset-bottom) + 6rem))" }}>
           <header className="relative pt-10 pb-10 px-4 overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(224,184,115,0.1)_0%,_transparent_55%)]" />
             <div className="relative max-w-5xl mx-auto text-center">
@@ -852,7 +995,7 @@
 
           {/* Sticky: search always; categories + diets collapse on scroll down */}
           {/* Only search sticks — category/diet scroll away with the page (no JS hide = no glitch) */}
-          <div className="sticky top-0 z-40 glass border-y border-champagne/10" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="sticky top-0 z-40 glass border-y border-champagne/10 sticky-search">
             <div className="max-w-6xl mx-auto px-4 py-3">
               <div className="relative">
                 <Icon name="search" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sage pointer-events-none" aria-hidden="true" />
@@ -865,43 +1008,39 @@
           <div className="max-w-6xl mx-auto px-4 pt-3 pb-1 space-y-2">
             <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
               {CATEGORIES.map(cat => (
-                <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => setFilter(cat)}
+                <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => { setFilter(cat); if (cat === "Drinks") setDietFilter("All Diets"); else setDrinkTypeFilter("All drinks"); }}
                   className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
                     filter === cat ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
                   }`}>{cat}</button>
               ))}
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Dietary filters">
-              {DIET_FILTERS.map(d => (
-                <button key={d} aria-pressed={dietFilter === d} onClick={() => setDietFilter(d)}
-                  className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
-                    dietFilter === d ? "bg-emerald/40 text-champagne border border-champagne/30" : "text-sage border border-transparent hover:border-champagne/20"
-                  }`}>{d}</button>
-              ))}
-            </div>
+            {filter === "Drinks" ? (
+              <div className="flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Drink types">
+                {DRINK_TYPES.map(d => (
+                  <button key={d} aria-pressed={drinkTypeFilter === d} onClick={() => setDrinkTypeFilter(d)}
+                    className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                      drinkTypeFilter === d ? "bg-champagne/20 text-champagne border border-champagne/40" : "text-sage border border-transparent hover:border-champagne/20"
+                    }`}>{d}</button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Dietary filters">
+                {DIET_FILTERS.map(d => (
+                  <button key={d} aria-pressed={dietFilter === d} onClick={() => setDietFilter(d)}
+                    className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                      dietFilter === d ? "bg-emerald/40 text-champagne border border-champagne/30" : "text-sage border border-transparent hover:border-champagne/20"
+                    }`}>{d}</button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {!drinkAdShown && (
-            <div className="max-w-6xl mx-auto px-4 pt-5">
-              <button onClick={() => { setShowDrinkAd(true); setDrinkAdShown(true); }}
-                className="w-full glass rounded-xl px-5 py-3.5 flex items-center justify-between gap-4 border border-champagne/20 hover:border-champagne/40 transition group">
-                <div className="flex items-center gap-3">
-                  <Icon name="wine" size={20} className="text-champagne" />
-                  <span className="text-sm text-off-white">
-                    <span className="text-champagne font-medium">Signature Cocktail</span>
-                    <span className="text-sage"> — Try Temple Run</span>
-                  </span>
-                </div>
-                <span className="text-xs text-champagne group-hover:underline">View →</span>
-              </button>
-            </div>
-          )}
 
           <main className="max-w-6xl mx-auto px-4 py-8">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-sage">{filtered.length} dish{filtered.length !== 1 ? "es" : ""}</p>
-              {(search || dietFilter !== "All Diets" || filter !== "All") && (
-                <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); }} className="text-xs text-champagne hover:underline">Clear filters</button>
+              {(search || dietFilter !== "All Diets" || drinkTypeFilter !== "All drinks" || filter !== "All") && (
+                <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); setDrinkTypeFilter("All drinks"); }} className="text-xs text-champagne hover:underline">Clear filters</button>
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" key={`${filter}-${dietFilter}-${search}`}>
@@ -919,9 +1058,9 @@
           </main>
 
           {itemCount > 0 && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+            <div className="session-fab fixed z-40">
               <button onClick={() => setCartOpen(true)}
-                className="glass-strong rounded-2xl px-6 py-4 flex items-center gap-4 shadow-float border border-champagne/20 hover:border-champagne/40 transition">
+                className="w-full glass-strong rounded-2xl px-4 sm:px-6 py-3.5 flex items-center gap-3 sm:gap-4 shadow-float border border-champagne/20 hover:border-champagne/40 transition min-w-0">
                 <div className="relative">
                   <div className={`w-9 h-9 rounded-full bg-champagne/20 flex items-center justify-center ${badgePulse ? "animate-bounce-soft" : ""}`}>
                     <Icon name="shopping-bag" size={16} className="text-champagne" />
@@ -951,49 +1090,98 @@
 
           {showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-obsidian/80 backdrop-blur-sm" role="dialog" aria-modal="true">
-              <div className="glass-strong rounded-2xl max-w-md w-full p-6 shadow-float border border-champagne/20 animate-scale-in">
+              <div className="glass-strong rounded-2xl max-w-md w-full p-6 shadow-float border border-champagne/20 animate-scale-in iphone-modal">
                 <h3 className="font-display text-2xl text-off-white mb-1">Verify to order</h3>
-                <p className="text-sage text-sm mb-4">Name & mobile required so staff can reach you. Stops random table spam.</p>
+                <p className="text-sage text-sm mb-4">Choose how to unlock ordering for this table.</p>
                 {!otpSent ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs uppercase tracking-wider text-sage">Your name *</label>
-                      <input value={gateName} onChange={e => setGateName(e.target.value)}
-                        className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Full name" />
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setVerifyMode("pin")}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "pin" ? "bg-champagne text-obsidian border-champagne" : "border-champagne/25 text-sage"}`}>
+                        Table PIN
+                      </button>
+                      <button type="button" onClick={() => setVerifyMode("otp")}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "otp" ? "bg-champagne text-obsidian border-champagne" : "border-champagne/25 text-sage"}`}>
+                        Name + OTP
+                      </button>
                     </div>
-                    <div>
-                      <label className="text-xs uppercase tracking-wider text-sage">Mobile (WhatsApp / SMS) *</label>
-                      <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
-                        className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="10-digit number" />
-                    </div>
-                    <p className="text-sage/60 text-[11px]">We verify mobile so only real guests order. (Demo OTP appears on the next screen — live WhatsApp/SMS needs Twilio later.)</p>
-                    <button type="button" onClick={() => {
-                      if (!gateName.trim() || gatePhone.replace(/\D/g,"").length < 10) { showToast("Enter name and valid mobile"); return; }
-                      // Table PIN check if staff set one
-                      const needPin = tablePins && tableFromQr && tablePins[String(tableFromQr)];
-                      if (needPin && pinFromQr !== needPin && !(window.__ayraPinOk)) {
-                        const entered = window.prompt("Enter table access PIN (on your QR card / from waiter):", pinFromQr || "");
-                        if (entered !== needPin) { showToast("Wrong table PIN"); return; }
-                        window.__ayraPinOk = true;
-                      }
-                      const code = String(Math.floor(100000 + Math.random() * 900000));
-                      setOtpCode(code);
-                      setOtpSent(true);
-                    }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Send OTP</button>
+
+                    {verifyMode === "pin" ? (
+                      <div className="space-y-3">
+                        <p className="text-sage text-xs">Ask your waiter for the table PIN, or use the code printed with the table QR.</p>
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Table PIN *</label>
+                          <input value={gatePin} onChange={e => setGatePin(e.target.value)} inputMode="numeric" maxLength={8}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••" />
+                        </div>
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Your name (optional)</label>
+                          <input value={gateName} onChange={e => setGateName(e.target.value)}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Name for the bill" />
+                        </div>
+                        <button type="button" onClick={() => {
+                          const tableKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "").trim();
+                          const expected = (tablePins && tableKey && tablePins[tableKey]) || "";
+                          if (!expected) {
+                            showToast("No PIN set for this table — ask staff, or use Name + OTP");
+                            return;
+                          }
+                          if (gatePin.trim() !== String(expected)) {
+                            showToast("Wrong table PIN");
+                            return;
+                          }
+                          const g = { name: gateName.trim() || "Guest", phone: "", method: "pin" };
+                          try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
+                          setGuest(g);
+                          setShowGuestGate(false);
+                          setGatePin("");
+                          if (pendingPlace.current) {
+                            const { items, tableLabel } = pendingPlace.current;
+                            pendingPlace.current = null;
+                            onPlaceOrder(items, tableLabel, g);
+                            setSessionItems([]);
+                            setCartOpen(false);
+                            showToast("Order sent — Table " + tableLabel);
+                          } else {
+                            showToast("Table verified — you can order");
+                          }
+                        }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify with PIN</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Your name *</label>
+                          <input value={gateName} onChange={e => setGateName(e.target.value)}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Full name" />
+                        </div>
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Mobile *</label>
+                          <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="10-digit number" />
+                        </div>
+                        <p className="text-sage/60 text-[11px]">Demo OTP is shown on the next screen. Real SMS/WhatsApp can be added later.</p>
+                        <button type="button" onClick={() => {
+                          if (!gateName.trim() || gatePhone.replace(/\D/g,"").length < 10) { showToast("Enter name and valid mobile"); return; }
+                          const code = String(Math.floor(100000 + Math.random() * 900000));
+                          setOtpCode(code);
+                          setOtpSent(true);
+                        }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Send OTP</button>
+                      </div>
+                    )}
                     <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-sage text-sm">Cancel</button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-sage">Enter the 6-digit code for {gatePhone}</p>
                     <div className="rounded-xl bg-champagne/10 border border-champagne/30 px-4 py-3 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-sage mb-1">Demo OTP (would arrive on WhatsApp/SMS)</p>
+                      <p className="text-[10px] uppercase tracking-wider text-sage mb-1">Demo OTP</p>
                       <p className="text-2xl font-semibold text-champagne tracking-[0.3em]">{otpCode}</p>
                     </div>
                     <input value={gateOtp} onChange={e => setGateOtp(e.target.value)} inputMode="numeric" maxLength={6}
                       className="w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••••" />
                     <button type="button" onClick={() => {
                       if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
-                      const g = { name: gateName.trim(), phone: gatePhone.trim() };
+                      const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
                       try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
                       setGuest(g);
                       setShowGuestGate(false);
@@ -1001,24 +1189,23 @@
                       setGateOtp("");
                       if (pendingPlace.current) {
                         const { items, tableLabel } = pendingPlace.current;
+                        pendingPlace.current = null;
                         onPlaceOrder(items, tableLabel, g);
                         setSessionItems([]);
                         setCartOpen(false);
                         showToast("Order sent — Table " + tableLabel);
-                        pendingPlace.current = null;
                       } else {
                         showToast("Verified — you can place orders now");
                       }
                     }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify & place order</button>
-                    <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-sage text-sm">Resend / change number</button>
+                    <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-sage text-sm">Back</button>
                   </div>
                 )}
               </div>
             </div>
           )}
-          {pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
+{pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
           {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
-          {showDrinkAd && <DrinkPopup drink={FEATURED_DRINK} onAdd={handleDrinkAdd} onDismiss={() => setShowDrinkAd(false)} />}
 
           <footer className="border-t border-champagne/10 mt-16 py-10 px-4">
             <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
@@ -1108,7 +1295,7 @@
       delivered: "bg-champagne/20 text-champagne border-champagne/40",
     }[s] || "bg-surface text-sage");
 
-    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset }) => {
+    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders }) => {
       const [editingDish, setEditingDish] = useState(null);
       const [staffTab, setStaffTab] = useState("live"); // live | menu | insights
       const totalOrders = dishes.reduce((s, d) => s + d.ordersToday, 0);
@@ -1237,7 +1424,13 @@
               <section>
                 <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
                   <h2 className="font-display text-2xl text-off-white">Live Tables</h2>
-                  <p className="text-sage text-sm">{liveOrders.length} order{liveOrders.length !== 1 ? "s" : ""} on board</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sage text-sm">{liveOrders.length} table{liveOrders.length !== 1 ? "s" : ""}</p>
+                    <button type="button" onClick={() => { if (onRefreshOrders) onRefreshOrders(); }}
+                      className="px-3 py-2 rounded-xl border border-champagne/30 text-champagne text-xs font-semibold hover:bg-champagne/10 transition flex items-center gap-1.5">
+                      <Icon name="refresh-cw" size={14} /> Refresh
+                    </button>
+                  </div>
                 </div>
                 <div className="glass rounded-2xl p-4 border border-champagne/10 mb-6 space-y-3">
                   <p className="text-sm text-off-white font-medium">Table QR + access PIN</p>
@@ -1545,11 +1738,144 @@
       } catch { return ""; }
     }
 
+    
+    const DEVICE_PRESETS = {
+      pro: { label: "iPhone 15 Pro", w: 393, h: 852 },
+      proMax: { label: "iPhone 15 Pro Max", w: 430, h: 932 },
+      full: { label: "Full Screen", w: null, h: null },
+    };
+
+    function runMobileAudit(rootEl) {
+      const issues = [];
+      const vw = rootEl.clientWidth || window.innerWidth;
+      const vh = rootEl.clientHeight || window.innerHeight;
+      const nodes = rootEl.querySelectorAll("button, a, input, .menu-card, .session-fab, .toast-host, .cart-drawer, [role='dialog']");
+      nodes.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const rootR = rootEl.getBoundingClientRect();
+        // relative to root when framed
+        const left = r.left - rootR.left;
+        const right = r.right - rootR.left;
+        const top = r.top - rootR.top;
+        const bottom = r.bottom - rootR.top;
+        if (r.width > 0 && (left < -2 || right > vw + 2)) {
+          issues.push({ type: "overflow-x", el: el.tagName + (el.className ? "." + String(el.className).split(" ")[0] : ""), detail: `x ${Math.round(left)}…${Math.round(right)} vs ${vw}` });
+        }
+        if (el.classList && el.classList.contains("session-fab")) {
+          const safeBottom = 12;
+          if (bottom > vh - safeBottom + 4) {
+            issues.push({ type: "fab-home-indicator", el: "session-fab", detail: `bottom ${Math.round(bottom)} vs vh ${vh}` });
+          }
+        }
+      });
+      // horizontal page scroll check
+      if (rootEl.scrollWidth > rootEl.clientWidth + 2) {
+        issues.push({ type: "page-scroll-x", el: "root", detail: `scrollWidth ${rootEl.scrollWidth} > ${rootEl.clientWidth}` });
+      }
+      return issues;
+    }
+
+    const DeviceShell = ({ children }) => {
+      const isRealPhone = typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches;
+      const [mode, setMode] = useState(isRealPhone ? "full" : "pro");
+      const [auditLog, setAuditLog] = useState(null);
+      const [auditing, setAuditing] = useState(false);
+      const frameRef = useRef(null);
+      const preset = DEVICE_PRESETS[mode] || DEVICE_PRESETS.full;
+
+      const runAudit = async () => {
+        setAuditing(true);
+        setAuditLog([{ msg: "Running audit…", ok: true }]);
+        const root = frameRef.current || document.getElementById("root");
+        const logs = [];
+        try {
+          // scroll categories
+          const cats = ["All", "Appetisers", "Mains", "Drinks", "Pizza & Pasta", "Desserts", "Seafood"];
+          for (const c of cats) {
+            const btn = [...root.querySelectorAll("button")].find(b => b.textContent.trim() === c);
+            if (btn) {
+              btn.click();
+              await new Promise(r => setTimeout(r, 180));
+            }
+          }
+          // open cart if session visible
+          const session = [...root.querySelectorAll("button")].find(b => /Session|View/.test(b.textContent));
+          if (session) {
+            session.click();
+            await new Promise(r => setTimeout(r, 300));
+            const close = root.querySelector('[aria-label="Close cart"]');
+            if (close) close.click();
+            await new Promise(r => setTimeout(r, 150));
+          }
+          const issues = runMobileAudit(root);
+          if (issues.length === 0) {
+            logs.push({ msg: "PASS — no horizontal overflow or FAB clipping detected", ok: true });
+          } else {
+            logs.push({ msg: `FAIL — ${issues.length} issue(s)`, ok: false });
+            issues.slice(0, 12).forEach(i => logs.push({ msg: `${i.type}: ${i.el} (${i.detail})`, ok: false }));
+          }
+          logs.push({ msg: `Viewport under test: ${root.clientWidth}×${root.clientHeight}`, ok: true });
+        } catch (e) {
+          logs.push({ msg: "Audit error: " + (e.message || String(e)), ok: false });
+        }
+        setAuditLog(logs);
+        setAuditing(false);
+      };
+
+      return (
+        <div className="device-shell">
+          <div className="device-toolbar">
+            {Object.entries(DEVICE_PRESETS).map(([key, val]) => (
+              <button key={key} type="button" className={mode === key ? "active" : ""} onClick={() => setMode(key)}>
+                {val.label}
+              </button>
+            ))}
+            <button type="button" className={auditing ? "active" : ""} onClick={runAudit} disabled={auditing}>
+              {auditing ? "Auditing…" : "Auto-Test Frame"}
+            </button>
+          </div>
+          <div className="device-frame-outer">
+            <div
+              className={`device-frame ${mode === "full" ? "full" : ""}`}
+              style={mode === "full" ? undefined : { width: preset.w, height: preset.h }}
+            >
+              <div className="device-frame-inner" ref={frameRef} id="ayra-frame-root">
+                {children}
+              </div>
+            </div>
+          </div>
+          {auditLog && (
+            <div className="audit-panel" role="status">
+              <div className="flex justify-between items-center mb-2">
+                <strong className="text-champagne">Frame audit</strong>
+                <button type="button" onClick={() => setAuditLog(null)} style={{ border: "none", background: "transparent", color: "#92A39B", cursor: "pointer" }}>Close</button>
+              </div>
+              {auditLog.map((l, i) => (
+                <div key={i} className={l.ok ? "audit-pass" : "audit-fail"}>{l.ok ? "✓" : "✗"} {l.msg}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+
     function App() {
       const [view, setView] = useState("customer");
       const [staffAuth, setStaffAuth] = useState(false);
       const [showPin, setShowPin] = useState(false);
-      const [dishes, setDishes] = useState(() => loadState("ayra_dishes", INITIAL_DISHES));
+      const [dishes, setDishes] = useState(() => {
+        const loaded = loadState("ayra_dishes", null);
+        if (!loaded) return INITIAL_DISHES;
+        // Keep menu edits but start order counters at 0 unless already tracking live day
+        // User requested no preloaded stats — zero counters on first load after update
+        const wiped = sessionStorage.getItem("ayra_stats_wiped");
+        if (!wiped) {
+          try { sessionStorage.setItem("ayra_stats_wiped", "1"); } catch {}
+          return loaded.map(d => ({ ...d, ordersToday: 0 }));
+        }
+        return loaded;
+      });
       const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
       const [sessionItems, setSessionItems] = useState([]);
       const [liveOrders, setLiveOrders] = useState(() => {
@@ -1591,6 +1917,35 @@
       useEffect(() => { saveState("ayra_table_pins", tablePins); }, [tablePins]);
 
       const showToast = useCallback((msg) => setToast(msg), []);
+
+      const refreshOrders = useCallback(() => {
+        const raw = loadState("ayra_orders", []);
+        const byTable = {};
+        for (const o of (raw || [])) {
+          if (o.rounds) {
+            const k = String(o.table);
+            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
+            byTable[k].rounds = [...(byTable[k].rounds || []), ...(o.rounds || [])];
+            if (o.guestName) byTable[k].guestName = o.guestName;
+            if (o.guestPhone) byTable[k].guestPhone = o.guestPhone;
+          } else {
+            const k = String(o.table);
+            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
+            byTable[k].rounds.push({
+              id: o.id || ("R-" + Date.now()),
+              status: o.status || "new",
+              items: o.items || [],
+              total: o.total || 0,
+              createdAt: o.createdAt || new Date().toISOString(),
+            });
+          }
+        }
+        setLiveOrders(Object.values(byTable).map(s => ({
+          ...s,
+          rounds: (s.rounds || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        })));
+        showToast("Orders refreshed");
+      }, [showToast]);
 
       const placeOrder = useCallback((items, tableLabel, guest) => {
         const round = {
@@ -1706,7 +2061,7 @@
             <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
               liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
               tablePins={tablePins} setTablePins={setTablePins}
-              onLogout={handleLogout} showToast={showToast} onReset={resetDemo} />
+              onLogout={handleLogout} showToast={showToast} onReset={resetDemo} onRefreshOrders={refreshOrders} />
           )}
           {showPin && <PinModal onSuccess={handlePinSuccess} onClose={() => setShowPin(false)} />}
           {toast && <Toast message={toast} onDone={() => setToast(null)} />}
@@ -1714,7 +2069,11 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <DeviceShell>
+        <App />
+      </DeviceShell>
+    );
   </script>
 </body>
 </html>
