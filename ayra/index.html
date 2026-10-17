@@ -893,7 +893,9 @@
       const [filter, setFilter] = useState("All");
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
       const [guest, setGuest] = useState(() => {
-        try { return JSON.parse(sessionStorage.getItem("ayra_guest") || "null"); } catch { return null; }
+        try {
+          return JSON.parse(sessionStorage.getItem("ayra_guest") || localStorage.getItem("ayra_guest") || "null");
+        } catch { return null; }
       });
       const [showGuestGate, setShowGuestGate] = useState(false);
       const [gateName, setGateName] = useState("");
@@ -918,7 +920,10 @@
         if (filter !== "All") list = list.filter(d => d.category === filter);
         if (filter === "Drinks") {
           if (drinkTypeFilter && drinkTypeFilter !== "All drinks") {
-            list = list.filter(d => d.drinkType === drinkTypeFilter);
+            list = list.filter(d => {
+              const dt = d.drinkType || (INITIAL_DISHES.find(x => x.id === d.id) || {}).drinkType;
+              return dt === drinkTypeFilter;
+            });
           }
         } else {
           if (dietFilter === "Vegetarian") list = list.filter(d => d.diet?.includes("Vegetarian"));
@@ -1078,7 +1083,8 @@
 
           <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
             onPlaceOrder={(items, tableLabel) => {
-              if (guest && guest.name && guest.phone) {
+              // Already verified this browser session (PIN or OTP) — don't ask again
+              if (guest && (guest.method === "pin" || guest.method === "otp" || (guest.name && guest.phone))) {
                 onPlaceOrder(items, tableLabel, guest);
                 return true;
               }
@@ -1131,7 +1137,7 @@
                             return;
                           }
                           const g = { name: gateName.trim() || "Guest", phone: "", method: "pin" };
-                          try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
+                          try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); localStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
                           setGuest(g);
                           setShowGuestGate(false);
                           setGatePin("");
@@ -1182,7 +1188,7 @@
                     <button type="button" onClick={() => {
                       if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
                       const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
-                      try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
+                      try { sessionStorage.setItem("ayra_guest", JSON.stringify(g)); localStorage.setItem("ayra_guest", JSON.stringify(g)); } catch {}
                       setGuest(g);
                       setShowGuestGate(false);
                       setOtpSent(false);
@@ -1300,9 +1306,30 @@
       const [staffTab, setStaffTab] = useState("live"); // live | menu | insights
       const totalOrders = dishes.reduce((s, d) => s + d.ordersToday, 0);
       const totalRevenue = dishes.reduce((s, d) => s + d.ordersToday * d.price, 0);
-      const aov = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
       const topMargin = [...dishes].sort((a, b) => b.margin - a.margin)[0];
-      const lowestConverting = [...dishes].filter(d => d.category === "Mains").sort((a, b) => a.ordersToday - b.ordersToday)[0];
+      // Per-table stats from live + counted rounds
+      const tableStats = (liveOrders || []).map(session => {
+        const rounds = session.rounds || [];
+        const bill = rounds.reduce((s, r) => s + (r.total || 0), 0);
+        let drinks = 0, desserts = 0;
+        rounds.forEach(r => (r.items || []).forEach(it => {
+          const dish = dishes.find(d => d.id === it.id);
+          const cat = dish?.category || "";
+          const qty = it.qty || 1;
+          if (cat === "Drinks") drinks += qty;
+          if (cat === "Desserts") desserts += qty;
+        }));
+        return { table: session.table, bill, drinks, desserts };
+      });
+      const avgTableBill = tableStats.length
+        ? Math.round(tableStats.reduce((s, t) => s + t.bill, 0) / tableStats.length)
+        : 0;
+      const drinksPerTable = tableStats.length
+        ? (tableStats.reduce((s, t) => s + t.drinks, 0) / tableStats.length)
+        : 0;
+      const dessertsPerTable = tableStats.length
+        ? (tableStats.reduce((s, t) => s + t.desserts, 0) / tableStats.length)
+        : 0;
 
       const handleRecAction = (rec, action) => {
         setRecommendations(prev => {
@@ -1543,9 +1570,9 @@
             <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: "Orders Today", value: totalOrders, icon: "shopping-bag", sub: liveOrders.length ? `${liveOrders.length} live tables` : null },
-                { label: "Avg Order Value", value: formatPrice(aov), icon: "dollar-sign" },
-                { label: "Top Margin Item", value: topMargin?.name || "—", icon: "trending-up", sub: topMargin ? `${topMargin.margin}% margin` : null },
-                { label: "Lowest Converter", value: lowestConverting?.name || "—", icon: "alert-triangle", sub: lowestConverting ? `${lowestConverting.ordersToday} orders` : null },
+                { label: "Avg table bill", value: formatPrice(avgTableBill), icon: "dollar-sign", sub: tableStats.length ? `across ${tableStats.length} open table${tableStats.length !== 1 ? "s" : ""}` : "No open tables" },
+                { label: "Drinks / table", value: tableStats.length ? (Math.round(drinksPerTable * 10) / 10) : "0", icon: "wine", sub: "Avg drinks ordered per open table" },
+                { label: "Desserts / table", value: tableStats.length ? (Math.round(dessertsPerTable * 10) / 10) : "0", icon: "cake", sub: "Avg desserts ordered per open table" },
               ].map((kpi, i) => (
                 <div key={i} className="glass rounded-2xl p-5 border border-champagne/8">
                   <div className="flex items-center justify-between mb-3">
@@ -1739,142 +1766,29 @@
     }
 
     
-    const DEVICE_PRESETS = {
-      pro: { label: "iPhone 15 Pro", w: 393, h: 852 },
-      proMax: { label: "iPhone 15 Pro Max", w: 430, h: 932 },
-      full: { label: "Full Screen", w: null, h: null },
-    };
-
-    function runMobileAudit(rootEl) {
-      const issues = [];
-      const vw = rootEl.clientWidth || window.innerWidth;
-      const vh = rootEl.clientHeight || window.innerHeight;
-      const nodes = rootEl.querySelectorAll("button, a, input, .menu-card, .session-fab, .toast-host, .cart-drawer, [role='dialog']");
-      nodes.forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        const rootR = rootEl.getBoundingClientRect();
-        // relative to root when framed
-        const left = r.left - rootR.left;
-        const right = r.right - rootR.left;
-        const top = r.top - rootR.top;
-        const bottom = r.bottom - rootR.top;
-        if (r.width > 0 && (left < -2 || right > vw + 2)) {
-          issues.push({ type: "overflow-x", el: el.tagName + (el.className ? "." + String(el.className).split(" ")[0] : ""), detail: `x ${Math.round(left)}…${Math.round(right)} vs ${vw}` });
-        }
-        if (el.classList && el.classList.contains("session-fab")) {
-          const safeBottom = 12;
-          if (bottom > vh - safeBottom + 4) {
-            issues.push({ type: "fab-home-indicator", el: "session-fab", detail: `bottom ${Math.round(bottom)} vs vh ${vh}` });
-          }
-        }
-      });
-      // horizontal page scroll check
-      if (rootEl.scrollWidth > rootEl.clientWidth + 2) {
-        issues.push({ type: "page-scroll-x", el: "root", detail: `scrollWidth ${rootEl.scrollWidth} > ${rootEl.clientWidth}` });
-      }
-      return issues;
-    }
-
-    const DeviceShell = ({ children }) => {
-      const isRealPhone = typeof window !== "undefined" && window.matchMedia("(max-width: 480px)").matches;
-      const [mode, setMode] = useState(isRealPhone ? "full" : "pro");
-      const [auditLog, setAuditLog] = useState(null);
-      const [auditing, setAuditing] = useState(false);
-      const frameRef = useRef(null);
-      const preset = DEVICE_PRESETS[mode] || DEVICE_PRESETS.full;
-
-      const runAudit = async () => {
-        setAuditing(true);
-        setAuditLog([{ msg: "Running audit…", ok: true }]);
-        const root = frameRef.current || document.getElementById("root");
-        const logs = [];
-        try {
-          // scroll categories
-          const cats = ["All", "Appetisers", "Mains", "Drinks", "Pizza & Pasta", "Desserts", "Seafood"];
-          for (const c of cats) {
-            const btn = [...root.querySelectorAll("button")].find(b => b.textContent.trim() === c);
-            if (btn) {
-              btn.click();
-              await new Promise(r => setTimeout(r, 180));
-            }
-          }
-          // open cart if session visible
-          const session = [...root.querySelectorAll("button")].find(b => /Session|View/.test(b.textContent));
-          if (session) {
-            session.click();
-            await new Promise(r => setTimeout(r, 300));
-            const close = root.querySelector('[aria-label="Close cart"]');
-            if (close) close.click();
-            await new Promise(r => setTimeout(r, 150));
-          }
-          const issues = runMobileAudit(root);
-          if (issues.length === 0) {
-            logs.push({ msg: "PASS — no horizontal overflow or FAB clipping detected", ok: true });
-          } else {
-            logs.push({ msg: `FAIL — ${issues.length} issue(s)`, ok: false });
-            issues.slice(0, 12).forEach(i => logs.push({ msg: `${i.type}: ${i.el} (${i.detail})`, ok: false }));
-          }
-          logs.push({ msg: `Viewport under test: ${root.clientWidth}×${root.clientHeight}`, ok: true });
-        } catch (e) {
-          logs.push({ msg: "Audit error: " + (e.message || String(e)), ok: false });
-        }
-        setAuditLog(logs);
-        setAuditing(false);
-      };
-
-      return (
-        <div className="device-shell">
-          <div className="device-toolbar">
-            {Object.entries(DEVICE_PRESETS).map(([key, val]) => (
-              <button key={key} type="button" className={mode === key ? "active" : ""} onClick={() => setMode(key)}>
-                {val.label}
-              </button>
-            ))}
-            <button type="button" className={auditing ? "active" : ""} onClick={runAudit} disabled={auditing}>
-              {auditing ? "Auditing…" : "Auto-Test Frame"}
-            </button>
-          </div>
-          <div className="device-frame-outer">
-            <div
-              className={`device-frame ${mode === "full" ? "full" : ""}`}
-              style={mode === "full" ? undefined : { width: preset.w, height: preset.h }}
-            >
-              <div className="device-frame-inner" ref={frameRef} id="ayra-frame-root">
-                {children}
-              </div>
-            </div>
-          </div>
-          {auditLog && (
-            <div className="audit-panel" role="status">
-              <div className="flex justify-between items-center mb-2">
-                <strong className="text-champagne">Frame audit</strong>
-                <button type="button" onClick={() => setAuditLog(null)} style={{ border: "none", background: "transparent", color: "#92A39B", cursor: "pointer" }}>Close</button>
-              </div>
-              {auditLog.map((l, i) => (
-                <div key={i} className={l.ok ? "audit-pass" : "audit-fail"}>{l.ok ? "✓" : "✗"} {l.msg}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    };
-
-
     function App() {
       const [view, setView] = useState("customer");
       const [staffAuth, setStaffAuth] = useState(false);
       const [showPin, setShowPin] = useState(false);
       const [dishes, setDishes] = useState(() => {
+        const byId = Object.fromEntries(INITIAL_DISHES.map(d => [d.id, d]));
         const loaded = loadState("ayra_dishes", null);
+        const merge = (list) => list.map(d => {
+          const base = byId[d.id];
+          return {
+            ...d,
+            drinkType: d.drinkType || (base && base.drinkType) || undefined,
+            category: d.category || (base && base.category),
+            variants: d.variants || (base && base.variants),
+          };
+        });
         if (!loaded) return INITIAL_DISHES;
-        // Keep menu edits but start order counters at 0 unless already tracking live day
-        // User requested no preloaded stats — zero counters on first load after update
         const wiped = sessionStorage.getItem("ayra_stats_wiped");
         if (!wiped) {
           try { sessionStorage.setItem("ayra_stats_wiped", "1"); } catch {}
-          return loaded.map(d => ({ ...d, ordersToday: 0 }));
+          return merge(loaded.map(d => ({ ...d, ordersToday: 0 })));
         }
-        return loaded;
+        return merge(loaded);
       });
       const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
       const [sessionItems, setSessionItems] = useState([]);
@@ -1962,18 +1876,27 @@
           createdAt: new Date().toISOString(),
         };
         const tableKey = String(tableLabel).trim();
+        // New sitting after paid — clear the cleared-flag so this table is live again
+        try {
+          const cleared = JSON.parse(localStorage.getItem("ayra_cleared_tables") || "{}");
+          if (cleared[tableKey]) {
+            delete cleared[tableKey];
+            localStorage.setItem("ayra_cleared_tables", JSON.stringify(cleared));
+          }
+        } catch {}
         setLiveOrders(prev => {
-          // Migrate legacy flat orders if any
-          const normalized = prev.map(o => {
-            if (o.rounds) return o;
-            return {
-              table: o.table,
-              guestName: o.guestName || "",
-              guestPhone: o.guestPhone || "",
-              rounds: [{ id: o.id, status: o.status || "new", items: o.items || [], total: o.total || 0, createdAt: o.createdAt }],
-              createdAt: o.createdAt || new Date().toISOString(),
-            };
-          });
+          const normalized = prev
+            .filter(o => String(o.table) !== tableKey || (o.rounds && o.rounds.length))
+            .map(o => {
+              if (o.rounds) return o;
+              return {
+                table: o.table,
+                guestName: o.guestName || "",
+                guestPhone: o.guestPhone || "",
+                rounds: [{ id: o.id, status: o.status || "new", items: o.items || [], total: o.total || 0, createdAt: o.createdAt }],
+                createdAt: o.createdAt || new Date().toISOString(),
+              };
+            });
           const idx = normalized.findIndex(t => String(t.table) === tableKey);
           if (idx >= 0) {
             const copy = [...normalized];
@@ -1982,15 +1905,19 @@
             if (guest?.name) session.guestName = guest.name;
             if (guest?.phone) session.guestPhone = guest.phone;
             copy[idx] = session;
-            return copy;
+            const next = copy;
+            saveState("ayra_orders", next);
+            return next;
           }
-          return [{
+          const next = [{
             table: tableKey,
             guestName: guest?.name || "",
             guestPhone: guest?.phone || "",
             rounds: [round],
             createdAt: new Date().toISOString(),
           }, ...normalized];
+          saveState("ayra_orders", next);
+          return next;
         });
         setDishes(prev => {
           const next = prev.map(d => {
@@ -2014,7 +1941,17 @@
       }, []);
 
       const clearTable = useCallback((tableKey) => {
-        setLiveOrders(prev => prev.filter(s => String(s.table) !== String(tableKey)));
+        setLiveOrders(prev => {
+          const next = prev.filter(s => String(s.table) !== String(tableKey));
+          saveState("ayra_orders", next);
+          // Remember cleared tables so a stale refresh cannot resurrect the paid bill
+          try {
+            const cleared = JSON.parse(localStorage.getItem("ayra_cleared_tables") || "{}");
+            cleared[String(tableKey)] = Date.now();
+            localStorage.setItem("ayra_cleared_tables", JSON.stringify(cleared));
+          } catch {}
+          return next;
+        });
       }, []);
 
       const cancelRound = useCallback((tableKey, roundId) => {
@@ -2045,6 +1982,9 @@
         localStorage.removeItem("ayra_recs");
         localStorage.removeItem("ayra_orders");
         localStorage.removeItem("ayra_table_pins");
+        localStorage.removeItem("ayra_cleared_tables");
+        localStorage.removeItem("ayra_guest");
+        try { sessionStorage.removeItem("ayra_guest"); } catch {}
         setTablePins({});
         setDishes(INITIAL_DISHES);
         setRecommendations(AI_RECOMMENDATIONS);
@@ -2069,11 +2009,7 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(
-      <DeviceShell>
-        <App />
-      </DeviceShell>
-    );
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
