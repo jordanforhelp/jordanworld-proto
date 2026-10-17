@@ -1547,7 +1547,7 @@
                           </div>
 
                           <div className="space-y-3 flex-1 mb-3 max-h-72 overflow-y-auto">
-                            {rounds.map((round, ri) => {
+                            {rounds.filter(r => r.items && r.items.length).map((round, ri) => {
                               const meta = statusMeta(round.status);
                               return (
                                 <div key={round.id} className="rounded-xl bg-surface/60 border border-champagne/8 p-3">
@@ -1783,6 +1783,83 @@
       );
     };
 
+
+    const ORDER_STATUS_RANK = { new: 0, accepted: 1, cooking: 2, ready: 3, delivered: 4 };
+
+    function normalizeOrderSessions(raw) {
+      const byTable = {};
+      for (const o of (raw || [])) {
+        const k = String(o.table ?? "").trim().replace(/^0+/, "") || String(o.table ?? "").trim();
+        if (!k) continue;
+        if (!byTable[k]) {
+          byTable[k] = {
+            table: k,
+            guestName: o.guestName || "",
+            guestPhone: o.guestPhone || "",
+            rounds: [],
+            createdAt: o.createdAt || new Date().toISOString(),
+          };
+        }
+        if (o.guestName) byTable[k].guestName = o.guestName;
+        if (o.guestPhone) byTable[k].guestPhone = o.guestPhone;
+        const incoming = o.rounds
+          ? o.rounds
+          : [{
+              id: o.id || ("R-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7)),
+              status: o.status || "new",
+              items: o.items || [],
+              total: o.total || 0,
+              createdAt: o.createdAt || new Date().toISOString(),
+              updatedAt: o.updatedAt,
+            }];
+        for (const r of incoming) {
+          if (!r || !r.id) continue;
+          // Skip empty rounds
+          if (!r.items || r.items.length === 0) continue;
+          const existing = byTable[k].rounds.find(x => x.id === r.id);
+          if (!existing) {
+            byTable[k].rounds.push({
+              id: r.id,
+              status: r.status || "new",
+              items: r.items || [],
+              total: r.total || 0,
+              createdAt: r.createdAt || new Date().toISOString(),
+              updatedAt: r.updatedAt || null,
+            });
+          } else {
+            // Keep the further-along status / latest update
+            const rankNew = ORDER_STATUS_RANK[r.status] ?? 0;
+            const rankOld = ORDER_STATUS_RANK[existing.status] ?? 0;
+            const newerUpdate = (r.updatedAt && (!existing.updatedAt || r.updatedAt > existing.updatedAt));
+            if (rankNew > rankOld || (rankNew === rankOld && newerUpdate)) {
+              existing.status = r.status || existing.status;
+              existing.updatedAt = r.updatedAt || existing.updatedAt;
+              existing.items = r.items && r.items.length ? r.items : existing.items;
+              existing.total = r.total != null ? r.total : existing.total;
+            }
+          }
+        }
+        if (o.createdAt && (!byTable[k].createdAt || o.createdAt < byTable[k].createdAt)) {
+          byTable[k].createdAt = o.createdAt;
+        }
+      }
+      return Object.values(byTable)
+        .map(s => ({
+          ...s,
+          rounds: (s.rounds || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        }))
+        .filter(s => (s.rounds || []).length > 0);
+    }
+
+    function persistOrders(orders) {
+      try {
+        localStorage.setItem("ayra_orders", JSON.stringify(orders));
+      } catch (e) {
+        console.error("Failed to save orders", e);
+      }
+      return orders;
+    }
+
     function getTableFromUrl() {
       try {
         const q = new URLSearchParams(window.location.search);
@@ -1824,34 +1901,7 @@
       });
       const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
       const [sessionItems, setSessionItems] = useState([]);
-      const [liveOrders, setLiveOrders] = useState(() => {
-        const raw = loadState("ayra_orders", []);
-        // Merge legacy one-order-per-card into one session per table
-        const byTable = {};
-        for (const o of raw) {
-          if (o.rounds) {
-            const k = String(o.table);
-            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
-            byTable[k].rounds = [...(byTable[k].rounds || []), ...(o.rounds || [])];
-            if (o.guestName) byTable[k].guestName = o.guestName;
-            if (o.guestPhone) byTable[k].guestPhone = o.guestPhone;
-          } else {
-            const k = String(o.table);
-            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
-            byTable[k].rounds.push({
-              id: o.id || ("R-" + Date.now() + Math.random()),
-              status: o.status || "new",
-              items: o.items || [],
-              total: o.total || 0,
-              createdAt: o.createdAt || new Date().toISOString(),
-            });
-          }
-        }
-        return Object.values(byTable).map(s => ({
-          ...s,
-          rounds: (s.rounds || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-        }));
-      });
+      const [liveOrders, setLiveOrders] = useState(() => normalizeOrderSessions(loadState("ayra_orders", [])));
       const [tablePins, setTablePins] = useState(() => ({ ...DEFAULT_TABLE_PINS, ...loadState("ayra_table_pins", {}) }));
       const [toast, setToast] = useState(null);
       const [tableFromQr] = useState(() => getTableFromUrl());
@@ -1859,37 +1909,14 @@
 
       useEffect(() => { saveState("ayra_dishes", dishes); }, [dishes]);
       useEffect(() => { saveState("ayra_recs", recommendations); }, [recommendations]);
-      useEffect(() => { saveState("ayra_orders", liveOrders); }, [liveOrders]);
+      useEffect(() => { persistOrders(liveOrders); }, [liveOrders]);
       useEffect(() => { saveState("ayra_table_pins", tablePins); }, [tablePins]);
 
       const showToast = useCallback((msg) => setToast(msg), []);
 
       const refreshOrders = useCallback(() => {
-        const raw = loadState("ayra_orders", []);
-        const byTable = {};
-        for (const o of (raw || [])) {
-          if (o.rounds) {
-            const k = String(o.table);
-            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
-            byTable[k].rounds = [...(byTable[k].rounds || []), ...(o.rounds || [])];
-            if (o.guestName) byTable[k].guestName = o.guestName;
-            if (o.guestPhone) byTable[k].guestPhone = o.guestPhone;
-          } else {
-            const k = String(o.table);
-            if (!byTable[k]) byTable[k] = { table: k, guestName: o.guestName || "", guestPhone: o.guestPhone || "", rounds: [], createdAt: o.createdAt };
-            byTable[k].rounds.push({
-              id: o.id || ("R-" + Date.now()),
-              status: o.status || "new",
-              items: o.items || [],
-              total: o.total || 0,
-              createdAt: o.createdAt || new Date().toISOString(),
-            });
-          }
-        }
-        setLiveOrders(Object.values(byTable).map(s => ({
-          ...s,
-          rounds: (s.rounds || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-        })));
+        const next = normalizeOrderSessions(loadState("ayra_orders", []));
+        setLiveOrders(next);
         showToast("Orders refreshed");
       }, [showToast]);
 
@@ -1938,7 +1965,7 @@
             if (guest?.phone) session.guestPhone = guest.phone;
             copy[idx] = session;
             const next = copy;
-            saveState("ayra_orders", next);
+            persistOrders(next);
             return next;
           }
           const next = [{
@@ -1948,7 +1975,7 @@
             rounds: [round],
             createdAt: new Date().toISOString(),
           }, ...normalized];
-          saveState("ayra_orders", next);
+          persistOrders(next);
           return next;
         });
         // ordersToday increments only when staff confirms a round (not on place)
@@ -1957,16 +1984,17 @@
       const updateRoundStatus = useCallback((tableKey, roundId, status) => {
         setLiveOrders(prev => {
           let confirmedItems = null;
+          const key = String(tableKey);
           const next = prev.map(session => {
-            if (String(session.table) !== String(tableKey)) return session;
+            if (String(session.table) !== key) return session;
             const rounds = (session.rounds || []).map(r => {
-              if (r.id !== roundId) return r;
-              if (r.status === "new" && status === "accepted") confirmedItems = r.items || [];
+              if (String(r.id) !== String(roundId)) return r;
+              if ((r.status === "new" || !r.status) && status === "accepted") confirmedItems = r.items || [];
               return { ...r, status, updatedAt: new Date().toISOString() };
             });
             return { ...session, rounds };
           });
-          saveState("ayra_orders", next);
+          persistOrders(next);
           if (confirmedItems && confirmedItems.length) {
             setDishes(ds => {
               const dnext = ds.map(d => {
@@ -1983,13 +2011,13 @@
       }, []);
 
       const clearTable = useCallback((tableKey) => {
+        const key = String(tableKey);
         setLiveOrders(prev => {
-          const next = prev.filter(s => String(s.table) !== String(tableKey));
-          saveState("ayra_orders", next);
-          // Remember cleared tables so a stale refresh cannot resurrect the paid bill
+          const next = prev.filter(s => String(s.table) !== key);
+          persistOrders(next);
           try {
             const cleared = JSON.parse(localStorage.getItem("ayra_cleared_tables") || "{}");
-            cleared[String(tableKey)] = Date.now();
+            cleared[key] = Date.now();
             localStorage.setItem("ayra_cleared_tables", JSON.stringify(cleared));
           } catch {}
           return next;
@@ -1997,11 +2025,16 @@
       }, []);
 
       const cancelRound = useCallback((tableKey, roundId) => {
-        setLiveOrders(prev => prev.map(session => {
-          if (String(session.table) !== String(tableKey)) return session;
-          const rounds = (session.rounds || []).filter(r => r.id !== roundId);
-          return { ...session, rounds };
-        }).filter(s => (s.rounds || []).length > 0));
+        const key = String(tableKey);
+        setLiveOrders(prev => {
+          const next = prev.map(session => {
+            if (String(session.table) !== key) return session;
+            const rounds = (session.rounds || []).filter(r => String(r.id) !== String(roundId));
+            return { ...session, rounds };
+          }).filter(s => (s.rounds || []).length > 0);
+          persistOrders(next);
+          return next;
+        });
       }, []);
 
       const handleStaffAccess = () => {
