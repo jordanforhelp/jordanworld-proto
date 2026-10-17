@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0F1916" />
-  <title>Ayra</title>
+  <title>Ayra — Restaurant Menu</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -563,6 +563,12 @@
     const STAFF_PIN_HASH = "b4bf6ca75c454a0214239cdc7475e7b122ff6f0f629dd0fe1035ab88a3e3cab5";
     async function hashStaffPin(pin) {
       const data = new TextEncoder().encode("ayra-staff-v1:" + pin);
+      const buf = await crypto.subtle.digest("SHA-256", data);
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+    const MGR_PIN_HASH = "a499df265b3d26f14d02f15e42479a6f68477f260ca6929c9eac48cca93bd52e";
+    async function hashMgrPin(pin) {
+      const data = new TextEncoder().encode("ayra-mgr-v1:" + pin);
       const buf = await crypto.subtle.digest("SHA-256", data);
       return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
     }
@@ -1836,13 +1842,21 @@
                 {mgrError && <p className="text-red-400 text-sm mt-2">Wrong PIN</p>}
                 <button type="button" className="mt-5 w-full max-w-xs mx-auto py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm"
                   onClick={async () => {
-                    const h = await hashMgrPin(mgrPin);
-                    if (h === MGR_PIN_HASH) {
-                      setMgrUnlocked(true);
-                      try { sessionStorage.setItem("ayra_mgr", "1"); } catch {}
-                      setMgrPin("");
-                      showToast("Manager insights unlocked");
-                    } else {
+                    try {
+                      const pin = String(mgrPin || "").trim();
+                      if (pin.length < 4) { setMgrError(true); return; }
+                      const h = await hashMgrPin(pin);
+                      if (h === MGR_PIN_HASH) {
+                        setMgrUnlocked(true);
+                        try { sessionStorage.setItem("ayra_mgr", "1"); } catch {}
+                        setMgrPin("");
+                        showToast("Manager insights unlocked");
+                      } else {
+                        setMgrError(true);
+                        setMgrPin("");
+                      }
+                    } catch (e) {
+                      console.error(e);
                       setMgrError(true);
                       setMgrPin("");
                     }
