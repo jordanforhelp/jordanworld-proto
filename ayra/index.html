@@ -13,6 +13,7 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -559,10 +560,167 @@
     const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
     const DRINK_TYPES = ["All drinks", "Signature", "Cocktails", "Shooters", "Beer", "Whiskey", "Vodka", "Rum", "Wine", "Mocktails", "Soft drinks"];
     const STAFF_PIN = "1234"; // Move to server auth before production
-    // Shared defaults so guest phones can verify (staff can still override locally until backend exists)
     const DEFAULT_TABLE_PINS = Object.fromEntries(
       Array.from({ length: 20 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
     );
+
+    // —— Supabase backend ——
+    const SUPABASE_URL = "https://pmgquqxsgactmpwajrrj.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_Q7OSakh0s31jZTIqB8dG1w_9vK5YCmk";
+    const sb = (typeof supabase !== "undefined" && supabase.createClient)
+      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    function mapCloudToLiveOrders(sessions, rounds) {
+      const bySession = {};
+      (rounds || []).forEach(r => {
+        if (!bySession[r.session_id]) bySession[r.session_id] = [];
+        bySession[r.session_id].push({
+          id: r.id,
+          status: r.status || "new",
+          items: r.items || [],
+          total: Number(r.total) || 0,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        });
+      });
+      return (sessions || [])
+        .filter(s => s.status === "open" || !s.status)
+        .map(s => ({
+          table: String(s.table_no),
+          sessionId: s.id,
+          guestName: s.guest_name || "",
+          guestPhone: s.guest_phone || "",
+          createdAt: s.created_at,
+          rounds: (bySession[s.id] || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        }))
+        .filter(s => s.rounds.length > 0 || true)
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+
+    async function cloudFetchLiveOrders() {
+      if (!sb) return null;
+      const { data: sessions, error: e1 } = await sb
+        .from("table_sessions")
+        .select("*")
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+      if (e1) throw e1;
+      if (!sessions || !sessions.length) return [];
+      const ids = sessions.map(s => s.id);
+      const { data: rounds, error: e2 } = await sb
+        .from("order_rounds")
+        .select("*")
+        .in("session_id", ids)
+        .order("created_at", { ascending: false });
+      if (e2) throw e2;
+      return mapCloudToLiveOrders(sessions, rounds || []);
+    }
+
+    async function cloudFetchPins() {
+      if (!sb) return null;
+      const { data, error } = await sb.from("table_pins").select("table_no, pin");
+      if (error) throw error;
+      const map = { ...DEFAULT_TABLE_PINS };
+      (data || []).forEach(r => { map[String(r.table_no)] = String(r.pin); });
+      return map;
+    }
+
+    async function cloudPlaceOrder(items, tableLabel, guest) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
+      const payloadItems = items.map(i => ({
+        id: i.id,
+        name: i.name,
+        variantLabel: i.variantLabel || null,
+        price: i.price,
+        qty: i.qty,
+      }));
+      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+
+      // Find open session for this table
+      let { data: existing, error: e0 } = await sb
+        .from("table_sessions")
+        .select("*")
+        .eq("table_no", tableKey)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (e0) throw e0;
+
+      let sessionId;
+      if (existing && existing.length) {
+        sessionId = existing[0].id;
+        const patch = {};
+        if (guest?.name) patch.guest_name = guest.name;
+        if (guest?.phone) patch.guest_phone = guest.phone;
+        if (Object.keys(patch).length) {
+          await sb.from("table_sessions").update(patch).eq("id", sessionId);
+        }
+      } else {
+        const { data: created, error: e1 } = await sb
+          .from("table_sessions")
+          .insert({
+            table_no: tableKey,
+            guest_name: guest?.name || null,
+            guest_phone: guest?.phone || null,
+            status: "open",
+          })
+          .select()
+          .single();
+        if (e1) throw e1;
+        sessionId = created.id;
+      }
+
+      const { error: e2 } = await sb.from("order_rounds").insert({
+        session_id: sessionId,
+        status: "new",
+        items: payloadItems,
+        total,
+      });
+      if (e2) throw e2;
+      return tableKey;
+    }
+
+    async function cloudUpdateRoundStatus(roundId, status) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const { error } = await sb
+        .from("order_rounds")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", roundId);
+      if (error) throw error;
+    }
+
+    async function cloudCancelRound(roundId) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const { error } = await sb.from("order_rounds").delete().eq("id", roundId);
+      if (error) throw error;
+    }
+
+    async function cloudClearTable(sessionId, tableNo) {
+      if (!sb) throw new Error("Supabase not loaded");
+      if (sessionId) {
+        const { error } = await sb
+          .from("table_sessions")
+          .update({ status: "paid", cleared_at: new Date().toISOString() })
+          .eq("id", sessionId);
+        if (error) throw error;
+      } else if (tableNo) {
+        const { error } = await sb
+          .from("table_sessions")
+          .update({ status: "paid", cleared_at: new Date().toISOString() })
+          .eq("table_no", String(tableNo))
+          .eq("status", "open");
+        if (error) throw error;
+      }
+    }
+
+    async function cloudUpsertPin(tableNo, pin) {
+      if (!sb) return;
+      const { error } = await sb.from("table_pins").upsert({ table_no: String(tableNo), pin: String(pin) });
+      if (error) console.error(error);
+    }
+
     const CUSTOMER_VISIBLE_TAGS = ["Trending", "Chef Special", "Most Ordered", "Peak Feature", "Test Copy"];
 
     const loadState = (key, fallback) => {
@@ -815,11 +973,15 @@
         }
         try {
           const ok = onPlaceOrder(items, effectiveTable);
-          // false = guest gate opened; true/undefined = placed
           if (ok === false) return;
-          setItems([]);
-          onClose();
-          if (ok !== false) showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
+          Promise.resolve(ok).then(() => {
+            setItems([]);
+            onClose();
+            showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
+          }).catch(err => {
+            console.error(err);
+            showToast("Could not place order — try again");
+          });
         } catch (err) {
           console.error(err);
           showToast("Could not place order — try again");
@@ -1504,7 +1666,7 @@
                           <span className="text-off-white font-medium w-8">T{n}</span>
                           <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
                             value={pin}
-                            onChange={e => setTablePins(prev => ({ ...prev, [String(n)]: e.target.value.trim() }))}
+                            onChange={e => { const v = e.target.value.trim(); setTablePins(prev => ({ ...prev, [String(n)]: v })); if (v) cloudUpsertPin(n, v); }}
                             className="w-16 min-h-[36px] bg-surface border border-champagne/20 rounded-lg px-2 text-center text-off-white" />
                           <button type="button" onClick={() => { navigator.clipboard.writeText(url); showToast('Copied Table ' + n); }}
                             className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne" title={url}>
@@ -1519,7 +1681,7 @@
                   <div className="glass rounded-2xl p-10 text-center border border-champagne/8">
                     <Icon name="shopping-bag" size={36} className="text-sage/40 mx-auto mb-3" />
                     <p className="text-sage">No live tables yet</p>
-                    <p className="text-sage/60 text-sm mt-1">Demo mode: orders stay on this device until a shared backend is connected</p>
+                    <p className="text-sage/60 text-sm mt-1">Live cloud: orders sync to all staff devices via Supabase</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1901,141 +2063,139 @@
       });
       const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
       const [sessionItems, setSessionItems] = useState([]);
-      const [liveOrders, setLiveOrders] = useState(() => normalizeOrderSessions(loadState("ayra_orders", [])));
-      const [tablePins, setTablePins] = useState(() => ({ ...DEFAULT_TABLE_PINS, ...loadState("ayra_table_pins", {}) }));
+      const [liveOrders, setLiveOrders] = useState([]);
+      const [tablePins, setTablePins] = useState(() => ({ ...DEFAULT_TABLE_PINS }));
       const [toast, setToast] = useState(null);
       const [tableFromQr] = useState(() => getTableFromUrl());
       const [pinFromQr] = useState(() => getPinFromUrl());
+      const [cloudReady, setCloudReady] = useState(false);
 
       useEffect(() => { saveState("ayra_dishes", dishes); }, [dishes]);
       useEffect(() => { saveState("ayra_recs", recommendations); }, [recommendations]);
-      useEffect(() => { persistOrders(liveOrders); }, [liveOrders]);
-      useEffect(() => { saveState("ayra_table_pins", tablePins); }, [tablePins]);
 
       const showToast = useCallback((msg) => setToast(msg), []);
 
-      const refreshOrders = useCallback(() => {
-        const next = normalizeOrderSessions(loadState("ayra_orders", []));
-        setLiveOrders(next);
-        showToast("Orders refreshed");
+      const refreshOrders = useCallback(async () => {
+        try {
+          if (!sb) {
+            showToast("Cloud not connected — check Supabase script");
+            return;
+          }
+          const next = await cloudFetchLiveOrders();
+          setLiveOrders(next || []);
+          showToast("Orders refreshed");
+        } catch (e) {
+          console.error(e);
+          showToast("Refresh failed: " + (e.message || "error"));
+        }
       }, [showToast]);
 
-      const placeOrder = useCallback((items, tableLabel, guest) => {
-        const round = {
-          id: "R-" + Date.now(),
-          status: "new",
-          items: items.map(i => ({
-            id: i.id,
-            name: i.name,
-            variantLabel: i.variantLabel || null,
-            price: i.price,
-            qty: i.qty,
-          })),
-          total: items.reduce((s, i) => s + i.price * i.qty, 0),
-          createdAt: new Date().toISOString(),
-        };
-        const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
-        // New sitting after paid — clear the cleared-flag so this table is live again
-        try {
-          const cleared = JSON.parse(localStorage.getItem("ayra_cleared_tables") || "{}");
-          if (cleared[tableKey]) {
-            delete cleared[tableKey];
-            localStorage.setItem("ayra_cleared_tables", JSON.stringify(cleared));
-          }
-        } catch {}
-        setLiveOrders(prev => {
-          const normalized = prev
-            .filter(o => String(o.table) !== tableKey || (o.rounds && o.rounds.length))
-            .map(o => {
-              if (o.rounds) return o;
-              return {
-                table: o.table,
-                guestName: o.guestName || "",
-                guestPhone: o.guestPhone || "",
-                rounds: [{ id: o.id, status: o.status || "new", items: o.items || [], total: o.total || 0, createdAt: o.createdAt }],
-                createdAt: o.createdAt || new Date().toISOString(),
-              };
-            });
-          const idx = normalized.findIndex(t => String(t.table) === tableKey);
-          if (idx >= 0) {
-            const copy = [...normalized];
-            const session = { ...copy[idx] };
-            session.rounds = [round, ...(session.rounds || [])];
-            if (guest?.name) session.guestName = guest.name;
-            if (guest?.phone) session.guestPhone = guest.phone;
-            copy[idx] = session;
-            const next = copy;
-            persistOrders(next);
-            return next;
-          }
-          const next = [{
-            table: tableKey,
-            guestName: guest?.name || "",
-            guestPhone: guest?.phone || "",
-            rounds: [round],
-            createdAt: new Date().toISOString(),
-          }, ...normalized];
-          persistOrders(next);
-          return next;
-        });
-        // ordersToday increments only when staff confirms a round (not on place)
-      }, []);
-
-      const updateRoundStatus = useCallback((tableKey, roundId, status) => {
-        setLiveOrders(prev => {
-          let confirmedItems = null;
-          const key = String(tableKey);
-          const next = prev.map(session => {
-            if (String(session.table) !== key) return session;
-            const rounds = (session.rounds || []).map(r => {
-              if (String(r.id) !== String(roundId)) return r;
-              if ((r.status === "new" || !r.status) && status === "accepted") confirmedItems = r.items || [];
-              return { ...r, status, updatedAt: new Date().toISOString() };
-            });
-            return { ...session, rounds };
-          });
-          persistOrders(next);
-          if (confirmedItems && confirmedItems.length) {
-            setDishes(ds => {
-              const dnext = ds.map(d => {
-                const ordered = confirmedItems.find(i => i.id === d.id);
-                if (!ordered) return d;
-                return { ...d, ordersToday: (d.ordersToday || 0) + (ordered.qty || 1) };
-              });
-              saveState("ayra_dishes", dnext);
-              return dnext;
-            });
-          }
-          return next;
-        });
-      }, []);
-
-      const clearTable = useCallback((tableKey) => {
-        const key = String(tableKey);
-        setLiveOrders(prev => {
-          const next = prev.filter(s => String(s.table) !== key);
-          persistOrders(next);
+      // Load pins + orders from Supabase on start
+      useEffect(() => {
+        let channel;
+        (async () => {
           try {
-            const cleared = JSON.parse(localStorage.getItem("ayra_cleared_tables") || "{}");
-            cleared[key] = Date.now();
-            localStorage.setItem("ayra_cleared_tables", JSON.stringify(cleared));
-          } catch {}
-          return next;
-        });
-      }, []);
+            if (!sb) {
+              setTablePins({ ...DEFAULT_TABLE_PINS });
+              showToast("Supabase client missing");
+              return;
+            }
+            const pins = await cloudFetchPins();
+            if (pins) setTablePins(pins);
+            const orders = await cloudFetchLiveOrders();
+            setLiveOrders(orders || []);
+            setCloudReady(true);
+            // Realtime
+            channel = sb.channel("ayra-live")
+              .on("postgres_changes", { event: "*", schema: "public", table: "order_rounds" }, async () => {
+                try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch (e) { console.error(e); }
+              })
+              .on("postgres_changes", { event: "*", schema: "public", table: "table_sessions" }, async () => {
+                try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch (e) { console.error(e); }
+              })
+              .subscribe();
+          } catch (e) {
+            console.error(e);
+            showToast("Cloud load failed: " + (e.message || "check tables/RLS"));
+            setTablePins({ ...DEFAULT_TABLE_PINS });
+          }
+        })();
+        return () => { if (channel && sb) sb.removeChannel(channel); };
+      }, [showToast]);
 
-      const cancelRound = useCallback((tableKey, roundId) => {
-        const key = String(tableKey);
-        setLiveOrders(prev => {
-          const next = prev.map(session => {
-            if (String(session.table) !== key) return session;
-            const rounds = (session.rounds || []).filter(r => String(r.id) !== String(roundId));
-            return { ...session, rounds };
-          }).filter(s => (s.rounds || []).length > 0);
-          persistOrders(next);
-          return next;
-        });
-      }, []);
+      const placeOrder = useCallback(async (items, tableLabel, guest) => {
+        try {
+          await cloudPlaceOrder(items, tableLabel, guest);
+          const next = await cloudFetchLiveOrders();
+          setLiveOrders(next || []);
+        } catch (e) {
+          console.error(e);
+          showToast("Order failed: " + (e.message || "cloud error"));
+          throw e;
+        }
+      }, [showToast]);
+
+      const updateRoundStatus = useCallback(async (tableKey, roundId, status) => {
+        // Optimistic UI
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          return {
+            ...session,
+            rounds: (session.rounds || []).map(r =>
+              String(r.id) === String(roundId) ? { ...r, status, updatedAt: new Date().toISOString() } : r
+            ),
+          };
+        }));
+        try {
+          await cloudUpdateRoundStatus(roundId, status);
+          if (status === "accepted") {
+            const session = liveOrders.find(s => String(s.table) === String(tableKey));
+            const round = session?.rounds?.find(r => String(r.id) === String(roundId));
+            const confirmedItems = round?.items || [];
+            if (confirmedItems.length) {
+              setDishes(ds => {
+                const dnext = ds.map(d => {
+                  const ordered = confirmedItems.find(i => i.id === d.id);
+                  if (!ordered) return d;
+                  return { ...d, ordersToday: (d.ordersToday || 0) + (ordered.qty || 1) };
+                });
+                saveState("ayra_dishes", dnext);
+                return dnext;
+              });
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          showToast("Status update failed: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [showToast, liveOrders]);
+
+      const clearTable = useCallback(async (tableKey) => {
+        const session = liveOrders.find(s => String(s.table) === String(tableKey));
+        setLiveOrders(prev => prev.filter(s => String(s.table) !== String(tableKey)));
+        try {
+          await cloudClearTable(session?.sessionId, tableKey);
+        } catch (e) {
+          console.error(e);
+          showToast("Clear failed: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [liveOrders, showToast]);
+
+      const cancelRound = useCallback(async (tableKey, roundId) => {
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          return { ...session, rounds: (session.rounds || []).filter(r => String(r.id) !== String(roundId)) };
+        }).filter(s => (s.rounds || []).length > 0));
+        try {
+          await cloudCancelRound(roundId);
+        } catch (e) {
+          console.error(e);
+          showToast("Cancel failed: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [showToast]);
 
       const handleStaffAccess = () => {
         if (staffAuth) setView("owner");
