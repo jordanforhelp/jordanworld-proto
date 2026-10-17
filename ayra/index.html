@@ -638,6 +638,69 @@
       return map;
     }
 
+    function periodBounds(period) {
+      const now = new Date();
+      if (period === "all") return { from: null, to: null };
+      if (period === "month") {
+        const from = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { from: from.toISOString(), to: null };
+      }
+      const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const to = new Date(from);
+      to.setDate(to.getDate() + 1);
+      return { from: from.toISOString(), to: to.toISOString() };
+    }
+
+    async function cloudFetchInsights(period) {
+      if (!sb) throw new Error("Cloud not connected");
+      const { from, to } = periodBounds(period || "day");
+      let q = sb.from("order_rounds").select("id, status, items, total, created_at, session_id");
+      if (from) q = q.gte("created_at", from);
+      if (to) q = q.lt("created_at", to);
+      const { data: rounds, error } = await q.order("created_at", { ascending: false }).limit(2000);
+      if (error) throw error;
+      let list = rounds || [];
+      const sids = [...new Set(list.map(r => r.session_id).filter(Boolean))];
+      let sessionMap = {};
+      if (sids.length) {
+        const { data: sessions, error: e2 } = await sb.from("table_sessions").select("id, table_no, status, guest_name").in("id", sids);
+        if (e2) throw e2;
+        (sessions || []).forEach(s => { sessionMap[s.id] = s; });
+        list = list.map(r => ({ ...r, table_sessions: sessionMap[r.session_id] || null }));
+      }
+      const confirmed = list.filter(r => r.status && r.status !== "new");
+      let revenue = 0;
+      const byTable = {};
+      const byDish = {};
+      confirmed.forEach(r => {
+        revenue += Number(r.total) || 0;
+        const tno = (r.table_sessions && r.table_sessions.table_no) || "?";
+        if (!byTable[tno]) byTable[tno] = { table: tno, rounds: 0, bill: 0 };
+        byTable[tno].rounds += 1;
+        byTable[tno].bill += Number(r.total) || 0;
+        (r.items || []).forEach(it => {
+          const name = it.name || "Item";
+          byDish[name] = (byDish[name] || 0) + (it.qty || 1);
+        });
+      });
+      const tables = Object.values(byTable);
+      const avgBill = tables.length ? Math.round(tables.reduce((s, x) => s + x.bill, 0) / tables.length) : 0;
+      const topDishes = Object.entries(byDish).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      return {
+        period: period || "day",
+        pending: list.filter(r => r.status === "new").length,
+        confirmedRounds: confirmed.length,
+        totalRounds: list.length,
+        revenue,
+        avgBill,
+        tablesActive: tables.length,
+        tables,
+        topDishes,
+        rawRounds: list,
+      };
+    }
+
+
     async function cloudPlaceOrder(items, tableLabel, guest) {
       if (!sb) throw new Error("Supabase not loaded");
       const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
