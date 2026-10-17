@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="color-scheme" content="dark" />
   <meta name="theme-color" content="#0F1916" />
-  <title>Ayra — Restaurant Menu</title>
+  <title>Ayra</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -1521,32 +1521,50 @@
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders }) => {
       const [editingDish, setEditingDish] = useState(null);
       const [staffTab, setStaffTab] = useState("live"); // live | menu | insights
-      const totalOrders = dishes.reduce((s, d) => s + d.ordersToday, 0);
-      const totalRevenue = dishes.reduce((s, d) => s + d.ordersToday * d.price, 0);
-      const topMargin = [...dishes].sort((a, b) => b.margin - a.margin)[0];
-      // Per-table stats from live + counted rounds
-      const tableStats = (liveOrders || []).map(session => {
-        const rounds = session.rounds || [];
-        const bill = rounds.reduce((s, r) => s + (r.total || 0), 0);
-        let drinks = 0, desserts = 0;
-        rounds.forEach(r => (r.items || []).forEach(it => {
-          const dish = dishes.find(d => d.id === it.id);
-          const cat = dish?.category || "";
-          const qty = it.qty || 1;
-          if (cat === "Drinks") drinks += qty;
-          if (cat === "Desserts") desserts += qty;
-        }));
-        return { table: session.table, bill, drinks, desserts };
+      const [mgrUnlocked, setMgrUnlocked] = useState(() => {
+        try { return sessionStorage.getItem("ayra_mgr") === "1"; } catch { return false; }
       });
-      const avgTableBill = tableStats.length
-        ? Math.round(tableStats.reduce((s, t) => s + t.bill, 0) / tableStats.length)
-        : 0;
-      const drinksPerTable = tableStats.length
-        ? (tableStats.reduce((s, t) => s + t.drinks, 0) / tableStats.length)
-        : 0;
-      const dessertsPerTable = tableStats.length
-        ? (tableStats.reduce((s, t) => s + t.desserts, 0) / tableStats.length)
-        : 0;
+      const [mgrPin, setMgrPin] = useState("");
+      const [mgrError, setMgrError] = useState(false);
+      const [insightPeriod, setInsightPeriod] = useState("day");
+      const [insights, setInsights] = useState(null);
+      const [insightsLoading, setInsightsLoading] = useState(false);
+      const [insightsError, setInsightsError] = useState("");
+
+      const loadInsights = useCallback(async (period) => {
+        const p = period || insightPeriod;
+        setInsightsLoading(true);
+        setInsightsError("");
+        try {
+          const data = await cloudFetchInsights(p);
+          let drinks = 0, desserts = 0;
+          (data.rawRounds || []).filter(r => r.status && r.status !== "new").forEach(r => {
+            (r.items || []).forEach(it => {
+              const dish = dishes.find(d => d.id === it.id);
+              const cat = dish?.category || "";
+              const qty = it.qty || 1;
+              if (cat === "Drinks") drinks += qty;
+              if (cat === "Desserts") desserts += qty;
+            });
+          });
+          const nTables = data.tablesActive || 1;
+          setInsights({
+            ...data,
+            drinks,
+            desserts,
+            drinksPerTable: data.tablesActive ? Math.round((drinks / nTables) * 10) / 10 : 0,
+            dessertsPerTable: data.tablesActive ? Math.round((desserts / nTables) * 10) / 10 : 0,
+          });
+        } catch (e) {
+          console.error(e);
+          setInsightsError(e.message || "Failed to load insights");
+        }
+        setInsightsLoading(false);
+      }, [insightPeriod, dishes]);
+
+      useEffect(() => {
+        if (staffTab === "insights" && mgrUnlocked) loadInsights(insightPeriod);
+      }, [staffTab, mgrUnlocked, insightPeriod, loadInsights]);
 
       const handleRecAction = (rec, action) => {
         setRecommendations(prev => {
@@ -1806,35 +1824,116 @@
 
             {staffTab === "insights" && (
             <>
-            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: "Orders Today", value: totalOrders, icon: "shopping-bag", sub: liveOrders.length ? `${liveOrders.length} live tables` : null },
-                { label: "Avg table bill", value: formatPrice(avgTableBill), icon: "dollar-sign", sub: tableStats.length ? `across ${tableStats.length} open table${tableStats.length !== 1 ? "s" : ""}` : "No open tables" },
-                { label: "Drinks / table", value: tableStats.length ? (Math.round(drinksPerTable * 10) / 10) : "0", icon: "wine", sub: "Avg drinks ordered per open table" },
-                { label: "Desserts / table", value: tableStats.length ? (Math.round(dessertsPerTable * 10) / 10) : "0", icon: "cake", sub: "Avg desserts ordered per open table" },
-              ].map((kpi, i) => (
-                <div key={i} className="glass rounded-2xl p-5 border border-champagne/8">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs uppercase tracking-wider text-sage">{kpi.label}</p>
-                    <Icon name={kpi.icon} size={18} className="text-champagne" />
+            {!mgrUnlocked ? (
+              <div className="glass rounded-2xl p-8 max-w-md mx-auto border border-champagne/15 text-center">
+                <Icon name="lock" size={28} className="text-champagne mx-auto mb-3" />
+                <h2 className="font-display text-2xl text-off-white mb-2">Manager access</h2>
+                <p className="text-sage text-sm mb-5">Insights are restricted. Enter the manager PIN.</p>
+                <input type="password" inputMode="numeric" maxLength={4} value={mgrPin}
+                  onChange={e => { setMgrPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setMgrError(false); }}
+                  className="w-40 mx-auto min-h-[48px] bg-surface border border-champagne/25 rounded-xl px-4 text-center text-xl tracking-[0.4em] text-off-white focus:outline-none focus:border-champagne"
+                  placeholder="••••" autoComplete="off" />
+                {mgrError && <p className="text-red-400 text-sm mt-2">Wrong PIN</p>}
+                <button type="button" className="mt-5 w-full max-w-xs mx-auto py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm"
+                  onClick={async () => {
+                    const h = await hashMgrPin(mgrPin);
+                    if (h === MGR_PIN_HASH) {
+                      setMgrUnlocked(true);
+                      try { sessionStorage.setItem("ayra_mgr", "1"); } catch {}
+                      setMgrPin("");
+                      showToast("Manager insights unlocked");
+                    } else {
+                      setMgrError(true);
+                      setMgrPin("");
+                    }
+                  }}>Unlock Insights</button>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                  <div>
+                    <h2 className="font-display text-2xl text-off-white">Live Insights</h2>
+                    <p className="text-sage text-xs">From confirmed orders in Supabase · updates when you change period or refresh</p>
                   </div>
-                  <p className="font-display text-2xl text-off-white truncate">{kpi.value}</p>
-                  {kpi.sub && <p className="text-xs text-champagne/80 mt-1">{kpi.sub}</p>}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {[
+                      { id: "day", label: "Today" },
+                      { id: "month", label: "This month" },
+                      { id: "all", label: "All time" },
+                    ].map(p => (
+                      <button key={p.id} type="button" onClick={() => setInsightPeriod(p.id)}
+                        className={`px-4 min-h-[40px] rounded-full text-sm font-medium ${insightPeriod === p.id ? "bg-champagne text-obsidian" : "border border-champagne/25 text-sage"}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => loadInsights(insightPeriod)}
+                      className="px-3 py-2 rounded-xl border border-champagne/30 text-champagne text-xs font-semibold flex items-center gap-1.5">
+                      <Icon name="refresh-cw" size={14} /> Refresh
+                    </button>
+                    <button type="button" onClick={() => { setMgrUnlocked(false); try { sessionStorage.removeItem("ayra_mgr"); } catch {}; }}
+                      className="px-3 py-2 text-sage text-xs hover:text-off-white">Lock</button>
+                  </div>
                 </div>
-              ))}
-            </section>
 
-            <section className="grid lg:grid-cols-2 gap-6">
-              <div className="glass rounded-2xl p-6 border border-champagne/8">
-                <h2 className="font-display text-xl text-off-white mb-4">Orders by Dish</h2>
-                <OrdersChart dishes={dishes} />
-              </div>
-              <div className="glass rounded-2xl p-6 border border-champagne/8">
-                <h2 className="font-display text-xl text-off-white mb-4">Orders by Category</h2>
-                <CategoryChart dishes={dishes} />
-              </div>
-            </section>
+                {insightsLoading && <p className="text-sage text-sm py-6">Loading insights…</p>}
+                {insightsError && <p className="text-red-400 text-sm py-4">{insightsError}</p>}
 
+                {insights && !insightsLoading && (
+                  <>
+                    <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: insightPeriod === "day" ? "Confirmed rounds (today)" : insightPeriod === "month" ? "Confirmed rounds (month)" : "Confirmed rounds (all)", value: insights.confirmedRounds, icon: "shopping-bag", sub: `${insights.pending} still pending · ${insights.totalRounds} total rounds` },
+                        { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.tablesActive} tables with orders` },
+                        { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "Among tables in this period" },
+                        { label: "Drinks ordered", value: insights.drinks, icon: "wine", sub: `Desserts: ${insights.desserts} · ${insights.drinksPerTable}/table avg drinks` },
+                      ].map((kpi, i) => (
+                        <div key={kpi.label} className="glass rounded-2xl p-5 border border-champagne/8 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Icon name={kpi.icon} size={16} className="text-champagne" />
+                            <span className="text-sage text-xs uppercase tracking-wider">{kpi.label}</span>
+                          </div>
+                          <p className="font-display text-2xl text-off-white truncate">{kpi.value}</p>
+                          {kpi.sub && <p className="text-sage text-xs mt-1">{kpi.sub}</p>}
+                        </div>
+                      ))}
+                    </section>
+
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top dishes</h3>
+                        {insights.topDishes.length === 0 ? (
+                          <p className="text-sage text-sm">No confirmed orders in this period.</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {insights.topDishes.map(([name, qty]) => (
+                              <li key={name} className="flex justify-between text-sm border-b border-champagne/10 pb-2">
+                                <span className="text-off-white truncate pr-3">{name}</span>
+                                <span className="text-champagne font-medium">{qty}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">By table</h3>
+                        {insights.tables.length === 0 ? (
+                          <p className="text-sage text-sm">No table data.</p>
+                        ) : (
+                          <ul className="space-y-2 max-h-72 overflow-y-auto">
+                            {insights.tables.sort((a,b) => b.bill - a.bill).map(tb => (
+                              <li key={tb.table} className="flex justify-between text-sm border-b border-champagne/10 pb-2">
+                                <span className="text-off-white">Table {tb.table} · {tb.rounds} round{tb.rounds !== 1 ? "s" : ""}</span>
+                                <span className="text-champagne font-medium">{formatPrice(tb.bill)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </section>
+                  </>
+                )}
+              </>
+            )}
             </>
             )}
 
