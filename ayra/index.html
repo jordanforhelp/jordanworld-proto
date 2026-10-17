@@ -1571,6 +1571,80 @@
       return <div className="chart-container"><canvas ref={canvasRef} /></div>;
     };
 
+    const InsightBarChart = ({ labels, values, title }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const labs = labels || [];
+        const vals = values || [];
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: labs.map(n => n.length > 16 ? n.slice(0, 14) + "…" : n),
+            datasets: [{
+              label: title || "Qty",
+              data: vals,
+              backgroundColor: vals.map((_, i) => i === 0 ? "rgba(224,184,115,0.95)" : i < 3 ? "rgba(224,184,115,0.55)" : "rgba(146,163,155,0.4)"),
+              borderRadius: 6,
+              borderSkipped: false,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { backgroundColor: "#1B2421", titleColor: "#F2F5F3", bodyColor: "#E0B873", borderColor: "rgba(224,184,115,0.3)", borderWidth: 1 },
+            },
+            scales: {
+              x: { ticks: { color: "rgba(146,163,155,0.75)", font: { size: 10 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+              y: { beginAtZero: true, ticks: { color: "rgba(146,163,155,0.5)", precision: 0 }, grid: { color: "rgba(255,255,255,0.04)" } },
+            },
+          },
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [labels, values, title]);
+      return <div className="h-56"><canvas ref={canvasRef} /></div>;
+    };
+
+    const InsightPieChart = ({ labels, values }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const colors = [
+          "rgba(224,184,115,0.9)", "rgba(26,58,50,0.95)", "rgba(146,163,155,0.75)",
+          "rgba(212,163,89,0.7)", "rgba(224,184,115,0.5)", "rgba(100,140,120,0.7)",
+          "rgba(180,140,90,0.65)", "rgba(60,90,80,0.8)",
+        ];
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: labels || [],
+            datasets: [{
+              data: values || [],
+              backgroundColor: (labels || []).map((_, i) => colors[i % colors.length]),
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { color: "rgba(146,163,155,0.85)", padding: 10, font: { size: 11 }, boxWidth: 12 } },
+              tooltip: { backgroundColor: "#1B2421", titleColor: "#F2F5F3", bodyColor: "#E0B873" },
+            },
+            cutout: "58%",
+          },
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [labels, values]);
+      return <div className="h-64"><canvas ref={canvasRef} /></div>;
+    };
+
     const ORDER_FLOW = [
       { key: "new", label: "Pending confirm", next: "accepted", nextLabel: "Confirm order" },
       { key: "accepted", label: "Confirmed", next: "cooking", nextLabel: "Send to kitchen" },
@@ -1607,22 +1681,41 @@
         try {
           const data = await cloudFetchInsights(p);
           let drinks = 0, desserts = 0;
+          const catMap = {};
+          const drinkMap = {};
+          const dessertMap = {};
+          const dishById = Object.fromEntries((dishes || []).map(d => [d.id, d]));
           (data.rawRounds || []).filter(r => r.status && r.status !== "new").forEach(r => {
             (r.items || []).forEach(it => {
-              const dish = dishes.find(d => d.id === it.id);
-              const cat = dish?.category || "";
+              const dish = dishById[it.id];
+              const cat = (dish && dish.category) || "Other";
               const qty = it.qty || 1;
-              if (cat === "Drinks") drinks += qty;
-              if (cat === "Desserts") desserts += qty;
+              const name = it.name || (dish && dish.name) || "Item";
+              catMap[cat] = (catMap[cat] || 0) + qty;
+              if (cat === "Drinks") {
+                drinks += qty;
+                drinkMap[name] = (drinkMap[name] || 0) + qty;
+              }
+              if (cat === "Desserts") {
+                desserts += qty;
+                dessertMap[name] = (dessertMap[name] || 0) + qty;
+              }
             });
           });
           const nTables = data.tablesActive || 1;
+          const categoryEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+          const topDrinks = Object.entries(drinkMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+          const topDesserts = Object.entries(dessertMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
           setInsights({
             ...data,
             drinks,
             desserts,
             drinksPerTable: data.tablesActive ? Math.round((drinks / nTables) * 10) / 10 : 0,
             dessertsPerTable: data.tablesActive ? Math.round((desserts / nTables) * 10) / 10 : 0,
+            categoryLabels: categoryEntries.map(e => e[0]),
+            categoryValues: categoryEntries.map(e => e[1]),
+            topDrinks,
+            topDesserts,
           });
         } catch (e) {
           console.error(e);
@@ -1977,7 +2070,54 @@
 
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                       <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Orders by category</h3>
+                        {(insights.categoryValues || []).every(v => !v) ? (
+                          <p className="text-sage text-sm">No category data yet.</p>
+                        ) : (
+                          <InsightPieChart labels={insights.categoryLabels} values={insights.categoryValues} />
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
                         <h3 className="font-display text-xl text-off-white mb-4">Top dishes</h3>
+                        {!(insights.topDishes && insights.topDishes.length) ? (
+                          <p className="text-sage text-sm">No dish data yet.</p>
+                        ) : (
+                          <InsightBarChart
+                            title="Qty"
+                            labels={insights.topDishes.map(x => x[0])}
+                            values={insights.topDishes.map(x => x[1])}
+                          />
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top drinks</h3>
+                        {!(insights.topDrinks && insights.topDrinks.length) ? (
+                          <p className="text-sage text-sm">No drinks ordered in this period.</p>
+                        ) : (
+                          <InsightBarChart
+                            title="Drinks"
+                            labels={insights.topDrinks.map(x => x[0])}
+                            values={insights.topDrinks.map(x => x[1])}
+                          />
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top desserts</h3>
+                        {!(insights.topDesserts && insights.topDesserts.length) ? (
+                          <p className="text-sage text-sm">No desserts ordered in this period.</p>
+                        ) : (
+                          <InsightBarChart
+                            title="Desserts"
+                            labels={insights.topDesserts.map(x => x[0])}
+                            values={insights.topDesserts.map(x => x[1])}
+                          />
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top dishes (list)</h3>
                         {insights.topDishes.length === 0 ? (
                           <p className="text-sage text-sm">No confirmed orders in this period.</p>
                         ) : (
