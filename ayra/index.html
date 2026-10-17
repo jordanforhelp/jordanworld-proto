@@ -1830,7 +1830,7 @@
             <div className="max-w-7xl mx-auto mt-5 flex gap-2 overflow-x-auto">
               {[
                 { id: "live", label: "Live Tables", count: liveOrders.length },
-                { id: "menu", label: "Menu" },
+                { id: "menu", label: "Menu" }, // manager
                 { id: "insights", label: "Insights" },
               ].map(tab => (
                 <button key={tab.id} onClick={() => setStaffTab(tab.id)}
@@ -1984,13 +1984,12 @@
               </section>
             )}
 
-            {staffTab === "insights" && (
-            <>
-            {!mgrUnlocked ? (
+            
+            {(staffTab === "menu" || staffTab === "insights") && !mgrUnlocked && (
               <div className="glass rounded-2xl p-8 max-w-md mx-auto border border-champagne/15 text-center">
                 <Icon name="lock" size={28} className="text-champagne mx-auto mb-3" />
                 <h2 className="font-display text-2xl text-off-white mb-2">Manager access</h2>
-                <p className="text-sage text-sm mb-5">Insights are restricted. Enter the manager PIN.</p>
+                <p className="text-sage text-sm mb-5">Menu editing and Insights need the manager PIN.</p>
                 <input type="password" inputMode="numeric" maxLength={4} value={mgrPin}
                   onChange={e => { setMgrPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setMgrError(false); }}
                   className="w-40 mx-auto min-h-[48px] bg-surface border border-champagne/25 rounded-xl px-4 text-center text-xl tracking-[0.4em] text-off-white focus:outline-none focus:border-champagne"
@@ -2006,7 +2005,7 @@
                         setMgrUnlocked(true);
                         try { sessionStorage.setItem("ayra_mgr", "1"); } catch {}
                         setMgrPin("");
-                        showToast("Manager insights unlocked");
+                        showToast("Manager access unlocked");
                       } else {
                         setMgrError(true);
                         setMgrPin("");
@@ -2016,10 +2015,13 @@
                       setMgrError(true);
                       setMgrPin("");
                     }
-                  }}>Unlock Insights</button>
+                  }}>Unlock</button>
               </div>
-            ) : (
-              <>
+            )}
+
+            {staffTab === "insights" && mgrUnlocked && (
+            <>
+
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                   <div>
                     <h2 className="font-display text-2xl text-off-white">Live Insights</h2>
@@ -2149,12 +2151,10 @@
                     </section>
                   </>
                 )}
-              </>
-            )}
             </>
             )}
 
-            {staffTab === "menu" && (
+            {staffTab === "menu" && mgrUnlocked && (
             <section>
               <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
                 <div className="flex items-center gap-3">
