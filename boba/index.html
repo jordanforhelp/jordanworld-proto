@@ -1066,7 +1066,7 @@
       );
     };
 
-    // Mini Snake — play while your order is being prepared
+    // Mini Snake — play from order History while you wait
     const SnakeGame = ({ open, onClose }) => {
       const canvasRef = useRef(null);
       const [score, setScore] = useState(0);
@@ -1077,16 +1077,19 @@
       const [gameOver, setGameOver] = useState(false);
       const [started, setStarted] = useState(false);
       const stateRef = useRef(null);
+      const drawRef = useRef(null);
+      const runningRef = useRef(false);
       const touchRef = useRef({ x: 0, y: 0 });
 
-      const COLS = 16;
-      const ROWS = 16;
-      const CELL = 18;
+      const COLS = 18;
+      const ROWS = 18;
+      const CELL = 22;
       const W = COLS * CELL;
       const H = ROWS * CELL;
 
       const resetState = () => {
-        const snake = [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }];
+        const mid = Math.floor(COLS / 2);
+        const snake = [{ x: mid, y: mid }, { x: mid - 1, y: mid }, { x: mid - 2, y: mid }];
         const dir = { x: 1, y: 0 };
         const placeFood = (body) => {
           let f;
@@ -1098,69 +1101,130 @@
         return { snake, dir, nextDir: { ...dir }, food: placeFood(snake), score: 0, alive: true };
       };
 
+      const setupCanvas = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return null;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        canvas.style.width = W + "px";
+        canvas.style.height = H + "px";
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        return ctx;
+      };
+
+      const drawFrame = (ctx, st) => {
+        if (!ctx || !st) return;
+        // soft board
+        const bg = ctx.createLinearGradient(0, 0, W, H);
+        bg.addColorStop(0, "#FFF8FA");
+        bg.addColorStop(1, "#FCE4EC");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = "rgba(194,24,91,0.07)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= COLS; i++) {
+          ctx.beginPath(); ctx.moveTo(i * CELL + 0.5, 0); ctx.lineTo(i * CELL + 0.5, H); ctx.stroke();
+        }
+        for (let j = 0; j <= ROWS; j++) {
+          ctx.beginPath(); ctx.moveTo(0, j * CELL + 0.5); ctx.lineTo(W, j * CELL + 0.5); ctx.stroke();
+        }
+        // pearl (food) with depth
+        const fx = st.food.x * CELL + CELL / 2;
+        const fy = st.food.y * CELL + CELL / 2;
+        const pr = CELL * 0.36;
+        ctx.beginPath();
+        ctx.arc(fx + 1, fy + 2, pr, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(173,20,87,0.2)";
+        ctx.fill();
+        const pearl = ctx.createRadialGradient(fx - pr * 0.3, fy - pr * 0.35, pr * 0.1, fx, fy, pr);
+        pearl.addColorStop(0, "#F48FB1");
+        pearl.addColorStop(0.45, "#C2185B");
+        pearl.addColorStop(1, "#880E4F");
+        ctx.beginPath();
+        ctx.arc(fx, fy, pr, 0, Math.PI * 2);
+        ctx.fillStyle = pearl;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(fx - pr * 0.28, fy - pr * 0.3, pr * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fill();
+        // snake body — rounded capsules between segments
+        for (let i = st.snake.length - 1; i >= 0; i--) {
+          const s = st.snake[i];
+          const cx = s.x * CELL + CELL / 2;
+          const cy = s.y * CELL + CELL / 2;
+          const r = i === 0 ? CELL * 0.42 : CELL * 0.36;
+          if (i < st.snake.length - 1) {
+            const n = st.snake[i + 1];
+            const nx = n.x * CELL + CELL / 2;
+            const ny = n.y * CELL + CELL / 2;
+            ctx.strokeStyle = i === 0 ? "#AD1457" : "#C2185B";
+            ctx.lineWidth = r * 1.7;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(nx, ny);
+            ctx.stroke();
+          }
+          const grad = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.3, r * 0.1, cx, cy, r);
+          if (i === 0) {
+            grad.addColorStop(0, "#E91E63");
+            grad.addColorStop(1, "#880E4F");
+          } else {
+            grad.addColorStop(0, "#EC407A");
+            grad.addColorStop(1, "#AD1457");
+          }
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+        // eyes on head
+        const head = st.snake[0];
+        const hx = head.x * CELL + CELL / 2;
+        const hy = head.y * CELL + CELL / 2;
+        const ox = st.dir.x * 4;
+        const oy = st.dir.y * 4;
+        const px = -st.dir.y * 4.5;
+        const py = st.dir.x * 4.5;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(hx + ox + px, hy + oy + py, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(hx + ox - px, hy + oy - py, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(hx + ox + px + st.dir.x, hy + oy + py + st.dir.y, 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(hx + ox - px + st.dir.x, hy + oy - py + st.dir.y, 1.2, 0, Math.PI * 2); ctx.fill();
+      };
+
+      // Init board when modal opens — do NOT reset on pause
       useEffect(() => {
         if (!open) {
+          runningRef.current = false;
           setRunning(false);
           setStarted(false);
           setGameOver(false);
           setScore(0);
           stateRef.current = null;
+          drawRef.current = null;
           return;
         }
-        stateRef.current = resetState();
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        const draw = (st) => {
-          ctx.fillStyle = "#FFF8FA";
-          ctx.fillRect(0, 0, W, H);
-          ctx.strokeStyle = "rgba(194,24,91,0.06)";
-          ctx.lineWidth = 1;
-          for (let i = 0; i <= COLS; i++) {
-            ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, H); ctx.stroke();
-          }
-          for (let j = 0; j <= ROWS; j++) {
-            ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(W, j * CELL); ctx.stroke();
-          }
-          // food (boba pearl)
-          const fx = st.food.x * CELL + CELL / 2;
-          const fy = st.food.y * CELL + CELL / 2;
-          ctx.beginPath();
-          ctx.arc(fx, fy, CELL * 0.32, 0, Math.PI * 2);
-          ctx.fillStyle = "#C2185B";
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(fx - 2, fy - 2, 2, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255,255,255,0.5)";
-          ctx.fill();
-          // snake
-          st.snake.forEach((s, i) => {
-            const pad = 1.5;
-            const r = 4;
-            const x = s.x * CELL + pad;
-            const y = s.y * CELL + pad;
-            const size = CELL - pad * 2;
-            ctx.fillStyle = i === 0 ? "#AD1457" : "#C2185B";
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(x, y, size, size, r);
-            else ctx.rect(x, y, size, size);
-            ctx.fill();
-            if (i === 0) {
-              ctx.fillStyle = "#fff";
-              const ex = s.x * CELL + CELL * 0.35 + (st.dir.x * 2);
-              const ey = s.y * CELL + CELL * 0.35 + (st.dir.y * 2);
-              ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI * 2); ctx.fill();
-              ctx.beginPath(); ctx.arc(ex + (st.dir.y === 0 ? 5 : 0), ey + (st.dir.x === 0 ? 5 : 0), 2, 0, Math.PI * 2); ctx.fill();
-            }
-          });
-        };
-        draw(stateRef.current);
+        const ctx = setupCanvas();
+        if (!ctx) return;
+        if (!stateRef.current) stateRef.current = resetState();
+        drawRef.current = (st) => drawFrame(ctx, st);
+        drawRef.current(stateRef.current);
+      }, [open]);
 
-        const tick = () => {
+      // Tick loop — pause only stops the interval, keeps snake where it is
+      useEffect(() => {
+        runningRef.current = running;
+        if (!open || !running) return;
+        const id = setInterval(() => {
           const st = stateRef.current;
-          if (!st || !st.alive) return;
+          if (!st || !st.alive || !runningRef.current) return;
           st.dir = { ...st.nextDir };
-          // Wrap at edges (same idea as ChatGPT snake)
           let nx = st.snake[0].x + st.dir.x;
           let ny = st.snake[0].y + st.dir.y;
           if (nx < 0) nx = COLS - 1;
@@ -1168,17 +1232,17 @@
           if (ny < 0) ny = ROWS - 1;
           else if (ny >= ROWS) ny = 0;
           const head = { x: nx, y: ny };
-          // Only die when hitting yourself
           if (st.snake.some(s => s.x === head.x && s.y === head.y)) {
             st.alive = false;
             setGameOver(true);
             setRunning(false);
+            runningRef.current = false;
             setHigh(h => {
               const next = Math.max(h, st.score);
               try { localStorage.setItem("bloom_snake_high", String(next)); } catch {}
               return next;
             });
-            draw(st);
+            if (drawRef.current) drawRef.current(st);
             return;
           }
           st.snake.unshift(head);
@@ -1193,14 +1257,9 @@
           } else {
             st.snake.pop();
           }
-          draw(st);
-        };
-
-        let id = null;
-        if (running) {
-          id = setInterval(tick, 130);
-        }
-        return () => { if (id) clearInterval(id); };
+          if (drawRef.current) drawRef.current(st);
+        }, 120);
+        return () => clearInterval(id);
       }, [open, running]);
 
       useEffect(() => {
@@ -1218,11 +1277,17 @@
           e.preventDefault();
           if (nd.x === -st.dir.x && nd.y === -st.dir.y) return;
           st.nextDir = nd;
-          if (!running && started && !gameOver) setRunning(true);
         };
         window.addEventListener("keydown", onKey, { passive: false });
         return () => window.removeEventListener("keydown", onKey);
-      }, [open, running, started, gameOver]);
+      }, [open]);
+
+      const applyDir = (nd) => {
+        const st = stateRef.current;
+        if (!st || !st.alive) return;
+        if (nd.x === -st.dir.x && nd.y === -st.dir.y) return;
+        st.nextDir = nd;
+      };
 
       const startGame = () => {
         stateRef.current = resetState();
@@ -1230,20 +1295,13 @@
         setGameOver(false);
         setStarted(true);
         setRunning(true);
-      };
-
-      const setDirPad = (nd) => {
-        const st = stateRef.current;
-        if (!st || !st.alive) return;
-        if (nd.x === -st.dir.x && nd.y === -st.dir.y) return;
-        st.nextDir = nd;
-        if (!running && started && !gameOver) setRunning(true);
+        if (drawRef.current) drawRef.current(stateRef.current);
       };
 
       if (!open) return null;
       return (
-        <div className="fixed inset-0 z-[180] flex items-end sm:items-center justify-center p-4 bg-ink/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Snake">
-          <div className="glass-strong rounded-2xl max-w-sm w-full p-5 shadow-float border border-pink/15 animate-scale-in" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[180] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-ink/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Snake">
+          <div className="glass-strong rounded-2xl w-full max-w-md p-4 sm:p-5 shadow-float border border-pink/15 animate-scale-in" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="font-display text-xl text-ink">Boba Snake</h3>
@@ -1256,8 +1314,8 @@
               <span className="text-mist">Best <strong className="text-ink tabular-nums">{high}</strong></span>
             </div>
             <div
-              className="mx-auto rounded-xl overflow-hidden border border-pink/15 touch-none"
-              style={{ width: W, maxWidth: "100%" }}
+              className="mx-auto rounded-2xl overflow-hidden border border-pink/15 touch-none shadow-sm"
+              style={{ width: "min(100%, " + W + "px)" }}
               onTouchStart={(e) => {
                 const t = e.touches[0];
                 touchRef.current = { x: t.clientX, y: t.clientY };
@@ -1266,15 +1324,15 @@
                 const t = e.changedTouches[0];
                 const dx = t.clientX - touchRef.current.x;
                 const dy = t.clientY - touchRef.current.y;
-                if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
-                if (Math.abs(dx) > Math.abs(dy)) setDirPad(dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
-                else setDirPad(dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
+                if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+                if (Math.abs(dx) > Math.abs(dy)) applyDir(dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
+                else applyDir(dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
               }}
             >
-              <canvas ref={canvasRef} width={W} height={H} className="block w-full h-auto bg-blush" />
+              <canvas ref={canvasRef} className="block w-full h-auto" style={{ aspectRatio: "1 / 1" }} />
             </div>
             {gameOver && (
-              <p className="text-center text-pink text-sm font-medium mt-3">Game over · score {score}</p>
+              <p className="text-center text-pink text-sm font-medium mt-3">Game over. Score {score}</p>
             )}
             <div className="mt-4 flex flex-col gap-2">
               {!started || gameOver ? (
@@ -1286,15 +1344,7 @@
                   {running ? "Pause" : "Resume"}
                 </button>
               )}
-              <div className="grid grid-cols-3 gap-2 max-w-[180px] mx-auto mt-1">
-                <span />
-                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: 0, y: -1 })} aria-label="Up">↑</button>
-                <span />
-                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: -1, y: 0 })} aria-label="Left">←</button>
-                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: 0, y: 1 })} aria-label="Down">↓</button>
-                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: 1, y: 0 })} aria-label="Right">→</button>
-              </div>
-              <p className="text-center text-[11px] text-mist mt-1">Swipe or use arrows · eat the pearls</p>
+              <p className="text-center text-[11px] text-mist">Swipe on the board or use keyboard arrows</p>
             </div>
           </div>
         </div>
@@ -1735,15 +1785,6 @@
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
 
           <SnakeGame open={showSnake} onClose={() => setShowSnake(false)} />
-
-          {orderHistory.length > 0 && !showSnake && (
-            <button type="button" onClick={() => setShowSnake(true)}
-              className="fixed bottom-24 right-4 z-[120] px-4 py-2.5 rounded-full bg-pink text-white text-sm font-semibold shadow-float border border-pink-deep/20"
-              style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
-              aria-label="Play Boba Snake">
-              Snake
-            </button>
-          )}
 
           {showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-ink/50 backdrop-blur-sm" role="dialog" aria-modal="true">
