@@ -1066,7 +1066,235 @@
       );
     };
 
-    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab }) => {
+    // Mini Snake — play while your order is being prepared
+    const SnakeGame = ({ open, onClose }) => {
+      const canvasRef = useRef(null);
+      const [score, setScore] = useState(0);
+      const [high, setHigh] = useState(() => {
+        try { return parseInt(localStorage.getItem("bloom_snake_high") || "0", 10) || 0; } catch { return 0; }
+      });
+      const [running, setRunning] = useState(false);
+      const [gameOver, setGameOver] = useState(false);
+      const [started, setStarted] = useState(false);
+      const stateRef = useRef(null);
+      const touchRef = useRef({ x: 0, y: 0 });
+
+      const COLS = 16;
+      const ROWS = 16;
+      const CELL = 18;
+      const W = COLS * CELL;
+      const H = ROWS * CELL;
+
+      const resetState = () => {
+        const snake = [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }];
+        const dir = { x: 1, y: 0 };
+        const placeFood = (body) => {
+          let f;
+          do {
+            f = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+          } while (body.some(s => s.x === f.x && s.y === f.y));
+          return f;
+        };
+        return { snake, dir, nextDir: { ...dir }, food: placeFood(snake), score: 0, alive: true };
+      };
+
+      useEffect(() => {
+        if (!open) {
+          setRunning(false);
+          setStarted(false);
+          setGameOver(false);
+          setScore(0);
+          stateRef.current = null;
+          return;
+        }
+        stateRef.current = resetState();
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const draw = (st) => {
+          ctx.fillStyle = "#FFF8FA";
+          ctx.fillRect(0, 0, W, H);
+          ctx.strokeStyle = "rgba(194,24,91,0.06)";
+          ctx.lineWidth = 1;
+          for (let i = 0; i <= COLS; i++) {
+            ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, H); ctx.stroke();
+          }
+          for (let j = 0; j <= ROWS; j++) {
+            ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(W, j * CELL); ctx.stroke();
+          }
+          // food (boba pearl)
+          const fx = st.food.x * CELL + CELL / 2;
+          const fy = st.food.y * CELL + CELL / 2;
+          ctx.beginPath();
+          ctx.arc(fx, fy, CELL * 0.32, 0, Math.PI * 2);
+          ctx.fillStyle = "#C2185B";
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(fx - 2, fy - 2, 2, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255,255,255,0.5)";
+          ctx.fill();
+          // snake
+          st.snake.forEach((s, i) => {
+            const pad = 1.5;
+            const r = 4;
+            const x = s.x * CELL + pad;
+            const y = s.y * CELL + pad;
+            const size = CELL - pad * 2;
+            ctx.fillStyle = i === 0 ? "#AD1457" : "#C2185B";
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(x, y, size, size, r);
+            else ctx.rect(x, y, size, size);
+            ctx.fill();
+            if (i === 0) {
+              ctx.fillStyle = "#fff";
+              const ex = s.x * CELL + CELL * 0.35 + (st.dir.x * 2);
+              const ey = s.y * CELL + CELL * 0.35 + (st.dir.y * 2);
+              ctx.beginPath(); ctx.arc(ex, ey, 2, 0, Math.PI * 2); ctx.fill();
+              ctx.beginPath(); ctx.arc(ex + (st.dir.y === 0 ? 5 : 0), ey + (st.dir.x === 0 ? 5 : 0), 2, 0, Math.PI * 2); ctx.fill();
+            }
+          });
+        };
+        draw(stateRef.current);
+
+        const tick = () => {
+          const st = stateRef.current;
+          if (!st || !st.alive) return;
+          st.dir = { ...st.nextDir };
+          const head = { x: st.snake[0].x + st.dir.x, y: st.snake[0].y + st.dir.y };
+          if (head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= ROWS ||
+              st.snake.some(s => s.x === head.x && s.y === head.y)) {
+            st.alive = false;
+            setGameOver(true);
+            setRunning(false);
+            setHigh(h => {
+              const next = Math.max(h, st.score);
+              try { localStorage.setItem("bloom_snake_high", String(next)); } catch {}
+              return next;
+            });
+            draw(st);
+            return;
+          }
+          st.snake.unshift(head);
+          if (head.x === st.food.x && head.y === st.food.y) {
+            st.score += 1;
+            setScore(st.score);
+            let f;
+            do {
+              f = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+            } while (st.snake.some(s => s.x === f.x && s.y === f.y));
+            st.food = f;
+          } else {
+            st.snake.pop();
+          }
+          draw(st);
+        };
+
+        let id = null;
+        if (running) {
+          id = setInterval(tick, 130);
+        }
+        return () => { if (id) clearInterval(id); };
+      }, [open, running]);
+
+      useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => {
+          const st = stateRef.current;
+          if (!st || !st.alive) return;
+          const k = e.key;
+          let nd = null;
+          if (k === "ArrowUp" || k === "w" || k === "W") nd = { x: 0, y: -1 };
+          if (k === "ArrowDown" || k === "s" || k === "S") nd = { x: 0, y: 1 };
+          if (k === "ArrowLeft" || k === "a" || k === "A") nd = { x: -1, y: 0 };
+          if (k === "ArrowRight" || k === "d" || k === "D") nd = { x: 1, y: 0 };
+          if (!nd) return;
+          e.preventDefault();
+          if (nd.x === -st.dir.x && nd.y === -st.dir.y) return;
+          st.nextDir = nd;
+          if (!running && started && !gameOver) setRunning(true);
+        };
+        window.addEventListener("keydown", onKey, { passive: false });
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, running, started, gameOver]);
+
+      const startGame = () => {
+        stateRef.current = resetState();
+        setScore(0);
+        setGameOver(false);
+        setStarted(true);
+        setRunning(true);
+      };
+
+      const setDirPad = (nd) => {
+        const st = stateRef.current;
+        if (!st || !st.alive) return;
+        if (nd.x === -st.dir.x && nd.y === -st.dir.y) return;
+        st.nextDir = nd;
+        if (!running && started && !gameOver) setRunning(true);
+      };
+
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-[180] flex items-end sm:items-center justify-center p-4 bg-ink/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Snake">
+          <div className="glass-strong rounded-2xl max-w-sm w-full p-5 shadow-float border border-pink/15 animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-display text-xl text-ink">Boba Snake</h3>
+                <p className="text-mist text-xs mt-0.5">Play while your order is being made</p>
+              </div>
+              <button type="button" onClick={onClose} className="hit-icon text-mist hover:text-ink" aria-label="Close"><Icon name="x" size={22} /></button>
+            </div>
+            <div className="flex justify-between text-sm mb-3">
+              <span className="text-ink">Score <strong className="text-pink tabular-nums">{score}</strong></span>
+              <span className="text-mist">Best <strong className="text-ink tabular-nums">{high}</strong></span>
+            </div>
+            <div
+              className="mx-auto rounded-xl overflow-hidden border border-pink/15 touch-none"
+              style={{ width: W, maxWidth: "100%" }}
+              onTouchStart={(e) => {
+                const t = e.touches[0];
+                touchRef.current = { x: t.clientX, y: t.clientY };
+              }}
+              onTouchEnd={(e) => {
+                const t = e.changedTouches[0];
+                const dx = t.clientX - touchRef.current.x;
+                const dy = t.clientY - touchRef.current.y;
+                if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+                if (Math.abs(dx) > Math.abs(dy)) setDirPad(dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
+                else setDirPad(dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
+              }}
+            >
+              <canvas ref={canvasRef} width={W} height={H} className="block w-full h-auto bg-blush" />
+            </div>
+            {gameOver && (
+              <p className="text-center text-pink text-sm font-medium mt-3">Game over · score {score}</p>
+            )}
+            <div className="mt-4 flex flex-col gap-2">
+              {!started || gameOver ? (
+                <button type="button" onClick={startGame} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep">
+                  {gameOver ? "Play again" : "Start"}
+                </button>
+              ) : (
+                <button type="button" onClick={() => setRunning(r => !r)} className="w-full py-3 rounded-xl border border-pink/25 text-pink font-semibold text-sm">
+                  {running ? "Pause" : "Resume"}
+                </button>
+              )}
+              <div className="grid grid-cols-3 gap-2 max-w-[180px] mx-auto mt-1">
+                <span />
+                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: 0, y: -1 })} aria-label="Up">↑</button>
+                <span />
+                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: -1, y: 0 })} aria-label="Left">←</button>
+                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: 0, y: 1 })} aria-label="Down">↓</button>
+                <button type="button" className="h-11 rounded-xl bg-pink-soft text-pink font-bold" onClick={() => setDirPad({ x: 1, y: 0 })} aria-label="Right">→</button>
+              </div>
+              <p className="text-center text-[11px] text-mist mt-1">Swipe or use arrows · eat the pearls</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake }) => {
       const total = items.reduce((s, i) => s + i.price * i.qty, 0);
       const count = items.reduce((s, i) => s + i.qty, 0);
       const lockedTable = (tableFromQr || "").toString().trim();
@@ -1090,6 +1318,9 @@
           Promise.resolve(ok).then(() => {
             setItems([]);
             showToast("Order sent to Table " + effectiveTable + " (pending confirm)");
+            if (typeof onPlaySnake === "function") {
+              setTimeout(() => onPlaySnake(), 400);
+            }
           }).catch(err => {
             console.error(err);
             showToast("Could not place order. Try again.");
@@ -1138,7 +1369,15 @@
                     <p className="text-mist">No orders yet</p>
                     <p className="text-mist/60 text-sm mt-1">Placed orders will show here</p>
                   </div>
-                ) : orderHistory.map(h => (
+                ) : (
+                  <>
+                    {typeof onPlaySnake === "function" && (
+                      <button type="button" onClick={() => onPlaySnake()}
+                        className="w-full mb-2 py-3 rounded-xl border border-pink/20 bg-pink-soft/50 text-pink text-sm font-semibold hover:bg-pink-soft">
+                        Play Boba Snake while you wait
+                      </button>
+                    )}
+                    {orderHistory.map(h => (
                   <div key={h.id} className="p-3 rounded-xl bg-blush border border-pink/10 space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div>
@@ -1157,7 +1396,9 @@
                     </ul>
                     <p className="text-[10px] uppercase tracking-wider text-pink/80">Sent</p>
                   </div>
-                ))
+                    ))}
+                  </>
+                )
               ) : items.length === 0 ? (
                 <div className="text-center py-16">
                   <Icon name="shopping-bag" size={40} className="text-mist/40 mx-auto mb-3" />
@@ -1252,6 +1493,7 @@
       const [variantDish, setVariantDish] = useState(null);
       const [cartOpen, setCartOpen] = useState(false);
       const [cartTab, setCartTab] = useState("cart");
+      const [showSnake, setShowSnake] = useState(false);
       const [badgePulse, setBadgePulse] = useState(false);
       const [headerScrolled, setHeaderScrolled] = useState(false);
       useEffect(() => {
@@ -1471,6 +1713,7 @@
           <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
             onOrderPlaced={(items, tableLabel) => pushHistory(items, tableLabel)}
+            onPlaySnake={() => { setCartOpen(false); setShowSnake(true); }}
             onPlaceOrder={(items, tableLabel) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
@@ -1483,6 +1726,17 @@
               return false;
             }} showToast={showToast}
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
+
+          <SnakeGame open={showSnake} onClose={() => setShowSnake(false)} />
+
+          {orderHistory.length > 0 && !showSnake && (
+            <button type="button" onClick={() => setShowSnake(true)}
+              className="fixed bottom-24 right-4 z-[120] px-4 py-2.5 rounded-full bg-pink text-white text-sm font-semibold shadow-float border border-pink-deep/20"
+              style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+              aria-label="Play Boba Snake">
+              Snake
+            </button>
+          )}
 
           {showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-ink/50 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -1537,9 +1791,10 @@
                             pushHistory(items, tableLabel);
                             Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
                               setSessionItems([]);
-                              setCartOpen(true);
+                              setCartOpen(false);
                               setCartTab("history");
                               showToast("Order sent to Table " + tableLabel);
+                              setTimeout(() => setShowSnake(true), 400);
                             });
                           } else {
                             showToast("Table verified. You can order again on this phone without re-entering the PIN.");
@@ -1593,9 +1848,10 @@
                         pushHistory(items, tableLabel);
                         Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
                           setSessionItems([]);
-                          setCartOpen(true);
+                          setCartOpen(false);
                           setCartTab("history");
                           showToast("Order sent to Table " + tableLabel);
+                          setTimeout(() => setShowSnake(true), 400);
                         });
                       } else {
                         showToast("Verified. You can place orders now.");
