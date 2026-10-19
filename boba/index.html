@@ -568,10 +568,10 @@
     }
 
     let _menuSaveTimer = null;
-    let _menuSaveSeq = 0;
+    let _lastLocalMenuWriteAt = 0;
+
     async function cloudSaveMenu(dishes) {
       if (!sb || !Array.isArray(dishes)) return;
-      // Strip huge base64 only if needed later; for now save full dish objects staff controls
       const payload = dishes.map(d => ({
         id: d.id,
         name: d.name,
@@ -590,22 +590,26 @@
         variants: d.variants,
         variantKind: d.variantKind,
       }));
-      const seq = ++_menuSaveSeq;
+      const writtenAt = Date.now();
+      _lastLocalMenuWriteAt = writtenAt;
       const { error } = await sb.from("bloom_menu").upsert({
         id: "main",
         dishes: payload,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date(writtenAt).toISOString(),
       });
       if (error) throw error;
-      return seq;
+      _lastLocalMenuWriteAt = Math.max(_lastLocalMenuWriteAt, writtenAt);
+      return writtenAt;
     }
 
     function scheduleCloudSaveMenu(dishes) {
       if (!sb) return;
+      // Mark immediately so a concurrent realtime pull cannot overwrite this edit
+      _lastLocalMenuWriteAt = Date.now();
       clearTimeout(_menuSaveTimer);
       _menuSaveTimer = setTimeout(() => {
         cloudSaveMenu(dishes).catch(e => console.error("menu save", e));
-      }, 400);
+      }, 250);
     }
 
     function mergeMenuList(list) {
@@ -2428,8 +2432,17 @@
 
       const showToast = useCallback((msg) => setToast(msg), []);
 
-      const applyRemoteMenu = useCallback((list) => {
+      const applyRemoteMenu = useCallback((list, remoteUpdatedAt) => {
         if (!Array.isArray(list) || !list.length) return;
+        // Don't clobber a toggle the user just made with an older cloud snapshot
+        if (remoteUpdatedAt) {
+          const remoteMs = new Date(remoteUpdatedAt).getTime();
+          if (Number.isFinite(remoteMs) && remoteMs < _lastLocalMenuWriteAt - 50) {
+            return;
+          }
+        } else if (Date.now() - _lastLocalMenuWriteAt < 2000) {
+          return;
+        }
         applyingRemoteMenu.current = true;
         setDishes(mergeMenuList(list));
         queueMicrotask(() => { applyingRemoteMenu.current = false; });
@@ -2467,7 +2480,7 @@
             try {
               const remote = await cloudFetchMenu();
               if (remote && remote.dishes && remote.dishes.length) {
-                applyRemoteMenu(remote.dishes);
+                applyRemoteMenu(remote.dishes, remote.updatedAt);
               } else {
                 // First time: seed cloud from current local menu
                 await cloudSaveMenu(dishes);
@@ -2487,7 +2500,7 @@
               .on("postgres_changes", { event: "*", schema: "public", table: "bloom_menu" }, async () => {
                 try {
                   const remote = await cloudFetchMenu();
-                  if (remote && remote.dishes) applyRemoteMenu(remote.dishes);
+                  if (remote && remote.dishes) applyRemoteMenu(remote.dishes, remote.updatedAt);
                 } catch (e) { console.error(e); }
               })
               .subscribe();
