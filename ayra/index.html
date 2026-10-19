@@ -128,9 +128,10 @@
       max-width: calc(100vw - 1.5rem) !important;
       z-index: 40 !important;
     }
-    /* Toast — below notch / Dynamic Island */
+    /* Toast — bottom above home indicator */
     .toast-host {
-      top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem)) !important;
+      top: auto !important;
+      bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1rem)) !important;
       left: 50% !important;
       transform: translateX(-50%) !important;
       width: min(100% - 1.5rem, 22rem) !important;
@@ -1053,12 +1054,14 @@
           return;
         }
         try {
-          const ok = onPlaceOrder(items, effectiveTable);
+          const snapshot = items.map(i => ({ ...i }));
+          const ok = onPlaceOrder(snapshot, effectiveTable);
           if (ok === false) return;
+          // History immediately so UI updates even if network is slow
+          if (typeof onOrderPlaced === "function") onOrderPlaced(snapshot, effectiveTable);
+          if (setCartTab) setCartTab("history");
           Promise.resolve(ok).then(() => {
-            if (typeof onOrderPlaced === "function") onOrderPlaced(items, effectiveTable);
             setItems([]);
-            setCartTab && setCartTab("history");
             showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
           }).catch(err => {
             console.error(err);
@@ -1347,11 +1350,21 @@
           {/* Only search sticks — category/diet scroll away with the page (no JS hide = no glitch) */}
           <div className="sticky top-0 z-40 glass border-y border-champagne/10 sticky-search">
             <div className="max-w-6xl mx-auto px-4 py-3">
-              <div className="relative">
-                <Icon name="search" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sage pointer-events-none" aria-hidden="true" />
-                <input type="search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
-                  className="w-full min-h-[44px] bg-surface/80 border border-champagne/15 rounded-2xl pl-11 pr-4 text-[15px] leading-5 text-off-white placeholder:text-sage/50 focus:outline-none focus:border-champagne/40 transition"
-                  aria-label="Search menu" autoComplete="off" />
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <Icon name="search" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sage pointer-events-none" aria-hidden="true" />
+                  <input type="search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
+                    className="w-full min-h-[44px] bg-surface/80 border border-champagne/15 rounded-2xl pl-11 pr-4 text-[15px] leading-5 text-off-white placeholder:text-sage/50 focus:outline-none focus:border-champagne/40 transition"
+                    aria-label="Search menu" autoComplete="off" />
+                </div>
+                <button type="button" onClick={() => setCartOpen(true)}
+                  className={`relative shrink-0 glass-strong rounded-2xl min-h-[44px] min-w-[44px] px-3 flex items-center justify-center border border-champagne/25 hover:border-champagne/50 transition ${badgePulse ? "animate-bounce-soft" : ""}`}
+                  aria-label={itemCount ? `Cart, ${itemCount} items` : "Open cart"}>
+                  <Icon name="shopping-bag" size={20} className="text-champagne" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-champagne text-obsidian text-[10px] font-bold flex items-center justify-center">{itemCount}</span>
+                  )}
+                </button>
               </div>
             </div>
           </div>
@@ -1406,33 +1419,16 @@
               </div>
             )}
           </main>
-
-          {/* Cart — top right like ecom */}
-          <button type="button" onClick={() => setCartOpen(true)}
-            className={`cart-top-btn glass-strong rounded-2xl min-h-[48px] min-w-[48px] px-3 flex items-center justify-center gap-2 border border-champagne/25 shadow-float hover:border-champagne/50 transition ${badgePulse ? "animate-bounce-soft" : ""}`}
-            aria-label={itemCount ? `Cart, ${itemCount} items` : "Open cart"}>
-            <div className="relative">
-              <Icon name="shopping-bag" size={20} className="text-champagne" />
-              {itemCount > 0 && (
-                <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-champagne text-obsidian text-[10px] font-bold flex items-center justify-center">{itemCount}</span>
-              )}
-            </div>
-            {itemCount > 0 && (
-              <span className="hidden sm:inline text-xs text-off-white font-medium max-w-[5rem] truncate">{formatPrice(total)}</span>
-            )}
-          </button>
-
           <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
             onOrderPlaced={(items, tableLabel) => pushHistory(items, tableLabel)}
             onPlaceOrder={(items, tableLabel) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
-              // Same phone during the meal: reuse saved dining unlock (12h)
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
               if (saved && saved.exp && Date.now() < saved.exp) {
                 if (!guest) setGuest(saved);
-                onPlaceOrder(items, tkey, saved);
-                return true;
+                // Return promise so cart waits, then history updates via onOrderPlaced
+                return Promise.resolve(onPlaceOrder(items, tkey, saved));
               }
               pendingPlace.current = { items, tableLabel: tkey };
               setShowGuestGate(true);
@@ -1490,10 +1486,13 @@
                           if (pendingPlace.current) {
                             const { items, tableLabel } = pendingPlace.current;
                             pendingPlace.current = null;
-                            onPlaceOrder(items, tableLabel, payload);
-                            setSessionItems([]);
-                            setCartOpen(false);
-                            showToast("Order sent — Table " + tableLabel);
+                            pushHistory(items, tableLabel);
+                            Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
+                              setSessionItems([]);
+                              setCartOpen(true);
+                              setCartTab("history");
+                              showToast("Order sent — Table " + tableLabel);
+                            });
                           } else {
                             showToast("Table verified — you can order again on this phone without re-entering PIN");
                           }
@@ -1543,10 +1542,13 @@
                       if (pendingPlace.current) {
                         const { items, tableLabel } = pendingPlace.current;
                         pendingPlace.current = null;
-                        onPlaceOrder(items, tableLabel, payload);
-                        setSessionItems([]);
-                        setCartOpen(false);
-                        showToast("Order sent — Table " + tableLabel);
+                        pushHistory(items, tableLabel);
+                        Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
+                          setSessionItems([]);
+                          setCartOpen(true);
+                          setCartTab("history");
+                          showToast("Order sent — Table " + tableLabel);
+                        });
                       } else {
                         showToast("Verified — you can place orders now");
                       }
@@ -1724,7 +1726,7 @@
 
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders }) => {
       const [editingDish, setEditingDish] = useState(null);
-      const [staffTab, setStaffTab] = useState("live"); // live | menu | insights
+      const [staffTab, setStaffTab] = useState("live"); // live | tables | menu | insights
       const [mgrUnlocked, setMgrUnlocked] = useState(() => {
         try { return sessionStorage.getItem("ayra_mgr") === "1"; } catch { return false; }
       });
@@ -1891,14 +1893,15 @@
             <div className="max-w-7xl mx-auto mt-5 flex gap-2 overflow-x-auto">
               {[
                 { id: "live", label: "Live Tables", count: liveOrders.length },
-                { id: "menu", label: "Menu" }, // manager
-                { id: "insights", label: "Insights" },
+                { id: "tables", label: "Tables" },
+                { id: "menu", label: "Menu", locked: true },
+                { id: "insights", label: "Insights", locked: true },
               ].map(tab => (
                 <button key={tab.id} onClick={() => setStaffTab(tab.id)}
                   className={`px-5 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap transition ${
                     staffTab === tab.id ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
                   }`}>
-                  {tab.label}{tab.count != null ? ` (${tab.count})` : ""}
+                  {tab.label}{tab.count != null ? ` (${tab.count})` : ""}{tab.locked && !mgrUnlocked ? " ·" : ""}
                 </button>
               ))}
             </div>
@@ -1915,52 +1918,6 @@
                       className="px-3 py-2 rounded-xl border border-champagne/30 text-champagne text-xs font-semibold hover:bg-champagne/10 transition flex items-center gap-1.5">
                       <Icon name="refresh-cw" size={14} /> Refresh
                     </button>
-                  </div>
-                </div>
-                <div className="glass rounded-2xl p-4 border border-champagne/10 mb-6 space-y-3">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div>
-                      <p className="text-sm text-off-white font-medium">Tables · PIN · QR</p>
-                      <p className="text-sage text-xs">Add or remove tables. Copy the QR link for each table card.</p>
-                    </div>
-                    <button type="button" onClick={() => {
-                      const nums = Object.keys(tablePins || {}).map(Number).filter(n => !isNaN(n));
-                      const next = (nums.length ? Math.max(...nums) : 0) + 1;
-                      const pin = String(1000 + next);
-                      setTablePins(prev => ({ ...prev, [String(next)]: pin }));
-                      cloudUpsertPin(next, pin);
-                      showToast("Table " + next + " added · PIN " + pin);
-                    }} className="px-3 py-2 rounded-xl bg-champagne text-obsidian text-xs font-semibold">+ Add table</button>
-                  </div>
-                  <div className="space-y-2 max-h-72 overflow-y-auto">
-                    {Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
-                      const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jordanworld.co/ayra/').replace(/\/?$/, '/');
-                      const pin = (tablePins && tablePins[String(n)]) || "";
-                      const url = base + '?table=' + n + (pin ? ('&pin=' + pin) : '');
-                      return (
-                        <div key={n} className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="text-off-white font-medium w-10">T{n}</span>
-                          <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
-                            value={pin}
-                            onChange={e => { const v = e.target.value.trim(); setTablePins(prev => ({ ...prev, [String(n)]: v })); if (v) cloudUpsertPin(n, v); }}
-                            className="w-16 min-h-[36px] bg-surface border border-champagne/20 rounded-lg px-2 text-center text-off-white" />
-                          <button type="button" onClick={() => { navigator.clipboard.writeText(url).then(() => showToast('Copied T' + n + ' QR link')).catch(() => showToast(url)); }}
-                            className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne" title={url}>
-                            Copy QR link
-                          </button>
-                          <button type="button" onClick={() => {
-                            if (!window.confirm("Remove table " + n + "?")) return;
-                            setTablePins(prev => {
-                              const copy = { ...prev };
-                              delete copy[String(n)];
-                              return copy;
-                            });
-                            if (sb) sb.from("table_pins").delete().eq("table_no", String(n)).then(() => {});
-                            showToast("Table " + n + " removed");
-                          }} className="px-2 py-2 rounded-lg text-sage hover:text-red-400 border border-champagne/10">Remove</button>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
                 {liveOrders.length === 0 ? (
@@ -2046,7 +2003,61 @@
             )}
 
             
-            {(staffTab === "menu" || staffTab === "insights") && !mgrUnlocked && (
+            
+            {staffTab === "tables" && (
+              <section>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                  <div>
+                    <h2 className="font-display text-2xl text-off-white">Tables</h2>
+                    <p className="text-sage text-sm">Add or remove tables, set PINs, copy QR links</p>
+                  </div>
+                  <button type="button" onClick={() => {
+                    const nums = Object.keys(tablePins || {}).map(Number).filter(n => !isNaN(n));
+                    const next = (nums.length ? Math.max(...nums) : 0) + 1;
+                    const pin = String(1000 + next);
+                    setTablePins(prev => ({ ...prev, [String(next)]: pin }));
+                    cloudUpsertPin(next, pin);
+                    showToast("Table " + next + " added · PIN " + pin);
+                  }} className="px-4 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-semibold">+ Add table</button>
+                </div>
+                <div className="glass rounded-2xl p-4 border border-champagne/10 space-y-3">
+                  <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+                    {Object.keys(tablePins || {}).length === 0 ? (
+                      <p className="text-sage text-sm py-8 text-center">No tables yet. Tap + Add table.</p>
+                    ) : Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
+                      const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jordanworld.co/ayra/').replace(/\/?$/, '/');
+                      const pin = (tablePins && tablePins[String(n)]) || "";
+                      const url = base + '?table=' + n + (pin ? ('&pin=' + pin) : '');
+                      return (
+                        <div key={n} className="flex flex-wrap items-center gap-2 text-xs p-2 rounded-xl bg-surface/40 border border-champagne/8">
+                          <span className="text-off-white font-medium w-10">T{n}</span>
+                          <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
+                            value={pin}
+                            onChange={e => { const v = e.target.value.trim(); setTablePins(prev => ({ ...prev, [String(n)]: v })); if (v) cloudUpsertPin(n, v); }}
+                            className="w-16 min-h-[36px] bg-surface border border-champagne/20 rounded-lg px-2 text-center text-off-white" />
+                          <button type="button" onClick={() => { navigator.clipboard.writeText(url).then(() => showToast('Copied T' + n + ' QR link')).catch(() => showToast(url)); }}
+                            className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne" title={url}>
+                            Copy QR link
+                          </button>
+                          <button type="button" onClick={() => {
+                            if (!window.confirm("Remove table " + n + "?")) return;
+                            setTablePins(prev => {
+                              const copy = { ...prev };
+                              delete copy[String(n)];
+                              return copy;
+                            });
+                            if (sb) sb.from("table_pins").delete().eq("table_no", String(n)).then(() => {});
+                            showToast("Table " + n + " removed");
+                          }} className="px-2 py-2 rounded-lg text-sage hover:text-red-400 border border-champagne/10">Remove</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
+
+{(staffTab === "menu" || staffTab === "insights") && !mgrUnlocked && (
               <div className="glass rounded-2xl p-8 max-w-md mx-auto border border-champagne/15 text-center">
                 <Icon name="lock" size={28} className="text-champagne mx-auto mb-3" />
                 <h2 className="font-display text-2xl text-off-white mb-2">Manager access</h2>
