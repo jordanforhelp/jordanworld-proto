@@ -558,6 +558,74 @@
       return map;
     }
 
+    // Shared menu (photos, visibility, prices) so phone staff edits show on desktop guests
+    async function cloudFetchMenu() {
+      if (!sb) return null;
+      const { data, error } = await sb.from("bloom_menu").select("dishes, updated_at").eq("id", "main").maybeSingle();
+      if (error) throw error;
+      if (!data || !Array.isArray(data.dishes)) return null;
+      return { dishes: data.dishes, updatedAt: data.updated_at };
+    }
+
+    let _menuSaveTimer = null;
+    let _menuSaveSeq = 0;
+    async function cloudSaveMenu(dishes) {
+      if (!sb || !Array.isArray(dishes)) return;
+      // Strip huge base64 only if needed later; for now save full dish objects staff controls
+      const payload = dishes.map(d => ({
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        price: d.price,
+        category: d.category,
+        image: d.image || "",
+        imageVisible: d.imageVisible === true,
+        tags: d.tags || [],
+        diet: d.diet || [],
+        margin: d.margin,
+        ordersToday: d.ordersToday || 0,
+        visible: d.visible !== false,
+        pairWith: d.pairWith || [],
+        sortOrder: d.sortOrder,
+        variants: d.variants,
+        variantKind: d.variantKind,
+      }));
+      const seq = ++_menuSaveSeq;
+      const { error } = await sb.from("bloom_menu").upsert({
+        id: "main",
+        dishes: payload,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      return seq;
+    }
+
+    function scheduleCloudSaveMenu(dishes) {
+      if (!sb) return;
+      clearTimeout(_menuSaveTimer);
+      _menuSaveTimer = setTimeout(() => {
+        cloudSaveMenu(dishes).catch(e => console.error("menu save", e));
+      }, 400);
+    }
+
+    function mergeMenuList(list) {
+      const byId = Object.fromEntries(INITIAL_DISHES.map(d => [d.id, d]));
+      return (list || []).map(d => {
+        const base = byId[d.id];
+        return {
+          ...d,
+          name: d.name || (base && base.name) || "",
+          description: d.description != null ? d.description : (base && base.description) || "",
+          category: d.category || (base && base.category),
+          variants: d.variants || (base && base.variants),
+          variantKind: d.variantKind || (base && base.variantKind),
+          image: d.image != null ? d.image : (base && base.image) || "",
+          imageVisible: d.imageVisible === true,
+          visible: d.visible !== false,
+        };
+      });
+    }
+
     function periodBounds(period) {
       const now = new Date();
       if (period === "all") return { from: null, to: null };
@@ -2330,29 +2398,14 @@
       const [staffAuth, setStaffAuth] = useState(() => { try { return sessionStorage.getItem("bloom_staff") === "1"; } catch { return false; } });
       const [showPin, setShowPin] = useState(false);
       const [dishes, setDishes] = useState(() => {
-        const byId = Object.fromEntries(INITIAL_DISHES.map(d => [d.id, d]));
         const loaded = loadState("bloom_dishes", null);
-        const withDefaults = (list) => list.map(d => {
-          const base = byId[d.id];
-          return {
-            ...d,
-            // Keep menu copy / variants in sync with the master list
-            name: (base && base.name) || d.name,
-            description: (base && base.description) || d.description,
-            category: (base && base.category) || d.category,
-            variants: (base && base.variants) || d.variants,
-            variantKind: (base && base.variantKind) || d.variantKind,
-            // Photos hidden on customer menu unless staff turns them on
-            imageVisible: d.imageVisible === true,
-          };
-        });
-        if (!loaded) return withDefaults(INITIAL_DISHES);
+        if (!loaded) return mergeMenuList(INITIAL_DISHES);
         const wiped = sessionStorage.getItem("bloom_stats_wiped");
         if (!wiped) {
           try { sessionStorage.setItem("bloom_stats_wiped", "1"); } catch {}
-          return withDefaults(loaded.map(d => ({ ...d, ordersToday: 0 })));
+          return mergeMenuList(loaded.map(d => ({ ...d, ordersToday: 0 })));
         }
-        return withDefaults(loaded);
+        return mergeMenuList(loaded);
       });
       const [recommendations, setRecommendations] = useState(() => loadState("bloom_recs", AI_RECOMMENDATIONS));
       const [sessionItems, setSessionItems] = useState([]);
@@ -2361,11 +2414,26 @@
       const [toast, setToast] = useState(null);
       const [tableFromQr] = useState(() => getTableFromUrl());
       const [pinFromQr] = useState(() => getPinFromUrl());
+      const menuCloudReady = useRef(false);
+      const applyingRemoteMenu = useRef(false);
 
       useEffect(() => { saveState("bloom_dishes", dishes); }, [dishes]);
       useEffect(() => { saveState("bloom_recs", recommendations); }, [recommendations]);
 
+      // Push menu edits (photo on/off, uploads, prices) to Supabase for all devices
+      useEffect(() => {
+        if (!menuCloudReady.current || applyingRemoteMenu.current) return;
+        scheduleCloudSaveMenu(dishes);
+      }, [dishes]);
+
       const showToast = useCallback((msg) => setToast(msg), []);
+
+      const applyRemoteMenu = useCallback((list) => {
+        if (!Array.isArray(list) || !list.length) return;
+        applyingRemoteMenu.current = true;
+        setDishes(mergeMenuList(list));
+        queueMicrotask(() => { applyingRemoteMenu.current = false; });
+      }, []);
 
       const refreshOrders = useCallback(async () => {
         try {
@@ -2394,6 +2462,21 @@
             if (pins) setTablePins(pins);
             const orders = await cloudFetchLiveOrders();
             setLiveOrders(orders || []);
+
+            // Load shared menu (photos / visibility) from cloud
+            try {
+              const remote = await cloudFetchMenu();
+              if (remote && remote.dishes && remote.dishes.length) {
+                applyRemoteMenu(remote.dishes);
+              } else {
+                // First time: seed cloud from current local menu
+                await cloudSaveMenu(dishes);
+              }
+            } catch (menuErr) {
+              console.error("menu load", menuErr);
+            }
+            menuCloudReady.current = true;
+
             channel = sb.channel("bloom-live")
               .on("postgres_changes", { event: "*", schema: "public", table: "bloom_order_rounds" }, async () => {
                 try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch (e) { console.error(e); }
@@ -2401,14 +2484,21 @@
               .on("postgres_changes", { event: "*", schema: "public", table: "bloom_table_sessions" }, async () => {
                 try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch (e) { console.error(e); }
               })
+              .on("postgres_changes", { event: "*", schema: "public", table: "bloom_menu" }, async () => {
+                try {
+                  const remote = await cloudFetchMenu();
+                  if (remote && remote.dishes) applyRemoteMenu(remote.dishes);
+                } catch (e) { console.error(e); }
+              })
               .subscribe();
           } catch (e) {
             console.error(e);
             setTablePins({ ...DEFAULT_TABLE_PINS });
+            menuCloudReady.current = true;
           }
         })();
         return () => { if (channel && sb) sb.removeChannel(channel); };
-      }, [showToast]);
+      }, [showToast, applyRemoteMenu]);
 
       const placeOrder = useCallback(async (items, tableLabel, guest) => {
         try {
