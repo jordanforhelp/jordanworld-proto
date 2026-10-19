@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#FFF8FA" />
-  <title>Bloom · Boba Café</title>
+  <title>Bloom Boba Café</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -258,7 +258,40 @@
       min-width: 44px; min-height: 44px;
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .text-mist { color: #9CA3AF !important; }
+    .switch-toggle {
+      position: relative;
+      flex-shrink: 0;
+      border: 2px solid transparent;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .switch-toggle.is-on {
+      background: #C2185B !important;
+      border-color: #AD1457;
+    }
+    .switch-toggle.is-off {
+      background: #E5DDE1 !important;
+      border-color: #9A8A92;
+    }
+    .switch-toggle:disabled,
+    .switch-toggle.is-disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .switch-toggle .switch-knob {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.28);
+      transition: left 0.2s ease;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .switch-toggle.is-on .switch-knob { left: calc(100% - 18px); }
+    .switch-toggle.is-off .switch-knob { left: 2px; }
+    .text-mist { color: #8A7A82 !important; }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -281,7 +314,7 @@
     // ========== BLOOM BOBA MENU ==========
     // Prices in INR. Size variants: Regular / Large where noted.
     const INITIAL_DISHES = [
-      // —— CLASSIC MILK TEA ——
+      // CLASSIC MILK TEA
       { id: 1, name: "Classic Milk Tea", description: "Signature black tea with creamy milk and chewy tapioca pearls.", price: 149, category: "Milk Tea", image: "https://images.unsplash.com/photo-1558857563-b37103387363?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 10,
         variants: [{ label: "Regular", price: 149 }, { label: "Large", price: 179 }] },
       { id: 2, name: "Brown Sugar Boba Milk", description: "Fresh milk, brown sugar syrup, and warm tapioca pearls.", price: 179, category: "Milk Tea", image: "https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5,
@@ -303,7 +336,7 @@
       { id: 10, name: "Chocolate Milk Tea", description: "Rich cocoa with milk tea and optional pearls.", price: 169, category: "Milk Tea", image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90,
         variants: [{ label: "Regular", price: 169 }, { label: "Large", price: 199 }] },
 
-      // —— FRUIT TEA ——
+      // FRUIT TEA
       { id: 20, name: "Mango Green Tea", description: "Fresh mango chunks over jasmine green tea.", price: 159, category: "Fruit Tea", image: "https://images.unsplash.com/photo-1546173159-315724a31696?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10,
         variants: [{ label: "Regular", price: 159 }, { label: "Large", price: 189 }] },
       { id: 21, name: "Passion Fruit Green Tea", description: "Tangy passion fruit with green tea and aloe.", price: 159, category: "Fruit Tea", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20,
@@ -323,7 +356,7 @@
       { id: 28, name: "Kiwi Fruit Tea", description: "Fresh kiwi puree with green tea.", price: 159, category: "Fruit Tea", image: "https://images.unsplash.com/photo-1546173159-315724a31696?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90,
         variants: [{ label: "Regular", price: 159 }, { label: "Large", price: 189 }] },
 
-      // —— SIGNATURE & SPECIALTY ——
+      // SIGNATURE & SPECIALTY
       { id: 40, name: "Cheese Foam Milk Tea", description: "Classic milk tea topped with savory cheese foam.", price: 199, category: "Signature", image: "https://images.unsplash.com/photo-1558857563-b37103387363?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5,
         variants: [{ label: "Regular", price: 199 }, { label: "Large", price: 229 }] },
       { id: 41, name: "Dirty Brown Sugar", description: "Espresso shot over brown sugar boba milk.", price: 209, category: "Signature", image: "https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10,
@@ -339,7 +372,7 @@
       { id: 46, name: "Hojicha Latte", description: "Roasted Japanese hojicha with steamed milk.", price: 189, category: "Signature", image: "https://images.unsplash.com/photo-1536256263959-770b48d82b0e?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60,
         variants: [{ label: "Regular", price: 189 }, { label: "Large", price: 219 }] },
 
-      // —— SLUSH & SMOOTHIES ——
+      // SLUSH & SMOOTHIES
       { id: 50, name: "Mango Slush", description: "Icy mango blend, lightly sweet.", price: 169, category: "Slush & Smoothies", image: "https://images.unsplash.com/photo-1546173159-315724a31696?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10,
         variants: [{ label: "Regular", price: 169 }, { label: "Large", price: 199 }] },
       { id: 51, name: "Strawberry Smoothie", description: "Blended strawberries with yogurt base.", price: 179, category: "Slush & Smoothies", image: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20,
@@ -353,7 +386,7 @@
       { id: 55, name: "Matcha Smoothie", description: "Matcha, banana, and milk blended ice-cold.", price: 189, category: "Slush & Smoothies", image: "https://images.unsplash.com/photo-1536256263959-770b48d82b0e?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60,
         variants: [{ label: "Regular", price: 189 }, { label: "Large", price: 219 }] },
 
-      // —— PURE TEA ——
+      // PURE TEA
       { id: 60, name: "Jasmine Green Tea", description: "Fragrant jasmine green, hot or iced.", price: 99, category: "Pure Tea", image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10, variantKind: "option",
         variants: [{ label: "Hot", price: 99 }, { label: "Iced Regular", price: 109 }, { label: "Iced Large", price: 129 }] },
       { id: 61, name: "Earl Grey", description: "Classic bergamot black tea.", price: 99, category: "Pure Tea", image: "https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20, variantKind: "option",
@@ -365,7 +398,7 @@
       { id: 64, name: "Ginger Lemon Tea", description: "Fresh ginger and lemon, warming.", price: 119, category: "Pure Tea", image: "https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 76, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50, variantKind: "option",
         variants: [{ label: "Hot", price: 119 }, { label: "Iced", price: 129 }] },
 
-      // —— TOPPINGS (add-ons) ——
+      // TOPPINGS (add-ons)
       { id: 70, name: "Tapioca Pearls", description: "Classic chewy black boba pearls.", price: 30, category: "Toppings", image: "https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 85, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
       { id: 71, name: "Crystal Boba", description: "Clear, jelly-like pearls.", price: 35, category: "Toppings", image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 82, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
       { id: 72, name: "Strawberry Popping Boba", description: "Bursting strawberry juice pearls.", price: 40, category: "Toppings", image: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
@@ -377,10 +410,10 @@
       { id: 78, name: "Red Bean", description: "Sweet red bean topping.", price: 35, category: "Toppings", image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
       { id: 79, name: "Coconut Jelly", description: "Soft coconut jelly cubes.", price: 35, category: "Toppings", image: "https://images.unsplash.com/photo-1525385133512-2f3bdd039054?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 82, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
 
-      // —— SNACKS & DESSERTS ——
-      { id: 90, name: "Taiyaki", description: "Three fish-shaped waffles — choose your filling.", price: 149, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10, variantKind: "flavour",
+      // SNACKS & DESSERTS
+      { id: 90, name: "Taiyaki", description: "Crispy fish-shaped waffles with a sweet filling.", price: 149, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10, variantKind: "flavour",
         variants: [{ label: "Red Bean", price: 149 }, { label: "Custard", price: 159 }, { label: "Nutella", price: 169 }] },
-      { id: 91, name: "Mochi Ice Cream", description: "Two pieces of soft mochi with ice cream centre — choose your flavour.", price: 129, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20, variantKind: "flavour",
+      { id: 91, name: "Mochi Ice Cream", description: "Soft mochi with a cold ice cream centre.", price: 129, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20, variantKind: "flavour",
         variants: [{ label: "Matcha", price: 129 }, { label: "Strawberry", price: 129 }, { label: "Mango", price: 129 }] },
       { id: 92, name: "Egg Waffle", description: "Hong Kong-style egg waffle, plain or topped.", price: 119, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
       { id: 93, name: "Fried Chicken Poppers", description: "Crispy chicken bites with dipping sauce.", price: 179, category: "Snacks", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
@@ -389,7 +422,7 @@
       { id: 96, name: "Matcha Cake Slice", description: "Moist matcha sponge with cream.", price: 149, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
       { id: 97, name: "Strawberry Shortcake", description: "Light sponge, cream, and fresh strawberries.", price: 159, category: "Snacks", image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
 
-      // —— COFFEE ——
+      // COFFEE
       { id: 100, name: "Iced Americano", description: "Double shot espresso over ice.", price: 129, category: "Coffee", image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10,
         variants: [{ label: "Regular", price: 129 }, { label: "Large", price: 149 }] },
       { id: 101, name: "Iced Latte", description: "Espresso with cold milk.", price: 149, category: "Coffee", image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20,
@@ -430,7 +463,7 @@
       Array.from({ length: 12 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
     );
 
-    // —— Bloom dedicated Supabase (separate from Ayra) ——
+    // Bloom dedicated Supabase (separate from Ayra)
     // Tables: bloom_table_sessions, bloom_order_rounds, bloom_table_pins
     // Run bloom-schema.sql once in SQL Editor if tables don't exist yet.
     const SUPABASE_URL = "https://avpftteeftrrugkmtmvc.supabase.co";
@@ -819,7 +852,7 @@
             <div className="flex justify-center gap-3 mb-6" aria-label="PIN progress">
               {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${pin.length > i ? "filled" : ""}`} />)}
             </div>
-            {error && <p className="text-center text-red-500 text-xs mb-3" role="alert">Incorrect PIN — try again</p>}
+            {error && <p className="text-center text-red-500 text-xs mb-3" role="alert">Incorrect PIN. Try again.</p>}
             <div className="grid grid-cols-3 gap-2">
               {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k, i) => (
                 <button key={i}
@@ -945,14 +978,14 @@
           if (setCartTab) setCartTab("history");
           Promise.resolve(ok).then(() => {
             setItems([]);
-            showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
+            showToast("Order sent to Table " + effectiveTable + " (pending confirm)");
           }).catch(err => {
             console.error(err);
-            showToast("Could not place order — try again");
+            showToast("Could not place order. Try again.");
           });
         } catch (err) {
           console.error(err);
-          showToast("Could not place order — try again");
+          showToast("Could not place order. Try again.");
         }
       };
       const itemKey = (i) => i.sessionKey || String(i.id);
@@ -1024,7 +1057,7 @@
                 <div key={itemKey(item)} className="flex gap-3 p-3 rounded-xl bg-blush border border-pink/10">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-ink text-sm leading-tight">
-                      {item.name}{item.variantLabel ? ` · ${item.variantLabel}` : ""}
+                      {item.name}{item.variantLabel ? ` (${item.variantLabel})` : ""}
                     </p>
                     <p className="text-pink text-sm mt-0.5">{formatPrice(item.price)}</p>
                     <div className="flex items-center gap-2 mt-2">
@@ -1141,7 +1174,7 @@
       };
 
       // History is only for the *current* open table session.
-      // When staff marks Paid · Clear table, session closes → wipe local history.
+      // When staff marks Paid, clear table, session closes → wipe local history.
       const clearLocalHistory = useCallback((tableLabel) => {
         const t = String(tableLabel || tableFromQr || "guest");
         setOrderHistory([]);
@@ -1375,7 +1408,7 @@
                           const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
                           const expected = (tablePins && tKey && tablePins[tKey]) || "";
                           if (!expected) {
-                            showToast("No PIN set for this table — ask staff, or use Name + OTP");
+                            showToast("No PIN set for this table. Ask staff, or use Name + OTP.");
                             return;
                           }
                           if (gatePin.trim() !== String(expected)) {
@@ -1395,10 +1428,10 @@
                               setSessionItems([]);
                               setCartOpen(true);
                               setCartTab("history");
-                              showToast("Order sent — Table " + tableLabel);
+                              showToast("Order sent to Table " + tableLabel);
                             });
                           } else {
-                            showToast("Table verified — you can order again on this phone without re-entering PIN");
+                            showToast("Table verified. You can order again on this phone without re-entering the PIN.");
                           }
                         }} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm">Verify with PIN</button>
                       </div>
@@ -1451,10 +1484,10 @@
                           setSessionItems([]);
                           setCartOpen(true);
                           setCartTab("history");
-                          showToast("Order sent — Table " + tableLabel);
+                          showToast("Order sent to Table " + tableLabel);
                         });
                       } else {
-                        showToast("Verified — you can place orders now");
+                        showToast("Verified. You can place orders now.");
                       }
                     }} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm">Verify & place order</button>
                     <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-mist text-sm">Back</button>
@@ -1715,13 +1748,13 @@
           return;
         }
         if (file.size > 2.5 * 1024 * 1024) {
-          showToast("Image too large — keep under 2.5 MB");
+          showToast("Image too large. Keep under 2.5 MB.");
           return;
         }
         const reader = new FileReader();
         reader.onload = () => {
           setEditingDish(prev => prev ? { ...prev, image: String(reader.result || "") } : prev);
-          showToast("Photo loaded — save to apply");
+          showToast("Photo loaded. Save to apply.");
         };
         reader.onerror = () => showToast("Could not read file");
         reader.readAsDataURL(file);
@@ -1745,7 +1778,7 @@
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="font-display text-3xl text-ink">Staff Portal</h1>
-                <p className="text-mist text-sm mt-1">Bloom · Live tables & menu control</p>
+                <p className="text-mist text-sm mt-1">Live tables and menu control</p>
               </div>
               <div className="flex items-center gap-3 text-sm text-mist">
                 <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Live</span>
@@ -1802,7 +1835,7 @@
                             <div>
                               <p className="font-display text-xl text-ink">Table {session.table}</p>
                               {(session.guestName || session.guestPhone) && (
-                                <p className="text-mist text-xs mt-0.5">{session.guestName || "Guest"}{session.guestPhone ? ` · ${session.guestPhone}` : ""}</p>
+                                <p className="text-mist text-xs mt-0.5">{session.guestName || "Guest"}{session.guestPhone ? `, ${session.guestPhone}` : ""}</p>
                               )}
                               <p className="text-mist/60 text-[10px] mt-0.5">{rounds.length} order round{rounds.length !== 1 ? "s" : ""}</p>
                             </div>
@@ -1820,7 +1853,7 @@
                               return (
                                 <div key={round.id} className="rounded-xl bg-blush border border-pink/10 p-3">
                                   <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs text-mist">Round {rounds.length - ri} · {new Date(round.createdAt).toLocaleTimeString()}</span>
+                                    <span className="text-xs text-mist">Round {rounds.length - ri}, {new Date(round.createdAt).toLocaleTimeString()}</span>
                                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusColor(round.status)}`}>{meta.label}</span>
                                   </div>
                                   <ul className="space-y-1 mb-2">
@@ -1855,7 +1888,7 @@
                           <button type="button"
                             onClick={() => { if (window.confirm(`Clear Table ${session.table}? Mark bill paid (₹${grandTotal}) and remove from live board.`)) { clearTable(session.table); showToast(`Table ${session.table} paid & cleared`); } }}
                             className="w-full py-2.5 rounded-xl border border-pink/40 text-pink text-sm font-semibold hover:bg-pink/10 transition">
-                            Paid · Clear table
+                            Paid, clear table
                           </button>
                         </div>
                       );
@@ -1878,7 +1911,7 @@
                     const pin = String(1000 + next);
                     setTablePins(prev => ({ ...prev, [String(next)]: pin }));
                     cloudUpsertPin(next, pin);
-                    showToast("Table " + next + " added · PIN " + pin);
+                    showToast("Table " + next + " added. PIN " + pin);
                   }} className="px-4 py-2.5 rounded-xl bg-pink text-white text-sm font-semibold">+ Add table</button>
                 </div>
                 <div className="glass rounded-2xl p-4 border border-pink/10 space-y-3">
@@ -1957,7 +1990,7 @@
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                   <div>
                     <h2 className="font-display text-2xl text-ink">Live Insights</h2>
-                    <p className="text-mist text-xs">From confirmed orders · updates when you change period or refresh</p>
+                    <p className="text-mist text-xs">From confirmed orders. Updates when you change period or refresh.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     {[
@@ -1986,10 +2019,10 @@
                   <>
                     <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        { label: insightPeriod === "day" ? "Confirmed rounds (today)" : insightPeriod === "month" ? "Confirmed rounds (month)" : "Confirmed rounds (all)", value: insights.confirmedRounds, icon: "shopping-bag", sub: `${insights.pending} still pending · ${insights.totalRounds} total rounds` },
+                        { label: insightPeriod === "day" ? "Confirmed rounds (today)" : insightPeriod === "month" ? "Confirmed rounds (month)" : "Confirmed rounds (all)", value: insights.confirmedRounds, icon: "shopping-bag", sub: `${insights.pending} still pending, ${insights.totalRounds} total rounds` },
                         { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.tablesActive} tables with orders` },
                         { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "Among tables in this period" },
-                        { label: "Top category", value: (insights.categoryLabels && insights.categoryLabels[0]) || "—", icon: "sparkles", sub: insights.categoryValues?.[0] ? `${insights.categoryValues[0]} items` : "" },
+                        { label: "Top category", value: (insights.categoryLabels && insights.categoryLabels[0]) || "None yet", icon: "sparkles", sub: insights.categoryValues?.[0] ? `${insights.categoryValues[0]} items` : "" },
                       ].map((kpi, i) => (
                         <div key={kpi.label} className="glass rounded-2xl p-5 border border-pink/10 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                           <div className="flex items-center gap-2 mb-3">
@@ -2049,7 +2082,7 @@
                           <ul className="space-y-2 max-h-72 overflow-y-auto">
                             {insights.tables.sort((a,b) => b.bill - a.bill).map(tb => (
                               <li key={tb.table} className="flex justify-between text-sm border-b border-pink/10 pb-2">
-                                <span className="text-ink">Table {tb.table} · {tb.rounds} round{tb.rounds !== 1 ? "s" : ""}</span>
+                                <span className="text-ink">Table {tb.table}, {tb.rounds} round{tb.rounds !== 1 ? "s" : ""}</span>
                                 <span className="text-pink font-medium">{formatPrice(tb.bill)}</span>
                               </li>
                             ))}
@@ -2095,7 +2128,7 @@
                               {d.image ? (
                                 <img src={d.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-pink-soft" />
                               ) : (
-                                <div className="w-10 h-10 rounded-lg bg-pink-soft flex items-center justify-center text-pink/40 text-xs">—</div>
+                                <div className="w-10 h-10 rounded-lg bg-pink-soft flex items-center justify-center text-pink/40 text-[9px] leading-tight text-center px-0.5">No photo</div>
                               )}
                               <span className="font-medium text-ink">{d.name}</span>
                             </div>
@@ -2104,19 +2137,21 @@
                           <td className="px-5 py-3 text-pink">{formatPrice(d.price)}</td>
                           <td className="px-5 py-3 text-ink">{d.ordersToday}</td>
                           <td className="px-5 py-3">
-                            <button onClick={() => toggleVisible(d.id)}
-                              className={`switch-toggle w-10 h-5 rounded-full transition relative ${d.visible ? "bg-pink" : "bg-blush"}`}
-                              aria-label={d.visible ? "Hide item" : "Show item"}>
-                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${d.visible ? "left-5" : "left-0.5"}`} />
+                            <button type="button" onClick={() => toggleVisible(d.id)}
+                              className={`switch-toggle w-11 h-6 rounded-full ${d.visible ? "is-on" : "is-off"}`}
+                              aria-pressed={!!d.visible}
+                              aria-label={d.visible ? "On menu, click to hide" : "Off menu, click to show"}>
+                              <span className="switch-knob" />
                             </button>
                           </td>
                           <td className="px-5 py-3">
-                            <button onClick={() => toggleImageVisible(d.id)}
+                            <button type="button" onClick={() => toggleImageVisible(d.id)}
                               disabled={!d.image}
                               title={!d.image ? "Add a photo first" : (d.imageVisible ? "Hide photo on menu" : "Show photo on menu")}
-                              className={`switch-toggle w-10 h-5 rounded-full transition relative ${d.imageVisible ? "bg-pink" : "bg-blush"} ${!d.image ? "opacity-40 cursor-not-allowed" : ""}`}
-                              aria-label={d.imageVisible ? "Hide photo" : "Show photo"}>
-                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${d.imageVisible ? "left-5" : "left-0.5"}`} />
+                              className={`switch-toggle w-11 h-6 rounded-full ${d.imageVisible ? "is-on" : "is-off"} ${!d.image ? "is-disabled" : ""}`}
+                              aria-pressed={!!d.imageVisible}
+                              aria-label={d.imageVisible ? "Photo on, click to hide" : "Photo off, click to show"}>
+                              <span className="switch-knob" />
                             </button>
                           </td>
                           <td className="px-5 py-3">
@@ -2180,13 +2215,14 @@
                     <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-blush border border-pink/10">
                       <div>
                         <p className="text-sm font-medium text-ink">Show photo on menu</p>
-                        <p className="text-[11px] text-mist">Off by default — customers won’t see it until you turn this on</p>
+                        <p className="text-[11px] text-mist">Off by default. Customers will not see it until you turn this on.</p>
                       </div>
                       <button type="button"
                         onClick={() => setEditingDish({ ...editingDish, imageVisible: !editingDish.imageVisible })}
-                        className={`switch-toggle w-11 h-6 rounded-full transition relative flex-shrink-0 ${editingDish.imageVisible ? "bg-pink" : "bg-mist/40"}`}
+                        className={`switch-toggle w-12 h-7 rounded-full flex-shrink-0 ${editingDish.imageVisible ? "is-on" : "is-off"}`}
+                        aria-pressed={!!editingDish.imageVisible}
                         aria-label={editingDish.imageVisible ? "Hide photo" : "Show photo"}>
-                        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${editingDish.imageVisible ? "left-5" : "left-0.5"}`} />
+                        <span className="switch-knob" style={{ width: 18, height: 18 }} />
                       </button>
                     </div>
                   </div>
@@ -2295,7 +2331,7 @@
       const refreshOrders = useCallback(async () => {
         try {
           if (!sb) {
-            showToast("Cloud not connected — check Supabase script");
+            showToast("Cloud not connected. Check Supabase script.");
             return;
           }
           const next = await cloudFetchLiveOrders();
