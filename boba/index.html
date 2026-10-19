@@ -1628,6 +1628,7 @@
     const InsightBarChart = ({ labels, values, title }) => {
       const canvasRef = useRef(null);
       const chartRef = useRef(null);
+      const dataKey = JSON.stringify(labels || []) + "|" + JSON.stringify(values || []) + "|" + (title || "");
       useEffect(() => {
         if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
@@ -1640,7 +1641,7 @@
             datasets: [{
               label: title || "Qty",
               data: vals,
-              backgroundColor: vals.map((_, i) => i === 0 ? "rgba(236,72,153,0.95)" : i < 3 ? "rgba(236,72,153,0.55)" : "rgba(251,207,232,0.7)"),
+              backgroundColor: vals.map((_, i) => i === 0 ? "rgba(194,24,91,0.95)" : i < 3 ? "rgba(194,24,91,0.55)" : "rgba(252,228,236,0.85)"),
               borderRadius: 6,
               borderSkipped: false,
             }],
@@ -1648,30 +1649,32 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,
             plugins: {
               legend: { display: false },
-              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#1F2937", bodyColor: "#EC4899", borderColor: "rgba(236,72,153,0.3)", borderWidth: 1 },
+              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#1F2937", bodyColor: "#C2185B", borderColor: "rgba(194,24,91,0.3)", borderWidth: 1 },
             },
             scales: {
-              x: { ticks: { color: "rgba(156,163,175,0.9)", font: { size: 10 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
-              y: { beginAtZero: true, ticks: { color: "rgba(156,163,175,0.7)", precision: 0 }, grid: { color: "rgba(236,72,153,0.06)" } },
+              x: { ticks: { color: "rgba(138,122,130,0.9)", font: { size: 10 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+              y: { beginAtZero: true, ticks: { color: "rgba(138,122,130,0.7)", precision: 0 }, grid: { color: "rgba(194,24,91,0.06)" } },
             },
           },
         });
-        return () => { if (chartRef.current) chartRef.current.destroy(); };
-      }, [labels, values, title]);
+        return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+      }, [dataKey]);
       return <div className="h-56"><canvas ref={canvasRef} /></div>;
     };
 
     const InsightPieChart = ({ labels, values }) => {
       const canvasRef = useRef(null);
       const chartRef = useRef(null);
+      const dataKey = JSON.stringify(labels || []) + "|" + JSON.stringify(values || []);
       useEffect(() => {
         if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
         const colors = [
-          "rgba(236,72,153,0.9)", "rgba(219,39,119,0.85)", "rgba(251,207,232,0.9)",
-          "rgba(244,114,182,0.8)", "rgba(236,72,153,0.5)", "rgba(190,24,93,0.7)",
+          "rgba(194,24,91,0.9)", "rgba(173,20,87,0.85)", "rgba(252,228,236,0.95)",
+          "rgba(244,114,182,0.8)", "rgba(194,24,91,0.5)", "rgba(136,14,79,0.7)",
           "rgba(251,113,133,0.65)", "rgba(244,63,94,0.6)",
         ];
         chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
@@ -1687,15 +1690,16 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,
             plugins: {
               legend: { position: "bottom", labels: { color: "rgba(107,114,128,0.9)", padding: 10, font: { size: 11 }, boxWidth: 12 } },
-              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#1F2937", bodyColor: "#EC4899" },
+              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#1F2937", bodyColor: "#C2185B" },
             },
             cutout: "58%",
           },
         });
-        return () => { if (chartRef.current) chartRef.current.destroy(); };
-      }, [labels, values]);
+        return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+      }, [dataKey]);
       return <div className="h-64"><canvas ref={canvasRef} /></div>;
     };
 
@@ -1727,15 +1731,21 @@
       const [insights, setInsights] = useState(null);
       const [insightsLoading, setInsightsLoading] = useState(false);
       const [insightsError, setInsightsError] = useState("");
+      const dishesRef = useRef(dishes);
+      dishesRef.current = dishes;
+      const insightsLoadingRef = useRef(false);
 
+      // Manual / period / tab only — NOT on every menu sync (that was flickering charts every second)
       const loadInsights = useCallback(async (period) => {
+        if (insightsLoadingRef.current) return;
         const p = period || insightPeriod;
+        insightsLoadingRef.current = true;
         setInsightsLoading(true);
         setInsightsError("");
         try {
           const data = await cloudFetchInsights(p);
           const catMap = {};
-          const dishById = Object.fromEntries((dishes || []).map(d => [d.id, d]));
+          const dishById = Object.fromEntries((dishesRef.current || []).map(d => [d.id, d]));
           (data.rawRounds || []).filter(r => r.status && r.status !== "new").forEach(r => {
             (r.items || []).forEach(it => {
               const dish = dishById[it.id];
@@ -1754,8 +1764,9 @@
           console.error(e);
           setInsightsError(e.message || "Failed to load insights");
         }
+        insightsLoadingRef.current = false;
         setInsightsLoading(false);
-      }, [insightPeriod, dishes]);
+      }, [insightPeriod]);
 
       useEffect(() => {
         if (staffTab === "insights" && mgrUnlocked) loadInsights(insightPeriod);
