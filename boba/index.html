@@ -857,10 +857,15 @@
     };
 
     const Toast = ({ message, onDone }) => {
+      const onDoneRef = useRef(onDone);
+      onDoneRef.current = onDone;
       useEffect(() => {
-        const t = setTimeout(onDone, 2400);
+        // Only restart timer when the message changes (not on every parent re-render)
+        const t = setTimeout(() => {
+          if (onDoneRef.current) onDoneRef.current();
+        }, 2400);
         return () => clearTimeout(t);
-      }, [onDone]);
+      }, [message]);
       return (
         <div className="toast-host fixed animate-fade-up" role="status" aria-live="polite">
           <div className="glass-strong rounded-xl shadow-float overflow-hidden">
@@ -1104,26 +1109,24 @@
       const setupCanvas = () => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        // Sharp pixels — no soft scaling blur
+        const dpr = Math.min(Math.floor(window.devicePixelRatio || 1), 2);
         canvas.width = Math.round(W * dpr);
         canvas.height = Math.round(H * dpr);
         canvas.style.width = W + "px";
         canvas.style.height = H + "px";
         const ctx = canvas.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingEnabled = false;
         return ctx;
       };
 
       const drawFrame = (ctx, st) => {
         if (!ctx || !st) return;
-        // soft board
-        const bg = ctx.createLinearGradient(0, 0, W, H);
-        bg.addColorStop(0, "#FFF8FA");
-        bg.addColorStop(1, "#FCE4EC");
-        ctx.fillStyle = bg;
+        // crisp board
+        ctx.fillStyle = "#FFF8FA";
         ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = "rgba(194,24,91,0.07)";
+        ctx.strokeStyle = "rgba(194,24,91,0.08)";
         ctx.lineWidth = 1;
         for (let i = 0; i <= COLS; i++) {
           ctx.beginPath(); ctx.moveTo(i * CELL + 0.5, 0); ctx.lineTo(i * CELL + 0.5, H); ctx.stroke();
@@ -1131,71 +1134,43 @@
         for (let j = 0; j <= ROWS; j++) {
           ctx.beginPath(); ctx.moveTo(0, j * CELL + 0.5); ctx.lineTo(W, j * CELL + 0.5); ctx.stroke();
         }
-        // pearl (food) with depth
+        // boba pearl (food) — solid, clear circle
         const fx = st.food.x * CELL + CELL / 2;
         const fy = st.food.y * CELL + CELL / 2;
-        const pr = CELL * 0.36;
-        ctx.beginPath();
-        ctx.arc(fx + 1, fy + 2, pr, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(173,20,87,0.2)";
-        ctx.fill();
-        const pearl = ctx.createRadialGradient(fx - pr * 0.3, fy - pr * 0.35, pr * 0.1, fx, fy, pr);
-        pearl.addColorStop(0, "#F48FB1");
-        pearl.addColorStop(0.45, "#C2185B");
-        pearl.addColorStop(1, "#880E4F");
+        const pr = CELL * 0.34;
         ctx.beginPath();
         ctx.arc(fx, fy, pr, 0, Math.PI * 2);
-        ctx.fillStyle = pearl;
+        ctx.fillStyle = "#C2185B";
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(fx - pr * 0.28, fy - pr * 0.3, pr * 0.22, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.arc(fx - pr * 0.28, fy - pr * 0.28, pr * 0.2, 0, Math.PI * 2);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.globalAlpha = 0.45;
         ctx.fill();
-        // snake body — rounded capsules between segments
-        for (let i = st.snake.length - 1; i >= 0; i--) {
-          const s = st.snake[i];
-          const cx = s.x * CELL + CELL / 2;
-          const cy = s.y * CELL + CELL / 2;
-          const r = i === 0 ? CELL * 0.42 : CELL * 0.36;
-          if (i < st.snake.length - 1) {
-            const n = st.snake[i + 1];
-            const nx = n.x * CELL + CELL / 2;
-            const ny = n.y * CELL + CELL / 2;
-            ctx.strokeStyle = i === 0 ? "#AD1457" : "#C2185B";
-            ctx.lineWidth = r * 1.7;
-            ctx.lineCap = "round";
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(nx, ny);
-            ctx.stroke();
-          }
-          const grad = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.3, r * 0.1, cx, cy, r);
-          if (i === 0) {
-            grad.addColorStop(0, "#E91E63");
-            grad.addColorStop(1, "#880E4F");
-          } else {
-            grad.addColorStop(0, "#EC407A");
-            grad.addColorStop(1, "#AD1457");
-          }
+        ctx.globalAlpha = 1;
+        // snake — solid rounded blocks (classic, sharp)
+        st.snake.forEach((s, i) => {
+          const pad = 2;
+          const x = s.x * CELL + pad;
+          const y = s.y * CELL + pad;
+          const size = CELL - pad * 2;
+          const r = 5;
+          ctx.fillStyle = i === 0 ? "#AD1457" : "#C2185B";
           ctx.beginPath();
-          ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.fillStyle = grad;
+          if (ctx.roundRect) ctx.roundRect(x, y, size, size, r);
+          else ctx.rect(x, y, size, size);
           ctx.fill();
-        }
-        // eyes on head
-        const head = st.snake[0];
-        const hx = head.x * CELL + CELL / 2;
-        const hy = head.y * CELL + CELL / 2;
-        const ox = st.dir.x * 4;
-        const oy = st.dir.y * 4;
-        const px = -st.dir.y * 4.5;
-        const py = st.dir.x * 4.5;
-        ctx.fillStyle = "#fff";
-        ctx.beginPath(); ctx.arc(hx + ox + px, hy + oy + py, 2.6, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(hx + ox - px, hy + oy - py, 2.6, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#1A1A1A";
-        ctx.beginPath(); ctx.arc(hx + ox + px + st.dir.x, hy + oy + py + st.dir.y, 1.2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(hx + ox - px + st.dir.x, hy + oy - py + st.dir.y, 1.2, 0, Math.PI * 2); ctx.fill();
+          if (i === 0) {
+            // simple eyes
+            ctx.fillStyle = "#FFFFFF";
+            const ex = s.x * CELL + CELL * 0.32 + st.dir.x * 2;
+            const ey = s.y * CELL + CELL * 0.32 + st.dir.y * 2;
+            const gap = st.dir.x === 0 ? 5 : 0;
+            const gapY = st.dir.y === 0 ? 5 : 0;
+            ctx.beginPath(); ctx.arc(ex, ey, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(ex + gapY, ey + gap, 2.2, 0, Math.PI * 2); ctx.fill();
+          }
+        });
       };
 
       // Init board when modal opens — do NOT reset on pause
