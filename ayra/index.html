@@ -1042,7 +1042,7 @@
       const total = items.reduce((s, i) => s + i.price * i.qty, 0);
       const count = items.reduce((s, i) => s + i.qty, 0);
       const lockedTable = (tableFromQr || "").toString().trim();
-      const effectiveTable = (lockedTable || (tableNumber || "").toString().trim()).replace(/^0+/, "") || (lockedTable || (tableNumber || "").toString().trim());
+      const effectiveTable = (lockedTable || "").replace(/^0+/, "") || lockedTable;
 
       const handlePlaceOrder = () => {
         if (!items.length) {
@@ -1050,7 +1050,7 @@
           return;
         }
         if (!effectiveTable) {
-          showToast("Enter your table number above");
+          showToast("Scan your table QR to order");
           return;
         }
         try {
@@ -1128,7 +1128,7 @@
                         </li>
                       ))}
                     </ul>
-                    <p className="text-[10px] uppercase tracking-wider text-champagne/80">Sent · awaiting staff confirm</p>
+                    <p className="text-[10px] uppercase tracking-wider text-champagne/80">Sent</p>
                   </div>
                 ))
               ) : items.length === 0 ? (
@@ -1164,15 +1164,12 @@
                 {lockedTable ? (
                   <p className="text-sm text-champagne text-center py-1">Ordering for <strong>Table {lockedTable}</strong></p>
                 ) : (
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-sage">Table number *</label>
-                    <input type="text" inputMode="numeric" placeholder="" value={tableNumber || ""}
-                      onChange={e => setTableNumber(e.target.value)}
-                      className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/25 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" />
-                  </div>
+                  <p className="text-sm text-amber-300/90 text-center py-2 leading-relaxed">
+                    No table linked. Scan the QR on your table to order.
+                  </p>
                 )}
-                <button type="button" onClick={handlePlaceOrder}
-                  className="w-full py-3.5 rounded-xl bg-champagne text-obsidian font-semibold text-sm hover:bg-champagne-deep transition">
+                <button type="button" onClick={handlePlaceOrder} disabled={!lockedTable}
+                  className={`w-full py-3.5 rounded-xl font-semibold text-sm transition ${lockedTable ? "bg-champagne text-obsidian hover:bg-champagne-deep" : "bg-surface text-sage cursor-not-allowed opacity-60"}`}>
                   Place Order
                 </button>
                 <button type="button" onClick={() => { setItems([]); showToast("Session cleared"); }} className="w-full py-2 text-sage text-sm hover:text-off-white transition">Clear Session</button>
@@ -1305,6 +1302,10 @@
       };
 
       const handleAdd = (dish) => {
+        if (!tableFromQr) {
+          showToast("Scan the QR on your table to order");
+          return;
+        }
         if (dish.variants && dish.variants.length > 0) {
           setVariantDish(dish);
           return;
@@ -1330,17 +1331,17 @@
             <div className="relative max-w-5xl mx-auto text-center">
               <p className="text-champagne tracking-[0.3em] uppercase text-xs font-medium mb-3">Restaurant & Bar</p>
               <h1 className="font-display text-5xl md:text-7xl text-off-white tracking-tight">Ayra</h1>
-              {(tableFromQr || tableNumber) ? (
+              {tableFromQr ? (
                 <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-champagne/15 border border-champagne/30">
                   <span className="w-2 h-2 rounded-full bg-champagne animate-pulse" />
-                  <span className="text-champagne text-sm font-medium">Table {tableFromQr || tableNumber}</span>
+                  <span className="text-champagne text-sm font-medium">Table {tableFromQr}</span>
                 </div>
               ) : (
-                <div className="mt-5 flex flex-col sm:flex-row items-center justify-center gap-2">
-                  <label className="text-sage text-xs">Table no.</label>
-                  <input type="text" inputMode="numeric" placeholder="" value={tableNumber}
-                    onChange={e => setTableNumber(e.target.value)}
-                    className="w-28 min-h-[40px] bg-surface/80 border border-champagne/20 rounded-xl px-3 text-center text-off-white text-sm focus:outline-none focus:border-champagne/50" />
+                <div className="mt-5 max-w-sm mx-auto px-3">
+                  <p className="text-sage text-sm leading-relaxed">
+                    Scan the <span className="text-champagne">QR code on your table</span> to open the menu and order.
+                  </p>
+                  <p className="text-sage/60 text-xs mt-2">Table numbers can’t be entered manually.</p>
                 </div>
               )}
             </div>
@@ -1468,7 +1469,7 @@
                             className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Name for the bill" />
                         </div>
                         <button type="button" onClick={() => {
-                          const tKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || String(tableFromQr || tableNumber || "").trim() || "any";
+                          const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
                           const expected = (tablePins && tKey && tablePins[tKey]) || "";
                           if (!expected) {
                             showToast("No PIN set for this table — ask staff, or use Name + OTP");
@@ -1533,7 +1534,7 @@
                     <button type="button" onClick={() => {
                       if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
                       const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
-                      const tKey = String(tableFromQr || tableNumber || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                      const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
                       const payload = saveDiningGuest(g, tKey);
                       setGuest(payload);
                       setShowGuestGate(false);
