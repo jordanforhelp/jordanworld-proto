@@ -324,6 +324,40 @@
     .switch-toggle.is-off .switch-knob { left: 2px; }
     .text-mist { color: #8A7A82 !important; }
 
+    .petal-stage {
+      position: fixed; inset: 0; z-index: 200; pointer-events: none; overflow: hidden;
+      opacity: 1; transition: opacity 1.2s ease;
+    }
+    .petal-stage.is-done { opacity: 0; }
+    .petal {
+      position: absolute; top: -12%; width: 14px; height: 18px; border-radius: 70% 0 70% 0;
+      background: linear-gradient(135deg, #F8BBD0 0%, #EC407A 55%, #C2185B 100%);
+      opacity: 0.85; animation-name: petal-fall; animation-timing-function: linear; animation-fill-mode: forwards;
+    }
+    .petal:nth-child(3n) { background: linear-gradient(135deg, #FCE4EC 0%, #F48FB1 50%, #AD1457 100%); width: 11px; height: 15px; }
+    .petal:nth-child(4n) { background: linear-gradient(145deg, #FFFFFF 0%, #F8BBD0 40%, #E91E63 100%); width: 16px; height: 20px; opacity: 0.75; }
+    .petal:nth-child(5n) { border-radius: 0 70% 0 70%; width: 12px; height: 16px; }
+    @keyframes petal-fall {
+      0% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0; }
+      8% { opacity: 0.9; }
+      100% { transform: translate3d(var(--drift,40px),115vh,0) rotate(var(--spin,360deg)); opacity: 0.15; }
+    }
+    .order-burst { position: fixed; inset: 0; z-index: 190; pointer-events: none; overflow: hidden; }
+    .order-burst-piece {
+      position: absolute; left: 50%; bottom: 18%; opacity: 0;
+      animation: order-pop 1.35s cubic-bezier(0.15,0.85,0.35,1) forwards;
+    }
+    .order-burst-piece.is-petal {
+      width: 12px; height: 16px; border-radius: 70% 0 70% 0;
+      background: linear-gradient(135deg, #F8BBD0, #C2185B);
+    }
+    .order-burst-piece.is-confetti { width: 8px; height: 12px; border-radius: 2px; }
+    @keyframes order-pop {
+      0% { transform: translate(-50%,0) scale(0.4) rotate(0deg); opacity: 0; }
+      12% { opacity: 1; }
+      100% { transform: translate(calc(-50% + var(--bx,0px)), var(--by,-80vh)) scale(1) rotate(var(--br,360deg)); opacity: 0; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -333,6 +367,7 @@
       }
       .menu-card:hover { transform: none; }
       .animate-pulse-pink, .animate-bounce-soft { animation: none !important; }
+      .petal-stage, .order-burst { display: none !important; }
     }
   </style>
 </head>
@@ -931,11 +966,93 @@
       );
     };
 
+    const BloomPetals = () => {
+      const [visible, setVisible] = useState(true);
+      const [fading, setFading] = useState(false);
+      const petals = useMemo(() => Array.from({ length: 28 }, (_, i) => ({
+        id: i,
+        left: (i * 37 + (i % 5) * 13) % 100,
+        delay: (i % 10) * 0.18 + (i % 3) * 0.07,
+        duration: 4.2 + (i % 6) * 0.55,
+        drift: (i % 2 === 0 ? 1 : -1) * (30 + (i % 7) * 12),
+        spin: (i % 2 === 0 ? 1 : -1) * (280 + (i % 5) * 40),
+        scale: 0.75 + (i % 4) * 0.18,
+      })), []);
+      useEffect(() => {
+        try {
+          if (sessionStorage.getItem("bloom_petals_shown") === "1") {
+            setVisible(false);
+            return;
+          }
+          sessionStorage.setItem("bloom_petals_shown", "1");
+        } catch {}
+        const fadeT = setTimeout(() => setFading(true), 4800);
+        const hideT = setTimeout(() => setVisible(false), 6200);
+        return () => { clearTimeout(fadeT); clearTimeout(hideT); };
+      }, []);
+      if (!visible) return null;
+      return (
+        <div className={`petal-stage ${fading ? "is-done" : ""}`} aria-hidden="true">
+          {petals.map(p => (
+            <span key={p.id} className="petal" style={{
+              left: p.left + "%",
+              animationDelay: p.delay + "s",
+              animationDuration: p.duration + "s",
+              transform: `scale(${p.scale})`,
+              ["--drift"]: p.drift + "px",
+              ["--spin"]: p.spin + "deg",
+            }} />
+          ))}
+        </div>
+      );
+    };
+
+    const OrderBurst = ({ active, onDone }) => {
+      const pieces = useMemo(() => {
+        if (!active) return [];
+        const colors = ["#C2185B", "#EC407A", "#F48FB1", "#AD1457", "#FFD6E7", "#FFFFFF", "#E91E63"];
+        return Array.from({ length: 36 }, (_, i) => {
+          const angle = (-90 + (i / 36) * 360 + (i % 5) * 7) * (Math.PI / 180);
+          const dist = 140 + (i % 8) * 28;
+          return {
+            id: i,
+            kind: i % 3 === 0 ? "petal" : "confetti",
+            color: colors[i % colors.length],
+            bx: Math.cos(angle) * dist + (i % 2 ? 20 : -20),
+            by: Math.sin(angle) * dist - (180 + (i % 6) * 25),
+            br: (i % 2 === 0 ? 1 : -1) * (200 + (i % 7) * 50),
+            delay: (i % 10) * 0.02,
+          };
+        });
+      }, [active]);
+      useEffect(() => {
+        if (!active) return;
+        const t = setTimeout(() => { if (onDone) onDone(); }, 1500);
+        return () => clearTimeout(t);
+      }, [active, onDone]);
+      if (!active) return null;
+      return (
+        <div className="order-burst" aria-hidden="true">
+          {pieces.map(p => (
+            <span key={p.id}
+              className={`order-burst-piece ${p.kind === "petal" ? "is-petal" : "is-confetti"}`}
+              style={{
+                background: p.kind === "petal" ? undefined : p.color,
+                animationDelay: p.delay + "s",
+                ["--bx"]: p.bx + "px",
+                ["--by"]: p.by + "px",
+                ["--br"]: p.br + "deg",
+              }}
+            />
+          ))}
+        </div>
+      );
+    };
+
     const Toast = ({ message, onDone }) => {
       const onDoneRef = useRef(onDone);
       onDoneRef.current = onDone;
       useEffect(() => {
-        // Only restart timer when the message changes (not on every parent re-render)
         const t = setTimeout(() => {
           if (onDoneRef.current) onDoneRef.current();
         }, 2400);
@@ -1432,7 +1549,7 @@
       );
     };
 
-    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake }) => {
+    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate }) => {
       const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
       const reward = loadSnakeReward();
       const discountPct = reward && reward.percent ? Math.min(5, Math.max(1, Number(reward.percent))) : 0;
@@ -1461,13 +1578,14 @@
           Promise.resolve(ok).then(() => {
             setItems([]);
             // Keep snake reward for the whole table visit until bill is cleared
+            if (typeof onOrderCelebrate === "function") onOrderCelebrate();
             showToast(
               disc
                 ? `Order sent with ${disc.percent}% snake reward (Table ${effectiveTable})`
                 : "Order sent to Table " + effectiveTable + " (pending confirm)"
             );
             if (typeof onPlaySnake === "function") {
-              setTimeout(() => onPlaySnake(), 400);
+              setTimeout(() => onPlaySnake(), 900);
             }
           }).catch(err => {
             console.error(err);
@@ -1658,6 +1776,7 @@
       const [cartOpen, setCartOpen] = useState(false);
       const [cartTab, setCartTab] = useState("cart");
       const [showSnake, setShowSnake] = useState(false);
+      const [orderBurst, setOrderBurst] = useState(false);
       const [badgePulse, setBadgePulse] = useState(false);
       const [headerScrolled, setHeaderScrolled] = useState(false);
       useEffect(() => {
@@ -1879,6 +1998,7 @@
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
             onOrderPlaced={(items, tableLabel) => pushHistory(items, tableLabel)}
             onPlaySnake={() => { setCartOpen(false); setShowSnake(true); }}
+            onOrderCelebrate={() => { setOrderBurst(true); setCartOpen(false); }}
             onPlaceOrder={(items, tableLabel, disc) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
@@ -1892,6 +2012,7 @@
             }} showToast={showToast}
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
 
+          <OrderBurst active={orderBurst} onDone={() => setOrderBurst(false)} />
           <SnakeGame
             open={showSnake}
             onClose={() => setShowSnake(false)}
@@ -1955,8 +2076,9 @@
                               setSessionItems([]);
                               setCartOpen(false);
                               setCartTab("history");
+                              setOrderBurst(true);
                               showToast("Order sent to Table " + tableLabel);
-                              setTimeout(() => setShowSnake(true), 400);
+                              setTimeout(() => setShowSnake(true), 900);
                             });
                           } else {
                             showToast("Table verified. You can order again on this phone without re-entering the PIN.");
@@ -2012,8 +2134,9 @@
                           setSessionItems([]);
                           setCartOpen(false);
                           setCartTab("history");
+                          setOrderBurst(true);
                           showToast("Order sent to Table " + tableLabel);
-                          setTimeout(() => setShowSnake(true), 400);
+                          setTimeout(() => setShowSnake(true), 900);
                         });
                       } else {
                         showToast("Verified. You can place orders now.");
@@ -3092,6 +3215,7 @@
 
       return (
         <div className="min-h-screen bg-blush">
+          <BloomPetals />
           {(view === "customer" || !staffAuth) ? (
             <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} snakeDiscount={snakeDiscount} />
           ) : (
