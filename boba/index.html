@@ -559,12 +559,76 @@
     }
 
     // Shared menu (photos, visibility, prices) so phone staff edits show on desktop guests
+    const DEFAULT_SNAKE_DISCOUNT = { enabled: false, percent: 3, scoreTarget: 50 };
+
+    function loadSnakeDiscountSettings() {
+      try {
+        const raw = localStorage.getItem("bloom_snake_discount");
+        if (!raw) return { ...DEFAULT_SNAKE_DISCOUNT };
+        const p = JSON.parse(raw);
+        const percent = Math.min(5, Math.max(1, Math.round(Number(p.percent) || 3)));
+        return {
+          enabled: !!p.enabled,
+          percent,
+          scoreTarget: 50,
+        };
+      } catch {
+        return { ...DEFAULT_SNAKE_DISCOUNT };
+      }
+    }
+
+    function saveSnakeDiscountSettings(s) {
+      const next = {
+        enabled: !!s.enabled,
+        percent: Math.min(5, Math.max(1, Math.round(Number(s.percent) || 3))),
+        scoreTarget: 50,
+      };
+      try { localStorage.setItem("bloom_snake_discount", JSON.stringify(next)); } catch {}
+      return next;
+    }
+
+    function loadSnakeReward() {
+      try {
+        const r = JSON.parse(localStorage.getItem("bloom_snake_reward") || "null");
+        if (!r || !r.percent) return null;
+        return r;
+      } catch { return null; }
+    }
+
+    function saveSnakeReward(r) {
+      try {
+        if (!r) localStorage.removeItem("bloom_snake_reward");
+        else localStorage.setItem("bloom_snake_reward", JSON.stringify(r));
+      } catch {}
+    }
+
     async function cloudFetchMenu() {
       if (!sb) return null;
-      const { data, error } = await sb.from("bloom_menu").select("dishes, updated_at").eq("id", "main").maybeSingle();
-      if (error) throw error;
+      const { data, error } = await sb.from("bloom_menu").select("dishes, updated_at, snake_discount").eq("id", "main").maybeSingle();
+      if (error) {
+        // Column may not exist yet — fall back
+        const { data: d2, error: e2 } = await sb.from("bloom_menu").select("dishes, updated_at").eq("id", "main").maybeSingle();
+        if (e2) throw e2;
+        if (!d2 || !Array.isArray(d2.dishes)) return null;
+        return { dishes: d2.dishes, updatedAt: d2.updated_at, snakeDiscount: null };
+      }
       if (!data || !Array.isArray(data.dishes)) return null;
-      return { dishes: data.dishes, updatedAt: data.updated_at };
+      return { dishes: data.dishes, updatedAt: data.updated_at, snakeDiscount: data.snake_discount || null };
+    }
+
+    async function cloudSaveSnakeDiscount(settings) {
+      if (!sb) return;
+      const next = saveSnakeDiscountSettings(settings);
+      try {
+        await sb.from("bloom_menu").upsert({
+          id: "main",
+          snake_discount: next,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error("snake discount cloud save", e);
+      }
+      return next;
     }
 
     let _menuSaveTimer = null;
@@ -692,7 +756,7 @@
       };
     }
 
-    async function cloudPlaceOrder(items, tableLabel, guest) {
+    async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       if (!sb) throw new Error("Supabase not loaded");
       const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
       const payloadItems = items.map(i => ({
@@ -702,7 +766,18 @@
         price: i.price,
         qty: i.qty,
       }));
-      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      let total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      if (discount && discount.percent > 0) {
+        const off = Math.round(total * (discount.percent / 100));
+        total = Math.max(0, total - off);
+        payloadItems.push({
+          id: "snake-discount",
+          name: `Snake reward (${discount.percent}% off)`,
+          variantLabel: null,
+          price: -off,
+          qty: 1,
+        });
+      }
 
       let { data: existing, error: e0 } = await sb
         .from("bloom_table_sessions")
@@ -1072,7 +1147,7 @@
     };
 
     // Mini Snake — play from order History while you wait
-    const SnakeGame = ({ open, onClose }) => {
+    const SnakeGame = ({ open, onClose, snakeDiscount, onRewardUnlocked, showToast }) => {
       const canvasRef = useRef(null);
       const [score, setScore] = useState(0);
       const [high, setHigh] = useState(() => {
@@ -1081,10 +1156,14 @@
       const [running, setRunning] = useState(false);
       const [gameOver, setGameOver] = useState(false);
       const [started, setStarted] = useState(false);
+      const [rewardHit, setRewardHit] = useState(false);
       const stateRef = useRef(null);
       const drawRef = useRef(null);
       const runningRef = useRef(false);
+      const rewardGivenRef = useRef(false);
       const touchRef = useRef({ x: 0, y: 0 });
+      const settingsRef = useRef(snakeDiscount || DEFAULT_SNAKE_DISCOUNT);
+      settingsRef.current = snakeDiscount || DEFAULT_SNAKE_DISCOUNT;
 
       const COLS = 18;
       const ROWS = 18;
@@ -1224,6 +1303,21 @@
           if (head.x === st.food.x && head.y === st.food.y) {
             st.score += 1;
             setScore(st.score);
+            const cfg = settingsRef.current;
+            if (
+              cfg && cfg.enabled &&
+              st.score >= (cfg.scoreTarget || 50) &&
+              !rewardGivenRef.current
+            ) {
+              rewardGivenRef.current = true;
+              setRewardHit(true);
+              const reward = { percent: cfg.percent, score: st.score, at: Date.now() };
+              saveSnakeReward(reward);
+              if (typeof onRewardUnlocked === "function") onRewardUnlocked(reward);
+              if (typeof showToast === "function") {
+                showToast(`Snake reward unlocked: ${cfg.percent}% off your next order`);
+              }
+            }
             let f;
             do {
               f = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
@@ -1235,7 +1329,7 @@
           if (drawRef.current) drawRef.current(st);
         }, 120);
         return () => clearInterval(id);
-      }, [open, running]);
+      }, [open, running, onRewardUnlocked, showToast]);
 
       useEffect(() => {
         if (!open) return;
@@ -1270,10 +1364,16 @@
         setGameOver(false);
         setStarted(true);
         setRunning(true);
+        // Keep reward if already unlocked this visit; only reset flag if no saved reward
+        if (!loadSnakeReward()) {
+          rewardGivenRef.current = false;
+          setRewardHit(false);
+        }
         if (drawRef.current) drawRef.current(stateRef.current);
       };
 
       if (!open) return null;
+      const cfg = snakeDiscount || DEFAULT_SNAKE_DISCOUNT;
       return (
         <div className="fixed inset-0 z-[180] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-ink/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Snake">
           <div className="glass-strong rounded-2xl w-full max-w-md p-4 sm:p-5 shadow-float border border-pink/15 animate-scale-in" onClick={e => e.stopPropagation()}>
@@ -1288,6 +1388,12 @@
               <span className="text-ink">Score <strong className="text-pink tabular-nums">{score}</strong></span>
               <span className="text-mist">Best <strong className="text-ink tabular-nums">{high}</strong></span>
             </div>
+            {cfg.enabled && (
+              <p className="text-[11px] text-pink mb-2 text-center">
+                Score {cfg.scoreTarget} to unlock {cfg.percent}% off
+                {rewardHit || loadSnakeReward() ? " · Unlocked" : ""}
+              </p>
+            )}
             <div
               className="mx-auto rounded-2xl overflow-hidden border border-pink/15 touch-none shadow-sm"
               style={{ width: "min(100%, " + W + "px)" }}
@@ -1327,7 +1433,11 @@
     };
 
     const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake }) => {
-      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+      const reward = loadSnakeReward();
+      const discountPct = reward && reward.percent ? Math.min(5, Math.max(1, Number(reward.percent))) : 0;
+      const discountAmt = discountPct ? Math.round(subtotal * (discountPct / 100)) : 0;
+      const total = Math.max(0, subtotal - discountAmt);
       const count = items.reduce((s, i) => s + i.qty, 0);
       const lockedTable = (tableFromQr || "").toString().trim();
       const effectiveTable = (lockedTable || "").replace(/^0+/, "") || lockedTable;
@@ -1343,13 +1453,19 @@
         }
         try {
           const snapshot = items.map(i => ({ ...i }));
-          const ok = onPlaceOrder(snapshot, effectiveTable);
+          const disc = discountPct ? { percent: discountPct, amount: discountAmt } : null;
+          const ok = onPlaceOrder(snapshot, effectiveTable, disc);
           if (ok === false) return;
           if (typeof onOrderPlaced === "function") onOrderPlaced(snapshot, effectiveTable);
           if (setCartTab) setCartTab("history");
           Promise.resolve(ok).then(() => {
             setItems([]);
-            showToast("Order sent to Table " + effectiveTable + " (pending confirm)");
+            if (disc) saveSnakeReward(null);
+            showToast(
+              disc
+                ? `Order sent with ${disc.percent}% snake reward (Table ${effectiveTable})`
+                : "Order sent to Table " + effectiveTable + " (pending confirm)"
+            );
             if (typeof onPlaySnake === "function") {
               setTimeout(() => onPlaySnake(), 400);
             }
@@ -1459,6 +1575,16 @@
               <div className="border-t border-pink/10 px-5 py-4 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-mist">{count} item{count !== 1 ? "s" : ""}</span>
+                  <span className="font-semibold text-ink">{formatPrice(subtotal)}</span>
+                </div>
+                {discountPct > 0 && (
+                  <div className="flex justify-between text-sm text-pink">
+                    <span>Snake reward ({discountPct}% off)</span>
+                    <span>−{formatPrice(discountAmt)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-ink">Total</span>
                   <span className="font-semibold text-ink text-lg">{formatPrice(total)}</span>
                 </div>
                 {lockedTable ? (
@@ -1480,7 +1606,7 @@
       );
     };
 
-    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins }) => {
+    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount }) => {
       const [filter, setFilter] = useState("All");
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
       const loadDiningGuest = (tableHint) => {
@@ -1746,20 +1872,26 @@
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
             onOrderPlaced={(items, tableLabel) => pushHistory(items, tableLabel)}
             onPlaySnake={() => { setCartOpen(false); setShowSnake(true); }}
-            onPlaceOrder={(items, tableLabel) => {
+            onPlaceOrder={(items, tableLabel, disc) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
               if (saved && saved.exp && Date.now() < saved.exp) {
                 if (!guest) setGuest(saved);
-                return Promise.resolve(onPlaceOrder(items, tkey, saved));
+                return Promise.resolve(onPlaceOrder(items, tkey, saved, disc));
               }
-              pendingPlace.current = { items, tableLabel: tkey };
+              pendingPlace.current = { items, tableLabel: tkey, disc };
               setShowGuestGate(true);
               return false;
             }} showToast={showToast}
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
 
-          <SnakeGame open={showSnake} onClose={() => setShowSnake(false)} />
+          <SnakeGame
+            open={showSnake}
+            onClose={() => setShowSnake(false)}
+            snakeDiscount={snakeDiscount}
+            showToast={showToast}
+            onRewardUnlocked={() => {}}
+          />
 
           {showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-ink/50 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -1809,11 +1941,12 @@
                           setShowGuestGate(false);
                           setGatePin("");
                           if (pendingPlace.current) {
-                            const { items, tableLabel } = pendingPlace.current;
+                            const { items, tableLabel, disc } = pendingPlace.current;
                             pendingPlace.current = null;
                             pushHistory(items, tableLabel);
-                            Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
+                            Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc)).finally(() => {
                               setSessionItems([]);
+                              if (disc) saveSnakeReward(null);
                               setCartOpen(false);
                               setCartTab("history");
                               showToast("Order sent to Table " + tableLabel);
@@ -1866,11 +1999,12 @@
                       setOtpSent(false);
                       setGateOtp("");
                       if (pendingPlace.current) {
-                        const { items, tableLabel } = pendingPlace.current;
+                        const { items, tableLabel, disc } = pendingPlace.current;
                         pendingPlace.current = null;
                         pushHistory(items, tableLabel);
-                        Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
+                        Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc)).finally(() => {
                           setSessionItems([]);
+                          if (disc) saveSnakeReward(null);
                           setCartOpen(false);
                           setCartTab("history");
                           showToast("Order sent to Table " + tableLabel);
@@ -1998,7 +2132,7 @@
       delivered: "bg-pink-soft text-pink-deep border-pink/40",
     }[s] || "bg-blush text-mist");
 
-    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders }) => {
+    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
       const [editingDish, setEditingDish] = useState(null);
       const [staffTab, setStaffTab] = useState("live");
       const [mgrUnlocked, setMgrUnlocked] = useState(() => {
@@ -2507,6 +2641,53 @@
                   <Icon name="plus" size={16} /> Add Item
                 </button>
               </div>
+
+              <div className="glass rounded-2xl border border-pink/10 p-4 mb-5">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-medium text-ink">Boba Snake reward</p>
+                    <p className="text-mist text-xs mt-0.5">Guests who score 50 can get a small discount on their next order</p>
+                  </div>
+                  <button type="button"
+                    onClick={() => {
+                      const next = saveSnakeDiscountSettings({
+                        ...(snakeDiscount || DEFAULT_SNAKE_DISCOUNT),
+                        enabled: !(snakeDiscount && snakeDiscount.enabled),
+                      });
+                      setSnakeDiscount(next);
+                      cloudSaveSnakeDiscount(next);
+                      showToast(next.enabled ? "Snake reward on" : "Snake reward off");
+                    }}
+                    className={`switch-toggle w-11 h-6 rounded-full ${(snakeDiscount && snakeDiscount.enabled) ? "is-on" : "is-off"}`}
+                    aria-pressed={!!(snakeDiscount && snakeDiscount.enabled)}>
+                    <span className="switch-knob" />
+                  </button>
+                </div>
+                {snakeDiscount && snakeDiscount.enabled && (
+                  <div className="mt-4">
+                    <label className="text-xs uppercase tracking-wider text-mist">Discount (1–5%)</label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <button key={n} type="button"
+                          onClick={() => {
+                            const next = saveSnakeDiscountSettings({
+                              ...(snakeDiscount || DEFAULT_SNAKE_DISCOUNT),
+                              enabled: true,
+                              percent: n,
+                            });
+                            setSnakeDiscount(next);
+                            cloudSaveSnakeDiscount(next);
+                            showToast(`Snake reward set to ${n}%`);
+                          }}
+                          className={`min-w-[44px] min-h-[40px] px-3 rounded-xl text-sm font-semibold transition ${
+                            (snakeDiscount.percent || 3) === n ? "bg-pink text-white" : "border border-pink/20 text-mist hover:text-ink"
+                          }`}>{n}%</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="glass rounded-2xl overflow-hidden border border-pink/10">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -2705,6 +2886,7 @@
       const [sessionItems, setSessionItems] = useState([]);
       const [liveOrders, setLiveOrders] = useState([]);
       const [tablePins, setTablePins] = useState(() => ({ ...DEFAULT_TABLE_PINS }));
+      const [snakeDiscount, setSnakeDiscount] = useState(() => loadSnakeDiscountSettings());
       const [toast, setToast] = useState(null);
       const [tableFromQr] = useState(() => getTableFromUrl());
       const [pinFromQr] = useState(() => getPinFromUrl());
@@ -2775,6 +2957,10 @@
                 // First time: seed cloud from current local menu
                 await cloudSaveMenu(dishes);
               }
+              if (remote && remote.snakeDiscount) {
+                const s = saveSnakeDiscountSettings(remote.snakeDiscount);
+                setSnakeDiscount(s);
+              }
             } catch (menuErr) {
               console.error("menu load", menuErr);
             }
@@ -2791,6 +2977,10 @@
                 try {
                   const remote = await cloudFetchMenu();
                   if (remote && remote.dishes) applyRemoteMenu(remote.dishes, remote.updatedAt);
+                  if (remote && remote.snakeDiscount) {
+                    const s = saveSnakeDiscountSettings(remote.snakeDiscount);
+                    setSnakeDiscount(s);
+                  }
                 } catch (e) { console.error(e); }
               })
               .subscribe();
@@ -2803,9 +2993,9 @@
         return () => { if (channel && sb) sb.removeChannel(channel); };
       }, [showToast, applyRemoteMenu]);
 
-      const placeOrder = useCallback(async (items, tableLabel, guest) => {
+      const placeOrder = useCallback(async (items, tableLabel, guest, discount) => {
         try {
-          await cloudPlaceOrder(items, tableLabel, guest);
+          await cloudPlaceOrder(items, tableLabel, guest, discount || null);
           const next = await cloudFetchLiveOrders();
           setLiveOrders(next || []);
         } catch (e) {
@@ -2897,11 +3087,12 @@
       return (
         <div className="min-h-screen bg-blush">
           {(view === "customer" || !staffAuth) ? (
-            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} />
+            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} snakeDiscount={snakeDiscount} />
           ) : (
             <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
               liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
               tablePins={tablePins} setTablePins={setTablePins}
+              snakeDiscount={snakeDiscount} setSnakeDiscount={setSnakeDiscount}
               onLogout={handleLogout} showToast={showToast} onRefreshOrders={refreshOrders} />
           )}
           {showPin && <PinModal onSuccess={handlePinSuccess} onClose={() => setShowPin(false)} />}
