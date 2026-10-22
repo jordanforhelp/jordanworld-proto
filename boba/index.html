@@ -1833,13 +1833,13 @@
                     <input
                       type="text"
                       maxLength={80}
-                      placeholder="Note (less ice, no sugar…)"
+                      placeholder="Note"
                       value={item.note || ""}
                       onChange={e => {
                         const v = e.target.value.slice(0, 80);
                         setItems(prev => prev.map(i => itemKey(i) === itemKey(item) ? { ...i, note: v } : i));
                       }}
-                      className="mt-2 w-full min-h-[36px] bg-white border border-pink/15 rounded-lg px-2.5 text-xs text-ink placeholder:text-mist/50 focus:outline-none focus:border-pink/40"
+                      className="mt-2 w-full min-h-[36px] bg-white border border-pink/15 rounded-lg px-2.5 text-sm text-ink placeholder:text-mist/50 focus:outline-none focus:border-pink/40"
                     />
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => updateQty(itemKey(item), -1)} className="hit-icon rounded-xl bg-surface border border-pink/25 text-mist hover:text-ink transition" aria-label="Decrease quantity"><Icon name="minus" size={14} /></button>
@@ -2555,6 +2555,18 @@
         });
       };
 
+      const setAllPhotosVisible = (on) => {
+        setDishes(prev => {
+          const next = prev.map(x => ({
+            ...x,
+            imageVisible: on ? !!x.image : false,
+          }));
+          saveState("bloom_dishes", next);
+          return next;
+        });
+        showToast(on ? "All photos live on the menu" : "All photos hidden from the menu");
+      };
+
       const toggleSoldOut = (id) => {
         setDishes(prev => {
           const next = prev.map(x => x.id === id ? { ...x, soldOut: !x.soldOut } : x);
@@ -2688,7 +2700,7 @@
                                           <span className="text-ink">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
                                           <span className="text-mist whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
                                         </div>
-                                        {it.note && <p className="text-[11px] text-pink-deep/80 mt-0.5">Note: {it.note}</p>}
+                                        {it.note && <p className="text-sm text-pink-deep mt-1 font-medium">Note: {it.note}</p>}
                                       </li>
                                     ))}
                                   </ul>
@@ -2925,9 +2937,19 @@
                   <Icon name="utensils" size={22} className="text-pink" />
                   <h2 className="font-display text-2xl text-ink">Menu Management</h2>
                 </div>
-                <button onClick={openAddDish} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pink text-white text-sm font-semibold hover:bg-pink-deep transition shadow-glow-sm">
-                  <Icon name="plus" size={16} /> Add Item
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={() => setAllPhotosVisible(true)}
+                    className="px-3.5 py-2.5 rounded-xl border border-pink/25 bg-white text-pink text-sm font-semibold hover:bg-pink-soft transition">
+                    Show all photos
+                  </button>
+                  <button type="button" onClick={() => setAllPhotosVisible(false)}
+                    className="px-3.5 py-2.5 rounded-xl border border-pink/15 bg-white text-mist text-sm font-medium hover:bg-blush transition">
+                    Hide all photos
+                  </button>
+                  <button onClick={openAddDish} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pink text-white text-sm font-semibold hover:bg-pink-deep transition shadow-glow-sm">
+                    <Icon name="plus" size={16} /> Add Item
+                  </button>
+                </div>
               </div>
 
               <div className="glass rounded-2xl border border-pink/10 p-4 mb-5">
@@ -3028,7 +3050,7 @@
                             <div className="flex flex-wrap items-center gap-2">
                               <button type="button" onClick={() => toggleSoldOut(d.id)}
                                 className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${d.soldOut ? "bg-ink/10 text-ink border-ink/20" : "bg-white text-mist border-pink/20 hover:border-pink/40"}`}>
-                                {d.soldOut ? "Sold out" : "86"}
+                                {d.soldOut ? "Back in stock" : "Sold out"}
                               </button>
                               <button onClick={() => setEditingDish({ ...d, imageVisible: d.imageVisible === true, soldOut: d.soldOut === true })} className="text-pink hover:text-pink-deep text-sm font-medium">Edit</button>
                               <button onClick={() => deleteDish(d.id)} className="text-red-400/80 hover:text-red-500 text-sm font-medium">Delete</button>
