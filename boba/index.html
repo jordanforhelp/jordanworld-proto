@@ -1704,6 +1704,8 @@
     };
 
     const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate }) => {
+      const [placing, setPlacing] = useState(false);
+      const placingRef = useRef(false);
       const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
       const reward = loadSnakeReward();
       const discountPct = reward && reward.percent ? Math.min(5, Math.max(1, Number(reward.percent))) : 0;
@@ -1714,6 +1716,7 @@
       const effectiveTable = (lockedTable || "").replace(/^0+/, "") || lockedTable;
 
       const handlePlaceOrder = () => {
+        if (placingRef.current || placing) return;
         if (!items.length) {
           showToast("Add items first");
           return;
@@ -1722,15 +1725,21 @@
           showToast("Scan your table QR to order");
           return;
         }
+        placingRef.current = true;
+        setPlacing(true);
         try {
           const snapshot = items.map(i => ({ ...i }));
           const disc = discountPct ? { percent: discountPct, amount: discountAmt } : null;
           const ok = onPlaceOrder(snapshot, effectiveTable, disc);
-          if (ok === false) return;
+          if (ok === false) {
+            placingRef.current = false;
+            setPlacing(false);
+            return;
+          }
           Promise.resolve(ok).then((res) => {
             if (typeof onOrderPlaced === "function") onOrderPlaced(snapshot, effectiveTable, res);
-            if (setCartTab) setCartTab("history");
             setItems([]);
+            if (setCartTab) setCartTab("history");
             if (typeof onOrderCelebrate === "function") onOrderCelebrate();
             showToast(
               disc
@@ -1740,9 +1749,14 @@
           }).catch(err => {
             console.error(err);
             showToast(err && err.message ? err.message : "Could not place order. Try again.");
+          }).finally(() => {
+            placingRef.current = false;
+            setPlacing(false);
           });
         } catch (err) {
           console.error(err);
+          placingRef.current = false;
+          setPlacing(false);
           showToast(err && err.message ? err.message : "Could not place order. Try again.");
         }
       };
@@ -1894,9 +1908,9 @@
                     Play Boba Snake for a discount on your order
                   </button>
                 )}
-                <button type="button" onClick={handlePlaceOrder} disabled={!lockedTable}
-                  className={`w-full py-3.5 rounded-xl font-semibold text-sm transition ${lockedTable ? "bg-pink text-white hover:bg-pink-deep" : "bg-blush text-mist cursor-not-allowed opacity-60"}`}>
-                  Place Order
+                <button type="button" onClick={handlePlaceOrder} disabled={!lockedTable || placing}
+                  className={`w-full py-3.5 rounded-xl font-semibold text-sm transition ${lockedTable && !placing ? "bg-pink text-white hover:bg-pink-deep" : "bg-blush text-mist cursor-not-allowed opacity-60"}`}>
+                  {placing ? "Sending…" : "Place Order"}
                 </button>
                 <button type="button" onClick={() => { setItems([]); showToast("Session cleared"); }} className="w-full py-2 text-mist text-sm hover:text-ink transition">Clear Session</button>
               </div>
@@ -2144,7 +2158,7 @@
                     className="w-full min-h-[44px] bg-white border border-pink/15 rounded-2xl pl-11 pr-4 text-[15px] leading-5 text-ink placeholder:text-mist/50 focus:outline-none focus:border-pink/40 transition"
                     aria-label="Search menu" autoComplete="off" />
                 </div>
-                <button type="button" onClick={() => setCartOpen(true)}
+                <button type="button" onClick={() => { setCartTab("cart"); setCartOpen(true); }}
                   className={`relative shrink-0 glass-strong rounded-2xl min-h-[44px] min-w-[44px] px-3 flex items-center justify-center border border-pink/25 hover:border-pink/50 transition ${badgePulse ? "animate-bounce-soft" : ""}`}
                   aria-label={itemCount ? `Cart, ${itemCount} items` : "Open cart"}>
                   <Icon name="shopping-bag" size={20} className="text-pink" />
@@ -2186,14 +2200,14 @@
               </div>
             )}
           </main>
-          <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
+          <CartDrawer open={cartOpen} onClose={() => { setCartOpen(false); setCartTab("cart"); }} items={sessionItems} setItems={setSessionItems}
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
             onOrderPlaced={(items, tableLabel, res) => pushHistory(items, tableLabel, {
               roundId: res && res.roundId,
               status: "new",
             })}
-            onPlaySnake={() => { setCartOpen(false); setShowSnake(true); }}
-            onOrderCelebrate={() => { setOrderBurst(true); setCartOpen(false); }}
+            onPlaySnake={() => { setCartOpen(false); setCartTab("cart"); setShowSnake(true); }}
+            onOrderCelebrate={() => { setOrderBurst(true); }}
             onPlaceOrder={(items, tableLabel, disc) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
@@ -2756,7 +2770,7 @@
                 <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
                   <div>
                     <h2 className="font-display text-2xl text-ink">Tables</h2>
-                    <p className="text-mist text-sm">Add or remove tables and copy QR links. Guests login with WhatsApp OTP (no table PIN).</p>
+                    <p className="text-mist text-sm">Add or remove tables and copy guest QR links (menu site, not staff).</p>
                   </div>
                   <button type="button" onClick={() => {
                     const nums = Object.keys(tablePins || {}).map(Number).filter(n => !isNaN(n));
@@ -2772,8 +2786,15 @@
                     {Object.keys(tablePins || {}).length === 0 ? (
                       <p className="text-mist text-sm py-8 text-center">No tables yet. Tap + Add table.</p>
                     ) : Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
-                      const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '').replace(/\/?$/, '/');
-                      const url = base + '?table=' + n;
+                      // Guest menu only — strip any staff /apex path so QR never points at staff portal
+                      const origin = (typeof window !== "undefined" ? window.location.origin : "") || "";
+                      let path = (typeof window !== "undefined" ? window.location.pathname : "/") || "/";
+                      path = path
+                        .replace(/\/apex(?:\.html)?(?:\/.*)?$/i, "/")
+                        .replace(/index\.html$/i, "")
+                        .replace(/\/{2,}/g, "/");
+                      if (!path.endsWith("/")) path += "/";
+                      const url = origin + path + "?table=" + encodeURIComponent(n);
                       return (
                         <div key={n} className="flex flex-wrap items-center gap-2 text-xs p-2 rounded-xl bg-blush border border-pink/10">
                           <span className="text-ink font-medium w-10">T{n}</span>
