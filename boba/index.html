@@ -774,6 +774,7 @@
         category: d.category,
         image: d.image || "",
         imageVisible: d.imageVisible === true,
+        soldOut: d.soldOut === true,
         tags: d.tags || [],
         diet: d.diet || [],
         margin: d.margin,
@@ -819,6 +820,7 @@
           variantKind: d.variantKind || (base && base.variantKind),
           image: d.image != null ? d.image : (base && base.image) || "",
           imageVisible: d.imageVisible === true,
+          soldOut: d.soldOut === true,
           visible: d.visible !== false,
         };
       });
@@ -895,6 +897,7 @@
         variantLabel: i.variantLabel || null,
         price: i.price,
         qty: i.qty,
+        note: i.note ? String(i.note).slice(0, 120) : null,
       }));
       let total = items.reduce((s, i) => s + i.price * i.qty, 0);
       if (discount && discount.percent > 0) {
@@ -945,14 +948,14 @@
         sessionId = created.id;
       }
 
-      const { error: e2 } = await sb.from("bloom_order_rounds").insert({
+      const { data: roundRow, error: e2 } = await sb.from("bloom_order_rounds").insert({
         session_id: sessionId,
         status: "new",
         items: payloadItems,
         total,
-      });
+      }).select("id").single();
       if (e2) throw e2;
-      return tableKey;
+      return { tableKey, sessionId, roundId: roundRow && roundRow.id };
     }
 
     async function cloudUpdateRoundStatus(roundId, status) {
@@ -1316,6 +1319,7 @@
       }, []);
       const qty = sessionItems.filter(i => i.id === dish.id).reduce((s, i) => s + i.qty, 0);
       const inSession = qty > 0;
+      const soldOut = dish.soldOut === true;
       const hasVariants = dish.variants && dish.variants.length > 0;
       const variantPrompt = getVariantPrompt(dish);
       const priceLabel = hasVariants
@@ -1324,22 +1328,26 @@
       const showPhoto = dish.imageVisible === true && !!dish.image;
       const tags = (dish.tags || []).filter(t => CUSTOMER_VISIBLE_TAGS.includes(t));
       return (
-        <article ref={cardRef} className={`menu-card ${visible ? "is-visible" : ""}`} style={{ transitionDelay: `${Math.min(index % 6, 5) * 50}ms` }}>
+        <article ref={cardRef} className={`menu-card ${visible ? "is-visible" : ""} ${soldOut ? "opacity-75" : ""}`} style={{ transitionDelay: `${Math.min(index % 6, 5) * 50}ms` }}>
           {showPhoto && (
-            <div className="menu-card-media">
+            <div className="menu-card-media relative">
               <img src={dish.image} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = "none"; }} />
+              {soldOut && (
+                <div className="absolute inset-0 bg-ink/45 flex items-center justify-center">
+                  <span className="text-white text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-ink/70">Sold out</span>
+                </div>
+              )}
             </div>
           )}
           <div className="menu-card-body">
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2.5">
-                {tags.map(t => <Tag key={t} label={t} />)}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              {soldOut && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-ink/10 text-ink font-semibold">Sold out</span>}
+              {tags.map(t => <Tag key={t} label={t} />)}
+            </div>
             <div className="flex items-baseline justify-between gap-3">
               <h3 className="font-display text-[1.15rem] sm:text-xl text-ink leading-snug tracking-tight">{dish.name}</h3>
               <div className="text-right flex-shrink-0">
-                {hasVariants && <span className="block text-[10px] uppercase tracking-wider text-mist/80 leading-none mb-0.5">from</span>}
+                {hasVariants && !soldOut && <span className="block text-[10px] uppercase tracking-wider text-mist/80 leading-none mb-0.5">from</span>}
                 <span className="font-semibold text-pink text-[0.95rem] sm:text-base tabular-nums">{priceLabel}</span>
               </div>
             </div>
@@ -1347,15 +1355,17 @@
               <p className="mt-2 text-[13px] sm:text-sm text-mist leading-relaxed line-clamp-2">{dish.description}</p>
             )}
             <div className="menu-card-actions">
-              <button type="button" onClick={() => onAdd(dish)}
+              <button type="button" onClick={() => !soldOut && onAdd(dish)} disabled={soldOut}
                 className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
-                  inSession
+                  soldOut
+                    ? "bg-blush text-mist border border-pink/10 cursor-not-allowed"
+                    : inSession
                     ? "bg-pink-soft text-pink-deep border border-pink/25"
                     : "bg-pink text-white hover:bg-pink-deep"
                 }`}>
-                {inSession ? `Added (${qty})` : hasVariants ? variantPrompt.button : "Add"}
+                {soldOut ? "Sold out" : inSession ? `Added (${qty})` : hasVariants ? variantPrompt.button : "Add"}
               </button>
-              {dish.pairWith && dish.pairWith.length > 0 && (
+              {!soldOut && dish.pairWith && dish.pairWith.length > 0 && (
                 <button type="button" onClick={() => onPair(dish)}
                   className="min-h-[44px] py-2.5 px-3.5 rounded-xl text-sm font-medium border border-pink/20 text-pink hover:bg-pink-soft/60 transition-colors">
                   Pair
@@ -1704,24 +1714,23 @@
           const disc = discountPct ? { percent: discountPct, amount: discountAmt } : null;
           const ok = onPlaceOrder(snapshot, effectiveTable, disc);
           if (ok === false) return;
-          if (typeof onOrderPlaced === "function") onOrderPlaced(snapshot, effectiveTable);
-          if (setCartTab) setCartTab("history");
-          Promise.resolve(ok).then(() => {
+          Promise.resolve(ok).then((res) => {
+            if (typeof onOrderPlaced === "function") onOrderPlaced(snapshot, effectiveTable, res);
+            if (setCartTab) setCartTab("history");
             setItems([]);
-            // Keep snake reward for the whole table visit until bill is cleared
             if (typeof onOrderCelebrate === "function") onOrderCelebrate();
             showToast(
               disc
                 ? `Order sent with ${disc.percent}% snake reward (Table ${effectiveTable})`
-                : "Order sent to Table " + effectiveTable + " (pending confirm)"
+                : "Order sent to Table " + effectiveTable
             );
           }).catch(err => {
             console.error(err);
-            showToast("Could not place order. Try again.");
+            showToast(err && err.message ? err.message : "Could not place order. Try again.");
           });
         } catch (err) {
           console.error(err);
-          showToast("Could not place order. Try again.");
+          showToast(err && err.message ? err.message : "Could not place order. Try again.");
         }
       };
       const itemKey = (i) => i.sessionKey || String(i.id);
@@ -1771,26 +1780,41 @@
                         Play Boba Snake while you wait
                       </button>
                     )}
-                    {orderHistory.map(h => (
+                    {orderHistory.map(h => {
+                      const st = h.status || "new";
+                      const meta = statusMeta(st);
+                      return (
                   <div key={h.id} className="p-3 rounded-xl bg-blush border border-pink/10 space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div>
                         <p className="text-xs text-mist">Table {h.table}</p>
                         <p className="text-[11px] text-mist/70">{h.at ? new Date(h.at).toLocaleString() : ""}</p>
                       </div>
-                      <p className="text-pink font-semibold text-sm">{formatPrice(h.total)}</p>
+                      <div className="text-right">
+                        <p className="text-pink font-semibold text-sm">{formatPrice(h.total)}</p>
+                        <span className={`inline-block mt-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusColor(st)}`}>
+                          {meta.guestLabel || meta.label}
+                        </span>
+                      </div>
                     </div>
                     <ul className="space-y-1">
                       {(h.items || []).map((it, ii) => (
-                        <li key={ii} className="flex justify-between text-sm text-ink gap-2">
-                          <span className="truncate">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
-                          <span className="text-mist whitespace-nowrap">{formatPrice((it.price || 0) * (it.qty || 1))}</span>
+                        <li key={ii} className="text-sm text-ink">
+                          <div className="flex justify-between gap-2">
+                            <span className="truncate">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                            <span className="text-mist whitespace-nowrap">{formatPrice((it.price || 0) * (it.qty || 1))}</span>
+                          </div>
+                          {it.note && <p className="text-[11px] text-mist mt-0.5 pl-1">Note: {it.note}</p>}
                         </li>
                       ))}
                     </ul>
-                    <p className="text-[10px] uppercase tracking-wider text-pink/80">Sent</p>
+                    <div className="flex justify-between items-center pt-1 border-t border-pink/10">
+                      <p className="text-[11px] text-mist">Round total</p>
+                      <p className="text-sm font-semibold text-ink">{formatPrice(h.total)}</p>
+                    </div>
                   </div>
-                    ))}
+                      );
+                    })}
                   </>
                 )
               ) : items.length === 0 ? (
@@ -1806,6 +1830,17 @@
                       {item.name}{item.variantLabel ? ` (${item.variantLabel})` : ""}
                     </p>
                     <p className="text-pink text-sm mt-0.5">{formatPrice(item.price)}</p>
+                    <input
+                      type="text"
+                      maxLength={80}
+                      placeholder="Note (less ice, no sugar…)"
+                      value={item.note || ""}
+                      onChange={e => {
+                        const v = e.target.value.slice(0, 80);
+                        setItems(prev => prev.map(i => itemKey(i) === itemKey(item) ? { ...i, note: v } : i));
+                      }}
+                      className="mt-2 w-full min-h-[36px] bg-white border border-pink/15 rounded-lg px-2.5 text-xs text-ink placeholder:text-mist/50 focus:outline-none focus:border-pink/40"
+                    />
                     <div className="flex items-center gap-2 mt-2">
                       <button onClick={() => updateQty(itemKey(item), -1)} className="hit-icon rounded-xl bg-surface border border-pink/25 text-mist hover:text-ink transition" aria-label="Decrease quantity"><Icon name="minus" size={14} /></button>
                       <span className="w-8 text-center text-sm font-medium text-ink tabular-nums" aria-live="polite">{item.qty}</span>
@@ -1915,12 +1950,20 @@
           return JSON.parse(localStorage.getItem(key) || "[]");
         } catch { return []; }
       });
-      const pushHistory = (items, tableLabel) => {
+      const pushHistory = (items, tableLabel, extra) => {
         const entry = {
-          id: "H-" + Date.now(),
+          id: (extra && extra.roundId) ? String(extra.roundId) : ("H-" + Date.now()),
+          roundId: extra && extra.roundId ? String(extra.roundId) : null,
           table: String(tableLabel),
-          items: items.map(i => ({ name: i.name, variantLabel: i.variantLabel || null, qty: i.qty, price: i.price })),
+          items: items.map(i => ({
+            name: i.name,
+            variantLabel: i.variantLabel || null,
+            qty: i.qty,
+            price: i.price,
+            note: i.note || null,
+          })),
           total: items.reduce((s, i) => s + i.price * i.qty, 0),
+          status: (extra && extra.status) || "new",
           at: new Date().toISOString(),
         };
         setOrderHistory(prev => {
@@ -1958,21 +2001,33 @@
             .limit(1);
           if (error) throw error;
           if (!data || data.length === 0) {
-            // No open session (paid/cleared or never started) → clear stale history
             clearLocalHistory(t);
             return;
           }
+          const sessionId = data[0].id;
           const sessionStarted = new Date(data[0].created_at).getTime();
+          const { data: rounds } = await sb
+            .from("bloom_order_rounds")
+            .select("id, status, total, items, created_at")
+            .eq("session_id", sessionId)
+            .order("created_at", { ascending: false });
+          const byId = {};
+          (rounds || []).forEach(r => { byId[String(r.id)] = r; });
           setOrderHistory(prev => {
-            const kept = (prev || []).filter(h => {
+            let kept = (prev || []).filter(h => {
               if (!h.at) return false;
-              return new Date(h.at).getTime() >= sessionStarted - 5000; // small clock skew buffer
+              return new Date(h.at).getTime() >= sessionStarted - 5000;
             });
-            if (kept.length !== (prev || []).length) {
-              try {
-                localStorage.setItem("bloom_history_" + t, JSON.stringify(kept));
-              } catch {}
-            }
+            kept = kept.map(h => {
+              const rid = h.roundId ? String(h.roundId) : (String(h.id).match(/^[0-9a-f-]{8,}/i) ? String(h.id) : null);
+              if (rid && byId[rid]) {
+                return { ...h, status: byId[rid].status || h.status, total: Number(byId[rid].total) || h.total };
+              }
+              return h;
+            });
+            try {
+              localStorage.setItem("bloom_history_" + t, JSON.stringify(kept));
+            } catch {}
             return kept;
           });
         } catch (e) {
@@ -2120,13 +2175,16 @@
           </main>
           <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
-            onOrderPlaced={(items, tableLabel) => pushHistory(items, tableLabel)}
+            onOrderPlaced={(items, tableLabel, res) => pushHistory(items, tableLabel, {
+              roundId: res && res.roundId,
+              status: "new",
+            })}
             onPlaySnake={() => { setCartOpen(false); setShowSnake(true); }}
             onOrderCelebrate={() => { setOrderBurst(true); setCartOpen(false); }}
             onPlaceOrder={(items, tableLabel, disc) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
-              if (saved && saved.exp && Date.now() < saved.exp) {
+              if (saved && saved.phone && saved.exp && Date.now() < saved.exp) {
                 if (!guest) setGuest(saved);
                 return Promise.resolve(onPlaceOrder(items, tkey, saved, disc));
               }
@@ -2164,7 +2222,7 @@
                       className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="10-digit mobile" autoComplete="tel" />
                   </div>
                   <p className="text-mist/60 text-[11px]">
-                    Free · no OTP. Only this number can add orders on this table until staff clears it.
+                    Only this number can order on this table until staff clears the bill. Name and number are used for this visit only.
                   </p>
                   <button type="button" disabled={loginBusy} onClick={async () => {
                     if (!gateName.trim() || gatePhone.replace(/\D/g, "").length < 10) {
@@ -2184,8 +2242,8 @@
                       if (pendingPlace.current) {
                         const { items, tableLabel, disc } = pendingPlace.current;
                         pendingPlace.current = null;
-                        pushHistory(items, tableLabel);
-                        await Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc));
+                        const res = await Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc));
+                        pushHistory(items, tableLabel, { roundId: res && res.roundId, status: "new" });
                         setSessionItems([]);
                         setCartOpen(false);
                         setCartTab("history");
@@ -2299,11 +2357,11 @@
     };
 
     const ORDER_FLOW = [
-      { key: "new", label: "Pending confirm", next: "accepted", nextLabel: "Confirm order" },
-      { key: "accepted", label: "Confirmed", next: "cooking", nextLabel: "Start prep" },
-      { key: "cooking", label: "In prep", next: "ready", nextLabel: "Mark ready" },
-      { key: "ready", label: "Ready", next: "delivered", nextLabel: "Mark served" },
-      { key: "delivered", label: "Served", next: null, nextLabel: null },
+      { key: "new", label: "Pending confirm", guestLabel: "Sent", next: "accepted", nextLabel: "Confirm order" },
+      { key: "accepted", label: "Confirmed", guestLabel: "Confirmed", next: "cooking", nextLabel: "Start prep" },
+      { key: "cooking", label: "In prep", guestLabel: "Preparing", next: "ready", nextLabel: "Mark ready" },
+      { key: "ready", label: "Ready", guestLabel: "Ready for you", next: "delivered", nextLabel: "Mark served" },
+      { key: "delivered", label: "Served", guestLabel: "Served", next: null, nextLabel: null },
     ];
     const statusMeta = (s) => ORDER_FLOW.find(x => x.key === s) || ORDER_FLOW[0];
     const statusColor = (s) => ({
@@ -2314,9 +2372,48 @@
       delivered: "bg-pink-soft text-pink-deep border-pink/40",
     }[s] || "bg-blush text-mist");
 
+    function maskPhone(p) {
+      const d = String(p || "").replace(/\D/g, "");
+      if (d.length < 4) return d || "";
+      return "••••" + d.slice(-4);
+    }
+
+    function playStaffChime() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "sine";
+        o.frequency.value = 880;
+        g.gain.value = 0.08;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start();
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        o.stop(ctx.currentTime + 0.4);
+        setTimeout(() => ctx.close(), 500);
+      } catch {}
+    }
+
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
       const [editingDish, setEditingDish] = useState(null);
       const [staffTab, setStaffTab] = useState("live");
+      const prevNewRoundsRef = useRef(null);
+      useEffect(() => {
+        const n = (liveOrders || []).reduce(
+          (s, sess) => s + (sess.rounds || []).filter(r => r.status === "new").length,
+          0
+        );
+        if (prevNewRoundsRef.current !== null && n > prevNewRoundsRef.current) {
+          playStaffChime();
+          try {
+            if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(80);
+          } catch {}
+        }
+        prevNewRoundsRef.current = n;
+      }, [liveOrders]);
       const [mgrUnlocked, setMgrUnlocked] = useState(() => {
         try { return sessionStorage.getItem("bloom_mgr") === "1"; } catch { return false; }
       });
@@ -2439,7 +2536,7 @@
       const openAddDish = () => setEditingDish({
         id: null, name: "", description: "", price: 0, category: "Milk Tea",
         image: "",
-        tags: [], diet: ["Vegetarian"], margin: 50, ordersToday: 0, visible: true, imageVisible: false, pairWith: [], sortOrder: 99,
+        tags: [], diet: ["Vegetarian"], margin: 50, ordersToday: 0, visible: true, imageVisible: false, soldOut: false, pairWith: [], sortOrder: 99,
       });
 
       const toggleVisible = (id) => {
@@ -2453,6 +2550,14 @@
       const toggleImageVisible = (id) => {
         setDishes(prev => {
           const next = prev.map(x => x.id === id ? { ...x, imageVisible: !x.imageVisible } : x);
+          saveState("bloom_dishes", next);
+          return next;
+        });
+      };
+
+      const toggleSoldOut = (id) => {
+        setDishes(prev => {
+          const next = prev.map(x => x.id === id ? { ...x, soldOut: !x.soldOut } : x);
           saveState("bloom_dishes", next);
           return next;
         });
@@ -2552,7 +2657,10 @@
                             <div>
                               <p className="font-display text-xl text-ink">Table {session.table}</p>
                               {(session.guestName || session.guestPhone) && (
-                                <p className="text-mist text-xs mt-0.5">{session.guestName || "Guest"}{session.guestPhone ? `, ${session.guestPhone}` : ""}</p>
+                                <p className="text-mist text-xs mt-0.5">
+                                  Claimed by {session.guestName || "Guest"}
+                                  {session.guestPhone ? ` · ${maskPhone(session.guestPhone)}` : ""}
+                                </p>
                               )}
                               <p className="text-mist/60 text-[10px] mt-0.5">{rounds.length} order round{rounds.length !== 1 ? "s" : ""}</p>
                             </div>
@@ -2575,9 +2683,12 @@
                                   </div>
                                   <ul className="space-y-1 mb-2">
                                     {(round.items || []).map((it, idx) => (
-                                      <li key={idx} className="flex justify-between text-sm gap-2">
-                                        <span className="text-ink">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
-                                        <span className="text-mist whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
+                                      <li key={idx} className="text-sm">
+                                        <div className="flex justify-between gap-2">
+                                          <span className="text-ink">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                                          <span className="text-mist whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
+                                        </div>
+                                        {it.note && <p className="text-[11px] text-pink-deep/80 mt-0.5">Note: {it.note}</p>}
                                       </li>
                                     ))}
                                   </ul>
@@ -2914,8 +3025,12 @@
                             </button>
                           </td>
                           <td className="px-5 py-3">
-                            <div className="flex items-center gap-3">
-                              <button onClick={() => setEditingDish({ ...d, imageVisible: d.imageVisible === true })} className="text-pink hover:text-pink-deep text-sm font-medium">Edit</button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button type="button" onClick={() => toggleSoldOut(d.id)}
+                                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${d.soldOut ? "bg-ink/10 text-ink border-ink/20" : "bg-white text-mist border-pink/20 hover:border-pink/40"}`}>
+                                {d.soldOut ? "Sold out" : "86"}
+                              </button>
+                              <button onClick={() => setEditingDish({ ...d, imageVisible: d.imageVisible === true, soldOut: d.soldOut === true })} className="text-pink hover:text-pink-deep text-sm font-medium">Edit</button>
                               <button onClick={() => deleteDish(d.id)} className="text-red-400/80 hover:text-red-500 text-sm font-medium">Delete</button>
                             </div>
                           </td>
@@ -3188,9 +3303,10 @@
 
       const placeOrder = useCallback(async (items, tableLabel, guest, discount) => {
         try {
-          await cloudPlaceOrder(items, tableLabel, guest, discount || null);
+          const res = await cloudPlaceOrder(items, tableLabel, guest, discount || null);
           const next = await cloudFetchLiveOrders();
           setLiveOrders(next || []);
+          return res;
         } catch (e) {
           console.error(e);
           showToast("Order failed: " + (e.message || "cloud error"));
