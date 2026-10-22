@@ -512,19 +512,65 @@
     const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
     const DRINK_TYPES = []; // not used for boba the same way
 
-    // Staff access: same hashes as original (PIN itself is not in source)
-    const STAFF_PIN_HASH = "b4bf6ca75c454a0214239cdc7475e7b122ff6f0f629dd0fe1035ab88a3e3cab5";
+    // Staff / manager PINs are hashed (plain PIN is not stored in source)
+    // Staff PIN length: 6 · Manager PIN length: 6
+    const STAFF_PIN_LEN = 6;
+    const MGR_PIN_LEN = 6;
+    const STAFF_PIN_HASH = "19e256f3238184672ac2aa2bcc19f990fe71cb91866301fcd6eabc4595b3fd49";
     async function hashStaffPin(pin) {
       const data = new TextEncoder().encode("ayra-staff-v1:" + pin);
       const buf = await crypto.subtle.digest("SHA-256", data);
       return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
     }
-    const MGR_PIN_HASH = "a499df265b3d26f14d02f15e42479a6f68477f260ca6929c9eac48cca93bd52e";
+    const MGR_PIN_HASH = "def10073e08f4c68668c084d551bb9d590ae14e800a4054c33ac7ea8aac4e616";
     async function hashMgrPin(pin) {
       const data = new TextEncoder().encode("ayra-mgr-v1:" + pin);
       const buf = await crypto.subtle.digest("SHA-256", data);
       return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
     }
+
+    // Staff session timeout (20 minutes idle) + failed PIN lockout (5 tries → 5 min)
+    const STAFF_SESSION_MS = 20 * 60 * 1000;
+    const STAFF_LOCK_MAX = 5;
+    const STAFF_LOCK_MS = 5 * 60 * 1000;
+    const STAFF_LOCK_KEY = "bloom_staff_lock";
+    const STAFF_ACTIVITY_KEY = "bloom_staff_active_at";
+
+    function readStaffLock() {
+      try {
+        const raw = localStorage.getItem(STAFF_LOCK_KEY);
+        if (!raw) return { fails: 0, until: 0 };
+        const o = JSON.parse(raw);
+        return { fails: Number(o.fails) || 0, until: Number(o.until) || 0 };
+      } catch { return { fails: 0, until: 0 }; }
+    }
+    function writeStaffLock(fails, until) {
+      try { localStorage.setItem(STAFF_LOCK_KEY, JSON.stringify({ fails, until })); } catch {}
+    }
+    function clearStaffLock() {
+      try { localStorage.removeItem(STAFF_LOCK_KEY); } catch {}
+    }
+    function staffLockRemainingMs() {
+      const { until } = readStaffLock();
+      return Math.max(0, until - Date.now());
+    }
+    function touchStaffActivity() {
+      try { sessionStorage.setItem(STAFF_ACTIVITY_KEY, String(Date.now())); } catch {}
+    }
+    function staffSessionExpired() {
+      try {
+        const t = parseInt(sessionStorage.getItem(STAFF_ACTIVITY_KEY) || "0", 10);
+        if (!t) return true;
+        return Date.now() - t > STAFF_SESSION_MS;
+      } catch { return true; }
+    }
+
+    // /boba/apex or apex.html → staff-only portal
+    const IS_APEX = (typeof window !== "undefined") && (
+      !!window.__BLOOM_APEX__ ||
+      /\/apex(\.html)?\/?$/i.test(location.pathname) ||
+      /\/apex\//i.test(location.pathname)
+    );
     const DEFAULT_TABLE_PINS = Object.fromEntries(
       Array.from({ length: 12 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
     );
@@ -537,6 +583,55 @@
     const sb = (typeof supabase !== "undefined" && supabase.createClient)
       ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
+
+    function normalizePhoneIN(raw) {
+      const digits = String(raw || "").replace(/\D/g, "");
+      if (digits.length === 10) return "91" + digits;
+      if (digits.length === 12 && digits.startsWith("91")) return digits;
+      if (digits.length === 11 && digits.startsWith("0")) return "91" + digits.slice(1);
+      return digits;
+    }
+
+    function phonesMatch(a, b) {
+      const x = normalizePhoneIN(a);
+      const y = normalizePhoneIN(b);
+      if (!x || !y) return false;
+      return x === y || x.slice(-10) === y.slice(-10);
+    }
+
+    /** Free table claim: one open session per table owned by guest phone until staff clears. */
+    async function cloudGetOpenSession(tableKey) {
+      if (!sb) return null;
+      const key = String(tableKey).trim().replace(/^0+/, "") || String(tableKey).trim();
+      const { data, error } = await sb
+        .from("bloom_table_sessions")
+        .select("id, table_no, status, guest_name, guest_phone, created_at")
+        .eq("table_no", key)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return (data && data[0]) || null;
+    }
+
+    async function cloudAssertTableClaim(tableKey, guest) {
+      const phone = normalizePhoneIN(guest && guest.phone);
+      if (!phone || phone.replace(/\D/g, "").length < 10) {
+        throw new Error("Enter a valid mobile number to order");
+      }
+      const open = await cloudGetOpenSession(tableKey);
+      if (!open) return { claimed: false };
+      const owner = open.guest_phone || "";
+      if (!owner) {
+        // Session open but no phone yet — take claim with this guest
+        return { claimed: true, session: open, takeover: true };
+      }
+      if (phonesMatch(owner, phone)) return { claimed: true, session: open, mine: true };
+      const who = open.guest_name ? open.guest_name.split(" ")[0] : "another guest";
+      throw new Error(
+        "Table " + tableKey + " is already in use by " + who + ". Ask staff to clear the table if this is yours."
+      );
+    }
 
     function mapCloudToLiveOrders(sessions, rounds) {
       const bySession = {};
@@ -814,6 +909,9 @@
         });
       }
 
+      // Enforce table claim (same phone only while session is open)
+      await cloudAssertTableClaim(tableKey, guest);
+
       let { data: existing, error: e0 } = await sb
         .from("bloom_table_sessions")
         .select("*")
@@ -828,7 +926,7 @@
         sessionId = existing[0].id;
         const patch = {};
         if (guest?.name) patch.guest_name = guest.name;
-        if (guest?.phone) patch.guest_phone = guest.phone;
+        if (guest?.phone) patch.guest_phone = normalizePhoneIN(guest.phone);
         if (Object.keys(patch).length) {
           await sb.from("bloom_table_sessions").update(patch).eq("id", sessionId);
         }
@@ -838,7 +936,7 @@
           .insert({
             table_no: tableKey,
             guest_name: guest?.name || null,
-            guest_phone: guest?.phone || null,
+            guest_phone: guest?.phone ? normalizePhoneIN(guest.phone) : null,
             status: "open",
           })
           .select()
@@ -1100,45 +1198,71 @@
       );
     };
 
-    const PinModal = ({ onSuccess, onClose }) => {
+    const PinModal = ({ onSuccess, onClose, forced }) => {
       const [pin, setPin] = useState("");
-      const [error, setError] = useState(false);
+      const [error, setError] = useState("");
       const [shake, setShake] = useState(false);
+      const [lockLeft, setLockLeft] = useState(() => staffLockRemainingMs());
+
+      useEffect(() => {
+        const id = setInterval(() => setLockLeft(staffLockRemainingMs()), 1000);
+        return () => clearInterval(id);
+      }, []);
+
+      const locked = lockLeft > 0;
 
       const handleDigit = (d) => {
-        if (pin.length >= 4) return;
+        if (locked) return;
+        if (pin.length >= STAFF_PIN_LEN) return;
         const next = pin + d;
         setPin(next);
-        setError(false);
-        if (next.length === 4) {
+        setError("");
+        if (next.length === STAFF_PIN_LEN) {
           hashStaffPin(next).then(h => {
-            if (h === STAFF_PIN_HASH) setTimeout(() => onSuccess(), 180);
-            else {
-              setError(true);
+            if (h === STAFF_PIN_HASH) {
+              clearStaffLock();
+              setTimeout(() => onSuccess(), 180);
+            } else {
+              const cur = readStaffLock();
+              const fails = (cur.fails || 0) + 1;
+              if (fails >= STAFF_LOCK_MAX) {
+                const until = Date.now() + STAFF_LOCK_MS;
+                writeStaffLock(0, until);
+                setLockLeft(STAFF_LOCK_MS);
+                setError("Too many attempts. Try again in 5 minutes.");
+              } else {
+                writeStaffLock(fails, 0);
+                setError(`Incorrect PIN. ${STAFF_LOCK_MAX - fails} tries left.`);
+              }
               setShake(true);
               setTimeout(() => { setPin(""); setShake(false); }, 600);
             }
           }).catch(() => {
-            setError(true);
+            setError("Could not verify PIN");
             setShake(true);
             setTimeout(() => { setPin(""); setShake(false); }, 600);
           });
         }
       };
-      const handleBack = () => setPin(p => p.slice(0, -1));
+      const handleBack = () => { if (!locked) setPin(p => p.slice(0, -1)); };
 
       useEffect(() => {
         const onKey = (e) => {
           if (e.key >= "0" && e.key <= "9") handleDigit(e.key);
           else if (e.key === "Backspace") handleBack();
-          else if (e.key === "Escape") onClose();
+          else if (e.key === "Escape" && !forced && onClose) onClose();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-      }, [pin]);
+      }, [pin, locked]);
+
+      const mins = Math.floor(lockLeft / 60000);
+      const secs = Math.floor((lockLeft % 60000) / 1000);
 
       return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-ink/50 backdrop-blur-md" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="pin-title">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-ink/50 backdrop-blur-md"
+          onClick={!forced && onClose ? onClose : undefined}
+          role="dialog" aria-modal="true" aria-labelledby="pin-title">
           <div className={`glass-strong rounded-2xl max-w-sm w-full p-8 shadow-float border border-pink/20 ${shake ? "" : "animate-scale-in"}`}
             onClick={e => e.stopPropagation()}
             style={shake ? { animation: "shake 0.4s ease" } : undefined}>
@@ -1147,24 +1271,31 @@
                 <Icon name="lock" size={26} className="text-pink" />
               </div>
               <h3 id="pin-title" className="font-display text-2xl text-ink">Staff Access</h3>
-              <p className="text-mist text-sm mt-1">Enter Staff Access PIN</p>
+              <p className="text-mist text-sm mt-1">Enter 6-digit Staff PIN</p>
             </div>
-            <div className="flex justify-center gap-3 mb-6" aria-label="PIN progress">
-              {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${pin.length > i ? "filled" : ""}`} />)}
+            <div className="flex justify-center gap-2 mb-6" aria-label="PIN progress">
+              {Array.from({ length: STAFF_PIN_LEN }, (_, i) => (
+                <div key={i} className={`pin-dot ${pin.length > i ? "filled" : ""}`} />
+              ))}
             </div>
-            {error && <p className="text-center text-red-500 text-xs mb-3" role="alert">Incorrect PIN. Try again.</p>}
+            {locked && (
+              <p className="text-center text-red-500 text-xs mb-3" role="alert">
+                Locked · try again in {mins}:{String(secs).padStart(2, "0")}
+              </p>
+            )}
+            {!locked && error && <p className="text-center text-red-500 text-xs mb-3" role="alert">{error}</p>}
             <div className="grid grid-cols-3 gap-2">
               {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k, i) => (
                 <button key={i}
                   onClick={() => { if (k === "⌫") handleBack(); else if (k !== "") handleDigit(String(k)); }}
-                  disabled={k === ""}
+                  disabled={k === "" || locked}
                   aria-label={k === "⌫" ? "Backspace" : k === "" ? undefined : `Digit ${k}`}
                   className={`h-14 rounded-xl text-lg font-medium transition-all ${
                     k === "" ? "invisible" : k === "⌫" ? "text-mist hover:bg-blush" : "text-ink hover:bg-pink/10 active:bg-pink/20"
                   }`}>{k}</button>
               ))}
             </div>
-            <p className="text-center text-mist/60 text-xs mt-5">Staff only</p>
+            <p className="text-center text-mist/60 text-xs mt-5">Staff only · session ends after 20 min idle</p>
           </div>
         </div>
       );
@@ -1584,9 +1715,6 @@
                 ? `Order sent with ${disc.percent}% snake reward (Table ${effectiveTable})`
                 : "Order sent to Table " + effectiveTable + " (pending confirm)"
             );
-            if (typeof onPlaySnake === "function") {
-              setTimeout(() => onPlaySnake(), 900);
-            }
           }).catch(err => {
             console.error(err);
             showToast("Could not place order. Try again.");
@@ -1764,11 +1892,7 @@
       const [showGuestGate, setShowGuestGate] = useState(false);
       const [gateName, setGateName] = useState("");
       const [gatePhone, setGatePhone] = useState("");
-      const [gateOtp, setGateOtp] = useState("");
-      const [otpSent, setOtpSent] = useState(false);
-      const [otpCode, setOtpCode] = useState("");
-      const [verifyMode, setVerifyMode] = useState("pin");
-      const [gatePin, setGatePin] = useState(pinFromQr || "");
+      const [loginBusy, setLoginBusy] = useState(false);
       const pendingPlace = useRef(null);
       const [search, setSearch] = useState("");
       const [pairingDish, setPairingDish] = useState(null);
@@ -2024,127 +2148,62 @@
           {showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-ink/50 backdrop-blur-sm" role="dialog" aria-modal="true">
               <div className="glass-strong rounded-2xl max-w-md w-full p-6 shadow-float border border-pink/20 animate-scale-in iphone-modal">
-                <h3 className="font-display text-2xl text-ink mb-1">Verify to order</h3>
-                <p className="text-mist text-sm mb-4">Choose how to unlock ordering for this table.</p>
-                {!otpSent ? (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => setVerifyMode("pin")}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "pin" ? "bg-pink text-white border-pink" : "border-pink/25 text-mist"}`}>
-                        Table PIN
-                      </button>
-                      <button type="button" onClick={() => setVerifyMode("otp")}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "otp" ? "bg-pink text-white border-pink" : "border-pink/25 text-mist"}`}>
-                        Name + OTP
-                      </button>
-                    </div>
-
-                    {verifyMode === "pin" ? (
-                      <div className="space-y-3">
-                        <p className="text-mist text-xs">Ask your server for the table PIN, or use the code printed with the table QR.</p>
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-mist">Table PIN *</label>
-                          <input value={gatePin} onChange={e => setGatePin(e.target.value)} inputMode="numeric" maxLength={8}
-                            className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-center text-lg tracking-widest focus:outline-none focus:border-pink" placeholder="••••" />
-                        </div>
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-mist">Your name (optional)</label>
-                          <input value={gateName} onChange={e => setGateName(e.target.value)}
-                            className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="Name for the bill" />
-                        </div>
-                        <button type="button" onClick={() => {
-                          const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
-                          const expected = (tablePins && tKey && tablePins[tKey]) || "";
-                          if (!expected) {
-                            showToast("No PIN set for this table. Ask staff, or use Name + OTP.");
-                            return;
-                          }
-                          if (gatePin.trim() !== String(expected)) {
-                            showToast("Wrong table PIN");
-                            return;
-                          }
-                          const g = { name: gateName.trim() || "Guest", phone: "", method: "pin" };
-                          const payload = saveDiningGuest(g, tKey);
-                          setGuest(payload);
-                          setShowGuestGate(false);
-                          setGatePin("");
-                          if (pendingPlace.current) {
-                            const { items, tableLabel, disc } = pendingPlace.current;
-                            pendingPlace.current = null;
-                            pushHistory(items, tableLabel);
-                            Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc)).finally(() => {
-                              setSessionItems([]);
-                              setCartOpen(false);
-                              setCartTab("history");
-                              setOrderBurst(true);
-                              showToast("Order sent to Table " + tableLabel);
-                              setTimeout(() => setShowSnake(true), 900);
-                            });
-                          } else {
-                            showToast("Table verified. You can order again on this phone without re-entering the PIN.");
-                          }
-                        }} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm">Verify with PIN</button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-mist">Your name *</label>
-                          <input value={gateName} onChange={e => setGateName(e.target.value)}
-                            className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="Full name" />
-                        </div>
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-mist">Mobile *</label>
-                          <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
-                            className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="10-digit number" />
-                        </div>
-                        <p className="text-mist/60 text-[11px]">Demo OTP is shown on the next screen. Real SMS/WhatsApp can be added later.</p>
-                        <button type="button" onClick={() => {
-                          if (!gateName.trim() || gatePhone.replace(/\D/g,"").length < 10) { showToast("Enter name and valid mobile"); return; }
-                          const code = String(Math.floor(100000 + Math.random() * 900000));
-                          setOtpCode(code);
-                          setOtpSent(true);
-                        }} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm">Send OTP</button>
-                      </div>
-                    )}
-                    <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-mist text-sm">Cancel</button>
+                <h3 className="font-display text-2xl text-ink mb-1">Login to order</h3>
+                <p className="text-mist text-sm mb-4">
+                  Enter your name and mobile. This phone claims the table until the bill is paid.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-mist">Your name *</label>
+                    <input value={gateName} onChange={e => setGateName(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="Full name" autoComplete="name" />
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-mist">Enter the 6-digit code for {gatePhone}</p>
-                    <div className="rounded-xl bg-pink/10 border border-pink/30 px-4 py-3 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-mist mb-1">Demo OTP</p>
-                      <p className="text-2xl font-semibold text-pink tracking-[0.3em]">{otpCode}</p>
-                    </div>
-                    <input value={gateOtp} onChange={e => setGateOtp(e.target.value)} inputMode="numeric" maxLength={6}
-                      className="w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-center text-lg tracking-widest focus:outline-none focus:border-pink" placeholder="••••••" />
-                    <button type="button" onClick={() => {
-                      if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
-                      const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
-                      const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-mist">Mobile number *</label>
+                    <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="10-digit mobile" autoComplete="tel" />
+                  </div>
+                  <p className="text-mist/60 text-[11px]">
+                    Free · no OTP. Only this number can add orders on this table until staff clears it.
+                  </p>
+                  <button type="button" disabled={loginBusy} onClick={async () => {
+                    if (!gateName.trim() || gatePhone.replace(/\D/g, "").length < 10) {
+                      showToast("Enter name and valid mobile");
+                      return;
+                    }
+                    const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                    const g = { name: gateName.trim(), phone: normalizePhoneIN(gatePhone), method: "claim" };
+                    setLoginBusy(true);
+                    try {
+                      if (tKey && tKey !== "any" && sb) {
+                        await cloudAssertTableClaim(tKey, g);
+                      }
                       const payload = saveDiningGuest(g, tKey);
                       setGuest(payload);
                       setShowGuestGate(false);
-                      setOtpSent(false);
-                      setGateOtp("");
                       if (pendingPlace.current) {
                         const { items, tableLabel, disc } = pendingPlace.current;
                         pendingPlace.current = null;
                         pushHistory(items, tableLabel);
-                        Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc)).finally(() => {
-                          setSessionItems([]);
-                          setCartOpen(false);
-                          setCartTab("history");
-                          setOrderBurst(true);
-                          showToast("Order sent to Table " + tableLabel);
-                          setTimeout(() => setShowSnake(true), 900);
-                        });
+                        await Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc));
+                        setSessionItems([]);
+                        setCartOpen(false);
+                        setCartTab("history");
+                        setOrderBurst(true);
+                        showToast("Order sent to Table " + tableLabel);
                       } else {
-                        showToast("Verified. You can place orders now.");
+                        showToast("Logged in. You can order on this table.");
                       }
-                    }} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm">Verify & place order</button>
-                    <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-mist text-sm">Back</button>
-                  </div>
-                )}
+                    } catch (e) {
+                      showToast(e.message || "Could not claim table");
+                    } finally {
+                      setLoginBusy(false);
+                    }
+                  }} className="w-full py-3 rounded-xl bg-pink text-white font-semibold text-sm disabled:opacity-60">
+                    {loginBusy ? "Checking table…" : "Continue & order"}
+                  </button>
+                  <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-mist text-sm">Cancel</button>
+                </div>
               </div>
             </div>
           )}
@@ -2152,14 +2211,9 @@
           {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
 
           <footer className="border-t border-pink/10 mt-16 py-10 px-4">
-            <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-              <div>
-                <p className="font-display text-lg text-pink">Bloom</p>
-                <p className="text-mist/60 text-xs mt-1">Boba Café</p>
-              </div>
-              <button onClick={onStaffAccess} className="text-mist/40 hover:text-mist text-[10px] tracking-wide transition flex items-center gap-1.5 opacity-60">
-                <Icon name="lock" size={12} /> Staff
-              </button>
+            <div className="max-w-6xl mx-auto text-center sm:text-left">
+              <p className="font-display text-lg text-pink">Bloom</p>
+              <p className="text-mist/60 text-xs mt-1">Boba Café</p>
             </div>
           </footer>
         </div>
@@ -2566,7 +2620,7 @@
                 <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
                   <div>
                     <h2 className="font-display text-2xl text-ink">Tables</h2>
-                    <p className="text-mist text-sm">Add or remove tables, set PINs, copy QR links</p>
+                    <p className="text-mist text-sm">Add or remove tables and copy QR links. Guests login with WhatsApp OTP (no table PIN).</p>
                   </div>
                   <button type="button" onClick={() => {
                     const nums = Object.keys(tablePins || {}).map(Number).filter(n => !isNaN(n));
@@ -2574,7 +2628,7 @@
                     const pin = String(1000 + next);
                     setTablePins(prev => ({ ...prev, [String(next)]: pin }));
                     cloudUpsertPin(next, pin);
-                    showToast("Table " + next + " added. PIN " + pin);
+                    showToast("Table " + next + " added");
                   }} className="px-4 py-2.5 rounded-xl bg-pink text-white text-sm font-semibold">+ Add table</button>
                 </div>
                 <div className="glass rounded-2xl p-4 border border-pink/10 space-y-3">
@@ -2583,15 +2637,10 @@
                       <p className="text-mist text-sm py-8 text-center">No tables yet. Tap + Add table.</p>
                     ) : Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
                       const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '').replace(/\/?$/, '/');
-                      const pin = (tablePins && tablePins[String(n)]) || "";
-                      const url = base + '?table=' + n + (pin ? ('&pin=' + pin) : '');
+                      const url = base + '?table=' + n;
                       return (
                         <div key={n} className="flex flex-wrap items-center gap-2 text-xs p-2 rounded-xl bg-blush border border-pink/10">
                           <span className="text-ink font-medium w-10">T{n}</span>
-                          <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
-                            value={pin}
-                            onChange={e => { const v = e.target.value.trim(); setTablePins(prev => ({ ...prev, [String(n)]: v })); if (v) cloudUpsertPin(n, v); }}
-                            className="w-16 min-h-[36px] bg-white border border-pink/20 rounded-lg px-2 text-center text-ink" />
                           <button type="button" onClick={() => { navigator.clipboard.writeText(url).then(() => showToast('Copied T' + n + ' QR link')).catch(() => showToast(url)); }}
                             className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-white border border-pink/10 hover:border-pink/30 text-pink" title={url}>
                             Copy QR link
@@ -2619,16 +2668,16 @@
                 <Icon name="lock" size={28} className="text-pink mx-auto mb-3" />
                 <h2 className="font-display text-2xl text-ink mb-2">Manager access</h2>
                 <p className="text-mist text-sm mb-5">Menu editing and Insights need the manager PIN.</p>
-                <input type="password" inputMode="numeric" maxLength={4} value={mgrPin}
-                  onChange={e => { setMgrPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setMgrError(false); }}
-                  className="w-40 mx-auto min-h-[48px] bg-white border border-pink/25 rounded-xl px-4 text-center text-xl tracking-[0.4em] text-ink focus:outline-none focus:border-pink"
-                  placeholder="••••" autoComplete="off" />
+                <input type="password" inputMode="numeric" maxLength={6} value={mgrPin}
+                  onChange={e => { setMgrPin(e.target.value.replace(/\D/g, "").slice(0, MGR_PIN_LEN)); setMgrError(false); }}
+                  className="w-48 mx-auto min-h-[48px] bg-white border border-pink/25 rounded-xl px-4 text-center text-xl tracking-[0.35em] text-ink focus:outline-none focus:border-pink"
+                  placeholder="••••••" autoComplete="off" />
                 {mgrError && <p className="text-red-500 text-sm mt-2">Wrong PIN</p>}
                 <button type="button" className="mt-5 w-full max-w-xs mx-auto py-3 rounded-xl bg-pink text-white font-semibold text-sm"
                   onClick={async () => {
                     try {
                       const pin = String(mgrPin || "").trim();
-                      if (pin.length < 4) { setMgrError(true); return; }
+                      if (pin.length < MGR_PIN_LEN) { setMgrError(true); return; }
                       const h = await hashMgrPin(pin);
                       if (h === MGR_PIN_HASH) {
                         setMgrUnlocked(true);
@@ -2997,9 +3046,25 @@
     }
 
     function App() {
-      const [view, setView] = useState(() => { try { return sessionStorage.getItem("bloom_staff") === "1" ? "owner" : "customer"; } catch { return "customer"; } });
-      const [staffAuth, setStaffAuth] = useState(() => { try { return sessionStorage.getItem("bloom_staff") === "1"; } catch { return false; } });
-      const [showPin, setShowPin] = useState(false);
+      const [view, setView] = useState(() => {
+        try {
+          if (IS_APEX) return sessionStorage.getItem("bloom_staff") === "1" && !staffSessionExpired() ? "owner" : "apex-gate";
+          return sessionStorage.getItem("bloom_staff") === "1" && !staffSessionExpired() ? "owner" : "customer";
+        } catch { return IS_APEX ? "apex-gate" : "customer"; }
+      });
+      const [staffAuth, setStaffAuth] = useState(() => {
+        try {
+          if (sessionStorage.getItem("bloom_staff") !== "1") return false;
+          if (staffSessionExpired()) {
+            sessionStorage.removeItem("bloom_staff");
+            sessionStorage.removeItem("bloom_mgr");
+            return false;
+          }
+          touchStaffActivity();
+          return true;
+        } catch { return false; }
+      });
+      const [showPin, setShowPin] = useState(() => IS_APEX && !(typeof sessionStorage !== "undefined" && sessionStorage.getItem("bloom_staff") === "1" && !staffSessionExpired()));
       const [dishes, setDishes] = useState(() => {
         const loaded = loadState("bloom_dishes", null);
         if (!loaded) return mergeMenuList(INITIAL_DISHES);
@@ -3201,6 +3266,7 @@
       };
       const handlePinSuccess = () => {
         setStaffAuth(true);
+        touchStaffActivity();
         try { sessionStorage.setItem("bloom_staff", "1"); } catch {}
         setShowPin(false);
         setView("owner");
@@ -3208,24 +3274,84 @@
       };
       const handleLogout = () => {
         setStaffAuth(false);
-        try { sessionStorage.removeItem("bloom_staff"); } catch {}
-        setView("customer");
-        showToast("Logged out of Staff Mode");
+        try {
+          sessionStorage.removeItem("bloom_staff");
+          sessionStorage.removeItem("bloom_mgr");
+          sessionStorage.removeItem(STAFF_ACTIVITY_KEY);
+        } catch {}
+        if (IS_APEX) {
+          setView("apex-gate");
+          setShowPin(true);
+          showToast("Logged out");
+        } else {
+          setView("customer");
+          showToast("Logged out of Staff Mode");
+        }
       };
+
+      // Idle timeout for staff session
+      useEffect(() => {
+        if (!staffAuth) return;
+        touchStaffActivity();
+        const onAct = () => touchStaffActivity();
+        const events = ["pointerdown", "keydown", "touchstart", "scroll"];
+        events.forEach(ev => window.addEventListener(ev, onAct, { passive: true }));
+        const id = setInterval(() => {
+          if (staffSessionExpired()) {
+            setStaffAuth(false);
+            try {
+              sessionStorage.removeItem("bloom_staff");
+              sessionStorage.removeItem("bloom_mgr");
+            } catch {}
+            if (IS_APEX) {
+              setView("apex-gate");
+              setShowPin(true);
+            } else {
+              setView("customer");
+            }
+            showToast("Staff session timed out (20 min idle)");
+          }
+        }, 15000);
+        return () => {
+          events.forEach(ev => window.removeEventListener(ev, onAct));
+          clearInterval(id);
+        };
+      }, [staffAuth, showToast]);
 
       return (
         <div className="min-h-screen bg-blush">
-          <BloomPetals />
-          {(view === "customer" || !staffAuth) ? (
-            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} snakeDiscount={snakeDiscount} />
+          {!IS_APEX && <BloomPetals />}
+          {IS_APEX ? (
+            staffAuth && view === "owner" ? (
+              <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                tablePins={tablePins} setTablePins={setTablePins}
+                snakeDiscount={snakeDiscount} setSnakeDiscount={setSnakeDiscount}
+                onLogout={handleLogout} showToast={showToast} onRefreshOrders={refreshOrders} />
+            ) : (
+              <div className="min-h-screen flex flex-col items-center justify-center p-6">
+                <h1 className="font-display text-3xl text-ink mb-2">Bloom Apex</h1>
+                <p className="text-mist text-sm mb-6">Staff portal · enter PIN to continue</p>
+              </div>
+            )
           ) : (
-            <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
-              liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
-              tablePins={tablePins} setTablePins={setTablePins}
-              snakeDiscount={snakeDiscount} setSnakeDiscount={setSnakeDiscount}
-              onLogout={handleLogout} showToast={showToast} onRefreshOrders={refreshOrders} />
+            (view === "customer" || !staffAuth) ? (
+              <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} snakeDiscount={snakeDiscount} />
+            ) : (
+              <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                tablePins={tablePins} setTablePins={setTablePins}
+                snakeDiscount={snakeDiscount} setSnakeDiscount={setSnakeDiscount}
+                onLogout={handleLogout} showToast={showToast} onRefreshOrders={refreshOrders} />
+            )
           )}
-          {showPin && <PinModal onSuccess={handlePinSuccess} onClose={() => setShowPin(false)} />}
+          {showPin && (
+            <PinModal
+              onSuccess={handlePinSuccess}
+              onClose={IS_APEX ? undefined : () => setShowPin(false)}
+              forced={IS_APEX}
+            />
+          )}
           {toast && <Toast message={toast} onDone={() => setToast(null)} />}
         </div>
       );
