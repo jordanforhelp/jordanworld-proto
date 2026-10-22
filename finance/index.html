@@ -264,4 +264,320 @@
               <option>Gear</option><option>Transport</option><option>Health</option>
               <option>Entertainment</option><option>Other</option>
             </select>
-            <button class="btn" 
+            <button class="btn" onclick="exportCSV()">CSV</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th style="padding-left:16px">Date</th>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Tags</th>
+                <th>Method</th>
+                <th>Note</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Opportunity Cost</div>
+        <div class="card" style="margin-bottom:20px">
+          <p class="sub" style="margin-bottom:12px">Hours of work this expense costs you</p>
+          <label>Expense Amount</label>
+          <input type="number" id="oppAmt" value="2500" min="0" step="100" oninput="calc()" style="margin-bottom:12px">
+          <div class="card" style="background:#111;padding:14px">
+            <div class="metric" id="oppHrs" style="font-size:22px">0h</div>
+            <div class="sub">of work required</div>
+          </div>
+          <p class="sub" style="margin-top:8px;font-size:11px" id="oppLabel">Based on hourly rate</p>
+        </div>
+
+        <div class="label">Budget Limits</div>
+        <div class="card">
+          <div id="budgets"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="label" style="margin-top:32px">Expense Visualizer</div>
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div class="chart-box"><canvas id="pie"></canvas></div>
+        <div class="chart-box"><canvas id="bar"></canvas></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Safe storage that works even when localStorage is blocked
+    const memory = {};
+    const store = {
+      get(key, fallback) {
+        try {
+          if (typeof localStorage !== 'undefined') {
+            const v = localStorage.getItem(key);
+            if (v !== null) return JSON.parse(v);
+          }
+        } catch (e) {}
+        return memory[key] !== undefined ? memory[key] : fallback;
+      },
+      set(key, value) {
+        memory[key] = value;
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, JSON.stringify(value));
+          }
+        } catch (e) {}
+      },
+      remove(key) {
+        delete memory[key];
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(key);
+          }
+        } catch (e) {}
+      }
+    };
+
+    const CATS = ['Subscriptions','Dining','Utilities','Gear','Transport','Health','Entertainment','Other'];
+    let expenses = store.get('jw_exp', []);
+    let budgets = store.get('jw_bud', {
+      Subscriptions:3000, Dining:8000, Utilities:4000, Gear:10000,
+      Transport:3000, Health:2000, Entertainment:4000, Other:5000
+    });
+    let pieC, barC;
+
+    function $(id) { return document.getElementById(id); }
+    function money(n) {
+      const c = $('curr').value || '₹';
+      return c + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    }
+
+    function getRates() {
+      const monthly = Math.max(0, Number($('monthly').value) || 0);
+      const daysWeek = Math.max(1, Number($('days').value) || 5);
+      const hoursDay = Math.max(1, Number($('hours').value) || 8);
+      const daysMonth = daysWeek * 4.333;
+      const hoursMonth = daysMonth * hoursDay;
+      return {
+        monthly,
+        daily: monthly / daysMonth,
+        hourly: monthly / hoursMonth,
+        perMin: monthly / (hoursMonth * 60),
+        perSec: monthly / (hoursMonth * 3600)
+      };
+    }
+
+    function calc() {
+      const r = getRates();
+      $('daily').textContent = money(r.daily);
+      $('hourly').textContent = money(r.hourly);
+      $('perMin').textContent = money(r.perMin);
+      $('oppLabel').textContent = 'Based on hourly rate of ' + money(r.hourly);
+
+      const now = new Date();
+      const working = now.getDay() >= 1 && now.getDay() <= 5 && now.getHours() >= 9 && now.getHours() < 17;
+      if (working) {
+        const start = new Date(); start.setHours(9,0,0,0);
+        const secs = Math.max(0, (now - start) / 1000);
+        $('live').textContent = money(secs * r.perSec);
+        $('liveSub').textContent = 'Accrued today (working)';
+      } else {
+        $('live').textContent = money(r.daily);
+        $('liveSub').textContent = 'Full daily rate';
+      }
+
+      const opp = Number($('oppAmt').value) || 0;
+      const hrs = r.hourly > 0 ? opp / r.hourly : 0;
+      $('oppHrs').textContent = hrs < 1 ? Math.round(hrs * 60) + 'm' : hrs.toFixed(1) + 'h';
+
+      const today = now.toISOString().slice(0,10);
+      const todaySpend = expenses.filter(e => e.date === today).reduce((s,e) => s + e.amount, 0);
+      const monthSpend = expenses.filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).reduce((s,e) => s + e.amount, 0);
+
+      const net = r.daily - todaySpend;
+      $('surplus').textContent = (net >= 0 ? '+' : '') + money(net);
+      $('surplus').style.color = net >= 0 ? '#fff' : '#ef4444';
+      $('surplusSub').textContent = 'Income ' + money(r.daily) + ' − Spend ' + money(todaySpend);
+
+      const burnPct = r.daily > 0 ? (todaySpend / r.daily) * 100 : 0;
+      $('burn').textContent = burnPct.toFixed(1) + '%';
+      const bar = $('burnBar');
+      bar.className = 'progress' + (burnPct > 80 ? ' red' : '');
+      bar.firstElementChild.style.width = Math.min(burnPct, 100) + '%';
+
+      $('mSpend').textContent = money(monthSpend);
+      const mPct = r.monthly > 0 ? (monthSpend / r.monthly) * 100 : 0;
+      $('mBurn').textContent = mPct.toFixed(1) + '% of monthly income';
+      $('mLeft').textContent = money(Math.max(0, r.monthly - monthSpend));
+
+      renderBudgets();
+      renderList();
+      renderCharts();
+    }
+
+    function addExpense() {
+      const amount = Number($('amt').value);
+      if (!amount || amount <= 0) return;
+      expenses.unshift({
+        id: Date.now().toString(36),
+        amount,
+        category: $('cat').value,
+        tags: $('tags').value.split(',').map(t => t.trim()).filter(Boolean),
+        date: $('date').value || new Date().toISOString().slice(0,10),
+        method: $('pay').value,
+        note: $('note').value.trim()
+      });
+      store.set('jw_exp', expenses);
+      $('amt').value = '';
+      $('tags').value = '';
+      $('note').value = '';
+      calc();
+    }
+
+    function del(id) {
+      expenses = expenses.filter(e => e.id !== id);
+      store.set('jw_exp', expenses);
+      calc();
+    }
+
+    function renderList() {
+      const f = $('filter').value;
+      const q = $('search').value.toLowerCase();
+      let list = [...expenses].sort((a,b) => b.date.localeCompare(a.date));
+      if (f !== 'All') list = list.filter(e => e.category === f);
+      if (q) list = list.filter(e =>
+        (e.note||'').toLowerCase().includes(q) ||
+        (e.tags||[]).some(t => t.toLowerCase().includes(q)) ||
+        e.category.toLowerCase().includes(q)
+      );
+      $('count').textContent = '(' + list.length + ') · ' + money(list.reduce((s,e) => s + e.amount, 0));
+      if (!list.length) {
+        $('tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:36px">No expenses yet</td></tr>';
+        return;
+      }
+      $('tbody').innerHTML = list.map(e => `
+        <tr>
+          <td style="padding-left:16px;color:#888;font-size:12px">${e.date}</td>
+          <td style="font-weight:500">${money(e.amount)}</td>
+          <td><span class="badge">${e.category}</span></td>
+          <td>${(e.tags||[]).map(t => '<span class="tag">'+t+'</span>').join('')}</td>
+          <td style="color:#888;font-size:12px">${e.method}</td>
+          <td style="color:#888;font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.note||'—'}</td>
+          <td><button onclick="del('${e.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px">×</button></td>
+        </tr>`).join('');
+    }
+
+    function renderBudgets() {
+      const now = new Date();
+      const spent = {};
+      CATS.forEach(c => spent[c] = 0);
+      expenses.forEach(e => {
+        const d = new Date(e.date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+          spent[e.category] = (spent[e.category] || 0) + e.amount;
+      });
+      $('budgets').innerHTML = CATS.map(c => {
+        const s = spent[c] || 0;
+        const lim = budgets[c] || 0;
+        const pct = lim > 0 ? Math.min(s / lim * 100, 100) : 0;
+        const over = s > lim;
+        return `
+          <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span class="badge">${c}</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:12px;color:#888">${money(s)} /</span>
+                <input type="number" value="${lim}" min="0" step="500" data-c="${c}"
+                  style="width:70px;padding:3px 6px;font-size:12px;text-align:right"
+                  onchange="updateBudget(this)">
+                ${over ? '<span style="font-size:10px;color:#ef4444;font-weight:600">OVER</span>' : ''}
+              </div>
+            </div>
+            <div class="progress${over ? ' red' : ''}"><div style="width:${pct}%"></div></div>
+          </div>`;
+      }).join('');
+    }
+
+    function updateBudget(el) {
+      budgets[el.dataset.c] = Number(el.value) || 0;
+      store.set('jw_bud', budgets);
+      renderBudgets();
+    }
+
+    function renderCharts() {
+      const now = new Date();
+      const spent = {};
+      CATS.forEach(c => spent[c] = 0);
+      expenses.forEach(e => {
+        const d = new Date(e.date);
+        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+          spent[e.category] = (spent[e.category] || 0) + e.amount;
+      });
+      const labels = CATS.filter(c => spent[c] > 0);
+      const data = labels.map(c => spent[c]);
+      if (pieC) pieC.destroy();
+      if (barC) barC.destroy();
+      if (!labels.length) return;
+
+      const greys = ['#fff','#ccc','#999','#777','#555','#444','#333','#222'];
+      pieC = new Chart($('pie'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: greys, borderColor: '#0a0a0a', borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, boxWidth: 10 } } }
+        }
+      });
+      barC = new Chart($('bar'), {
+        type: 'bar',
+        data: { labels: labels.map(l => l.slice(0,8)), datasets: [{ data, backgroundColor: '#fff' }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1a1a1a' } },
+            y: { ticks: { color: '#666', font: { size: 10 }, callback: v => $('curr').value + (v>=1000?(v/1000)+'k':v) }, grid: { color: '#1a1a1a' } }
+          }
+        }
+      });
+    }
+
+    function exportCSV() {
+      const rows = [['Date','Amount','Category','Tags','Method','Note']];
+      expenses.forEach(e => rows.push([e.date, e.amount, e.category, (e.tags||[]).join(';'), e.method, e.note||'']));
+      const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+      a.download = 'expenses.csv';
+      a.click();
+    }
+
+    function resetAll() {
+      if (!confirm('Clear everything?')) return;
+      store.remove('jw_exp');
+      store.remove('jw_bud');
+      expenses = [];
+      budgets = {
+        Subscriptions:3000, Dining:8000, Utilities:4000, Gear:10000,
+        Transport:3000, Health:2000, Entertainment:4000, Other:5000
+      };
+      calc();
+    }
+
+    // init
+    $('date').value = new Date().toISOString().slice(0,10);
+    calc();
+    setInterval(calc, 1000);
+  </script>
+</body>
+</html>
