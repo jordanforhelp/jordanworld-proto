@@ -1,0 +1,122 @@
+  <!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FINTRACK // jordanworld.co/finance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            black: '#050505',
+            surface: '#0a0a0a',
+            'surface-2': '#111111',
+            border: '#222222',
+            neon: '#ccff00',
+            cyan: '#00f0ff',
+            muted: '#666666',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #050505; color: #f5f5f5; font-family: Inter, system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ccff00; }
+    .card { border: 2px solid #222; background: #0a0a0a; transition: border-color .2s, box-shadow .2s; }
+    .card:hover { border-color: #ccff00; box-shadow: 0 0 20px rgba(204,255,0,.12); }
+    .glow { box-shadow: 0 0 12px rgba(204,255,0,.35), 0 0 24px rgba(204,255,0,.12); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+    input, select { background: #111; border: 2px solid #222; color: #fff; padding: .6rem .75rem; width: 100%; font-size: .875rem; }
+    input:focus, select:focus { outline: none; border-color: #ccff00; box-shadow: 0 0 0 1px #ccff00; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; border: 1px solid; border-radius: 2px; }
+    .btn-neon { background: #ccff00; color: #000; border: 2px solid #ccff00; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: .7rem 1.25rem; cursor: pointer; transition: all .2s; }
+    .btn-neon:hover { background: transparent; color: #ccff00; }
+    .progress { height: 8px; background: #1a1a1a; border: 1px solid #333; overflow: hidden; }
+    .progress > div { height: 100%; transition: width .4s; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    th { text-align: left; padding: .5rem .75rem .5rem 0; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #666; border-bottom: 1px solid #222; }
+    td { padding: .75rem .75rem .75rem 0; border-bottom: 1px solid #1a1a1a; }
+    tr:hover td { background: #111; }
+    .live-dot { width: 6px; height: 6px; background: #ccff00; border-radius: 50%; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- HEADER -->
+  <header class="border-b-2 border-[#222] bg-[#0a0a0a]">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 border-2 border-[#ccff00] bg-[#111] flex items-center justify-center glow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccff00" stroke-width="2"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-black tracking-tighter">FIN<span class="text-[#ccff00]">TRACK</span></h1>
+          <p class="text-[10px] font-medium uppercase tracking-[0.2em] text-[#666]">jordanworld.co/finance</p>
+        </div>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 border border-[#333] bg-[#111] px-3 py-1.5">
+        <span class="live-dot"></span>
+        <span class="text-xs font-semibold uppercase tracking-wider text-[#a0a0a0]">Live Mode</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <!-- INCOME ENGINE -->
+    <section class="card p-5">
+      <h2 class="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccff00" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        Income Engine
+      </h2>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-1.5">Monthly Income</label>
+          <input type="number" id="monthlyIncome" value="85000" min="0" step="1000" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-1.5">Work Days / Week</label>
+          <input type="number" id="workDays" value="5" min="1" max="7" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-1.5">Hours / Day</label>
+          <input type="number" id="hoursDay" value="8" min="1" max="24" step="0.5" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-[#666] mb-1.5">Currency</label>
+          <input type="text" id="currency" value="₹" maxlength="3" />
+        </div>
+      </div>
+    </section>
+
+    <!-- EARNINGS CLOCK -->
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="card p-5 relative overflow-hidden sm:col-span-2 lg:col-span-1">
+        <div class="absolute inset-0 bg-gradient-to-br from-[#ccff00]/5 to-transparent pointer-events-none"></div>
+        <div class="relative">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-[11px] font-bold uppercase tracking-widest text-[#666]">Earnings Clock</span>
+            <span id="liveBadge" class="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[#ccff00] hidden">
+              <span class="live-dot"></span> LIVE
+            </span>
+          </div>
+          <p id="liveEarnings" class="mono text-3xl font-bold text-[#ccff00] glow">₹0</p>
+          <p id="liveLabel" class="text-xs text-[#666] mt-1">Full daily rate</p>
+        </div>
+      </div>
+      <div class="card p-5">
+        <p class="text-[11px] font-bold uppercase 
