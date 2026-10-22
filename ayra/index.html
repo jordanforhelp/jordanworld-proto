@@ -297,16 +297,56 @@
     .tag-diet { background: linear-gradient(135deg, #1A3A32, #0F2922); border: 1px solid rgba(146,163,155,0.3); }
 
     .menu-card {
-      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.35s ease;
-      border: 1px solid rgba(224,184,115,0.08);
-      border-radius: 16px;
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease;
+      border: 1px solid rgba(224,184,115,0.1);
+      border-radius: 18px;
+      background: linear-gradient(160deg, rgba(27,36,33,0.97), rgba(20,30,27,0.95));
+      opacity: 0;
+      transform: translateY(12px);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+    .menu-card.is-visible {
+      opacity: 1;
+      transform: translateY(0);
     }
     .menu-card:hover {
-      transform: translateY(-4px);
+      transform: translateY(-2px);
       border-color: rgba(224,184,115,0.28);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.25);
     }
     @media (hover: none) {
       .menu-card:hover { transform: none; }
+      .menu-card.is-visible:hover { transform: translateY(0); }
+    }
+    .menu-card-media {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: linear-gradient(145deg, #1A3A32 0%, #0F1916 100%);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .menu-card-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .menu-card-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      padding: 1.15rem 1.2rem 1.2rem;
+      min-height: 0;
+    }
+    .menu-card-actions {
+      margin-top: auto;
+      padding-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .chart-container { position: relative; height: 280px; }
@@ -323,6 +363,11 @@
     }
 
     .cat-enter { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+
+    .sticky-search.scrolled {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      border-bottom-color: rgba(224,184,115,0.18) !important;
+    }
 
     .pin-dot {
       width: 14px; height: 14px; border-radius: 50%;
@@ -363,6 +408,7 @@
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
       }
+      .menu-card { opacity: 1; transform: none; }
       .menu-card:hover { transform: none; }
       .animate-pulse-gold, .animate-bounce-soft { animation: none !important; }
     }
@@ -562,6 +608,13 @@
     const DRINK_TYPES = ["All drinks", "Signature", "Cocktails", "Shooters", "Beer", "Whiskey", "Vodka", "Rum", "Wine", "Mocktails", "Soft drinks"];
     // Staff access: only a hash is stored (PIN itself is not in source). SHA-256("ayra-staff-v1:" + pin)
     const STAFF_PIN_HASH = "b4bf6ca75c454a0214239cdc7475e7b122ff6f0f629dd0fe1035ab88a3e3cab5";
+    // /ayra/apex or apex.html → staff-only portal
+    const IS_APEX = (typeof window !== "undefined") && (
+      !!window.__AYRA_APEX__ ||
+      /\/apex(\.html)?\/?$/i.test(location.pathname) ||
+      /\/apex\//i.test(location.pathname)
+    );
+
     async function hashStaffPin(pin) {
       const data = new TextEncoder().encode("ayra-staff-v1:" + pin);
       const buf = await crypto.subtle.digest("SHA-256", data);
@@ -837,6 +890,28 @@
 
     const formatPrice = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
 
+    // "Choose size" vs "Choose flavour" vs "Choose option"
+    const getVariantPrompt = (dish) => {
+      if (dish?.variantKind === "flavour") return { button: "Choose flavour", title: "Choose flavour" };
+      if (dish?.variantKind === "option") return { button: "Choose option", title: "Choose option" };
+      if (dish?.variantKind === "size") return { button: "Choose size", title: "Choose size" };
+      const labels = (dish?.variants || []).map(v => String(v.label || "").toLowerCase());
+      if (!labels.length) return { button: "Choose option", title: "Choose option" };
+      const sizeLike = labels.every(l =>
+        /^(regular|large|small|medium|hot|iced|iced regular|iced large|mug|pitcher|tower|\d+ml)$/i.test(l.trim())
+      );
+      if (sizeLike) return { button: "Choose size", title: "Choose size" };
+      const flavourLike = labels.some(l =>
+        /matcha|strawberry|mango|red bean|custard|nutella|chocolate|taro|vanilla|sesame|black sesame|ube/i.test(l)
+      );
+      if (flavourLike) return { button: "Choose flavour", title: "Choose flavour" };
+      // Veg / Non-veg style labels common on Ayra menu
+      const optionLike = labels.some(l => /veg|non-?veg|half|full|portion/i.test(l));
+      if (optionLike) return { button: "Choose option", title: "Choose option" };
+      return { button: "Choose option", title: "Choose option" };
+    };
+
+
     const Tag = ({ label }) => {
       const cls = label.includes("High") ? "tag-high" :
                   label.includes("Trending") ? "tag-trending" :
@@ -880,7 +955,7 @@
               <h3 id="variant-title" className="font-display text-xl text-off-white pr-4">{dish.name}</h3>
               <button onClick={onClose} className="hit-icon text-sage hover:text-off-white" aria-label="Close"><Icon name="x" size={20} /></button>
             </div>
-            <p className="text-sage text-sm mb-5">Choose size</p>
+            <p className="text-sage text-sm mb-5">{getVariantPrompt(dish).title}</p>
             <div className="space-y-2">
               {dish.variants.map(v => (
                 <button
@@ -898,7 +973,7 @@
       );
     };
 
-    const PinModal = ({ onSuccess, onClose }) => {
+    const PinModal = ({ onSuccess, onClose, forced }) => {
       const [pin, setPin] = useState("");
       const [error, setError] = useState(false);
       const [shake, setShake] = useState(false);
@@ -929,14 +1004,14 @@
         const onKey = (e) => {
           if (e.key >= "0" && e.key <= "9") handleDigit(e.key);
           else if (e.key === "Backspace") handleBack();
-          else if (e.key === "Escape") onClose();
+          else if (e.key === "Escape" && !forced && onClose) onClose();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
       }, [pin]);
 
       return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-obsidian/80 backdrop-blur-md" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="pin-title">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-obsidian/80 backdrop-blur-md" onClick={() => { if (!forced && onClose) onClose(); }} role="dialog" aria-modal="true" aria-labelledby="pin-title">
           <div className={`glass-strong rounded-2xl max-w-sm w-full p-8 shadow-float border border-champagne/20 ${shake ? "" : "animate-scale-in"}`}
             onClick={e => e.stopPropagation()}
             style={shake ? { animation: "shake 0.4s ease" } : undefined}>
@@ -970,44 +1045,81 @@
 
 
     const MenuCard = ({ dish, onAdd, onPair, sessionItems, index }) => {
+      const cardRef = useRef(null);
+      const [visible, setVisible] = useState(false);
+      useEffect(() => {
+        const el = cardRef.current;
+        if (!el) return;
+        const io = new IntersectionObserver(
+          ([entry]) => { if (entry.isIntersecting) { setVisible(true); io.disconnect(); } },
+          { threshold: 0.08, rootMargin: "0px 0px -24px 0px" }
+        );
+        io.observe(el);
+        return () => io.disconnect();
+      }, []);
       const qty = sessionItems.filter(i => i.id === dish.id).reduce((s, i) => s + i.qty, 0);
       const inSession = qty > 0;
+      const soldOut = dish.soldOut === true;
       const hasVariants = dish.variants && dish.variants.length > 0;
+      const variantPrompt = getVariantPrompt(dish);
       const priceLabel = hasVariants
-        ? `from ${formatPrice(Math.min(...dish.variants.map(v => v.price)))}`
+        ? formatPrice(Math.min(...dish.variants.map(v => v.price)))
         : formatPrice(dish.price);
+      // Show photo when image exists and not explicitly hidden
+      const showPhoto = !!dish.image && dish.imageVisible !== false;
+      const tags = (dish.tags || []).filter(t => CUSTOMER_VISIBLE_TAGS.includes(t));
       return (
-        <div className="menu-card glass rounded-2xl overflow-hidden group cat-enter iphone-modal" style={{ animationDelay: `${Math.min(index * 40, 200)}ms` }}>
-          <div className="p-5">
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {dish.tags.filter(t => CUSTOMER_VISIBLE_TAGS.includes(t)).map(t => <Tag key={t} label={t} />)}
+        <article ref={cardRef} className={`menu-card ${visible ? "is-visible" : ""} ${soldOut ? "opacity-75" : ""}`} style={{ transitionDelay: `${Math.min(index % 6, 5) * 50}ms` }}>
+          {showPhoto && (
+            <div className="menu-card-media relative">
+              <img src={dish.image} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = "none"; }} />
+              {soldOut && (
+                <div className="absolute inset-0 bg-obsidian/55 flex items-center justify-center">
+                  <span className="text-white text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-obsidian/70">Sold out</span>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="menu-card-body">
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              {soldOut && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface text-sage font-semibold">Sold out</span>}
+              {tags.map(t => <Tag key={t} label={t} />)}
               {dish.category !== "Drinks" && (
                 dish.diet?.includes("Vegetarian")
                   ? <Tag key="veg" label="Vegetarian" />
                   : <Tag key="nonveg" label="Non-Veg" />
               )}
             </div>
-            <div className="flex justify-between items-start gap-3">
-              <h3 className="font-display text-xl text-off-white leading-tight">{dish.name}</h3>
-              <span className="font-semibold text-champagne whitespace-nowrap text-right text-sm sm:text-base flex-shrink-0">{priceLabel}</span>
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="font-display text-[1.15rem] sm:text-xl text-off-white leading-snug tracking-tight">{dish.name}</h3>
+              <div className="text-right flex-shrink-0">
+                {hasVariants && !soldOut && <span className="block text-[10px] uppercase tracking-wider text-sage/80 leading-none mb-0.5">from</span>}
+                <span className="font-semibold text-champagne text-[0.95rem] sm:text-base tabular-nums">{priceLabel}</span>
+              </div>
             </div>
-            <p className="mt-2 text-sm text-sage leading-relaxed line-clamp-2">{dish.description}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={() => onAdd(dish)}
-                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all ${
-                  inSession ? "bg-emerald/40 text-champagne border border-champagne/30" : "bg-champagne text-obsidian hover:bg-champagne-deep"
+            {dish.description && (
+              <p className="mt-2 text-[13px] sm:text-sm text-sage leading-relaxed line-clamp-2">{dish.description}</p>
+            )}
+            <div className="menu-card-actions">
+              <button type="button" onClick={() => !soldOut && onAdd(dish)} disabled={soldOut}
+                className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+                  soldOut
+                    ? "bg-surface text-sage border border-champagne/10 cursor-not-allowed"
+                    : inSession
+                    ? "bg-emerald/40 text-champagne border border-champagne/30"
+                    : "bg-champagne text-obsidian hover:bg-champagne-deep"
                 }`}>
-                {inSession ? `In Session (${qty})` : hasVariants ? "Choose size" : "Add to Session"}
+                {soldOut ? "Sold out" : inSession ? `Added (${qty})` : hasVariants ? variantPrompt.button : "Add"}
               </button>
-              {dish.pairWith && dish.pairWith.length > 0 && (
-                <button onClick={() => onPair(dish)}
-                  className="py-2.5 px-3 rounded-xl text-sm font-medium border border-champagne/35 text-champagne hover:bg-champagne/10 transition-all">
-                  Pair with…
+              {!soldOut && dish.pairWith && dish.pairWith.length > 0 && (
+                <button type="button" onClick={() => onPair(dish)}
+                  className="min-h-[44px] py-2.5 px-3.5 rounded-xl text-sm font-medium border border-champagne/25 text-champagne hover:bg-champagne/10 transition-colors">
+                  Pair
                 </button>
               )}
             </div>
           </div>
-        </div>
+        </article>
       );
     };
 
@@ -1228,6 +1340,12 @@
       const [cartOpen, setCartOpen] = useState(false);
       const [cartTab, setCartTab] = useState("cart"); // cart | history
       const [badgePulse, setBadgePulse] = useState(false);
+      const [headerScrolled, setHeaderScrolled] = useState(false);
+      useEffect(() => {
+        const onScroll = () => setHeaderScrolled(window.scrollY > 24);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+      }, []);
       const [orderHistory, setOrderHistory] = useState(() => {
         try {
           const t = (tableFromQr || "").toString();
@@ -1348,7 +1466,7 @@
 
           {/* Sticky: search always; categories + diets collapse on scroll down */}
           {/* Only search sticks — category/diet scroll away with the page (no JS hide = no glitch) */}
-          <div className="sticky top-0 z-40 glass border-y border-champagne/10 sticky-search">
+          <div className={`sticky top-0 z-40 glass border-y border-champagne/10 sticky-search ${headerScrolled ? "scrolled" : ""}`}>
             <div className="max-w-6xl mx-auto px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1 min-w-0">
@@ -1406,7 +1524,7 @@
                 <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); setDrinkTypeFilter("All drinks"); }} className="text-xs text-champagne hover:underline">Clear filters</button>
               )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" key={`${filter}-${dietFilter}-${drinkTypeFilter}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch" key={`${filter}-${dietFilter}-${drinkTypeFilter}`}>
               {filtered.map((dish, i) => (
                 <MenuCard key={dish.id} dish={dish} onAdd={handleAdd} onPair={setPairingDish} sessionItems={sessionItems} index={i} />
               ))}
@@ -2441,9 +2559,14 @@
 
     
     function App() {
-      const [view, setView] = useState(() => { try { return sessionStorage.getItem("ayra_staff") === "1" ? "owner" : "customer"; } catch { return "customer"; } });
+      const [view, setView] = useState(() => {
+        try {
+          if (IS_APEX) return sessionStorage.getItem("ayra_staff") === "1" ? "owner" : "apex-gate";
+          return sessionStorage.getItem("ayra_staff") === "1" ? "owner" : "customer";
+        } catch { return IS_APEX ? "apex-gate" : "customer"; }
+      });
       const [staffAuth, setStaffAuth] = useState(() => { try { return sessionStorage.getItem("ayra_staff") === "1"; } catch { return false; } });
-      const [showPin, setShowPin] = useState(false);
+      const [showPin, setShowPin] = useState(() => IS_APEX && !(typeof sessionStorage !== "undefined" && sessionStorage.getItem("ayra_staff") === "1"));
       const [dishes, setDishes] = useState(() => {
         const byId = Object.fromEntries(INITIAL_DISHES.map(d => [d.id, d]));
         const loaded = loadState("ayra_dishes", null);
@@ -2614,7 +2737,12 @@
       const handleLogout = () => {
         setStaffAuth(false);
         try { sessionStorage.removeItem("ayra_staff"); } catch {}
-        setView("customer");
+        if (IS_APEX) {
+          setView("apex-gate");
+          setShowPin(true);
+        } else {
+          setView("customer");
+        }
         showToast("Logged out of Staff Mode");
       };
       const resetDemo = () => {
@@ -2635,15 +2763,35 @@
 
       return (
         <div className="min-h-screen bg-obsidian">
-          {(view === "customer" || !staffAuth) ? (
-            <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} />
+          {IS_APEX ? (
+            staffAuth && view === "owner" ? (
+              <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                tablePins={tablePins} setTablePins={setTablePins}
+                onLogout={handleLogout} showToast={showToast} onReset={resetDemo} onRefreshOrders={refreshOrders} />
+            ) : (
+              <div className="min-h-screen flex flex-col items-center justify-center p-6">
+                <h1 className="font-display text-3xl text-off-white mb-2">Ayra Apex</h1>
+                <p className="text-sage text-sm mb-6">Staff portal · enter PIN to continue</p>
+              </div>
+            )
           ) : (
-            <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
-              liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
-              tablePins={tablePins} setTablePins={setTablePins}
-              onLogout={handleLogout} showToast={showToast} onReset={resetDemo} onRefreshOrders={refreshOrders} />
+            (view === "customer" || !staffAuth) ? (
+              <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} />
+            ) : (
+              <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                tablePins={tablePins} setTablePins={setTablePins}
+                onLogout={handleLogout} showToast={showToast} onReset={resetDemo} onRefreshOrders={refreshOrders} />
+            )
           )}
-          {showPin && <PinModal onSuccess={handlePinSuccess} onClose={() => setShowPin(false)} />}
+          {showPin && (
+            <PinModal
+              onSuccess={handlePinSuccess}
+              onClose={IS_APEX ? undefined : () => setShowPin(false)}
+              forced={IS_APEX}
+            />
+          )}
           {toast && <Toast message={toast} onDone={() => setToast(null)} />}
         </div>
       );
