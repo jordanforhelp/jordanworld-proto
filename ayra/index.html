@@ -615,6 +615,13 @@
       /\/apex\//i.test(location.pathname)
     );
 
+    function normalizePhoneIN(raw) {
+      const d = String(raw || "").replace(/\D/g, "");
+      if (d.length === 12 && d.startsWith("91")) return d.slice(2);
+      if (d.length === 11 && d.startsWith("0")) return d.slice(1);
+      return d.slice(-10);
+    }
+
     async function hashStaffPin(pin) {
       const data = new TextEncoder().encode("ayra-staff-v1:" + pin);
       const buf = await crypto.subtle.digest("SHA-256", data);
@@ -782,7 +789,7 @@
         sessionId = existing[0].id;
         const patch = {};
         if (guest?.name) patch.guest_name = guest.name;
-        if (guest?.phone) patch.guest_phone = guest.phone;
+        if (guest?.phone) patch.guest_phone = normalizePhoneIN(guest.phone);
         if (Object.keys(patch).length) {
           await sb.from("table_sessions").update(patch).eq("id", sessionId);
         }
@@ -792,7 +799,7 @@
           .insert({
             table_no: tableKey,
             guest_name: guest?.name || null,
-            guest_phone: guest?.phone || null,
+            guest_phone: guest?.phone ? normalizePhoneIN(guest.phone) : null,
             status: "open",
           })
           .select()
@@ -1326,11 +1333,7 @@
       const [showGuestGate, setShowGuestGate] = useState(false);
       const [gateName, setGateName] = useState("");
       const [gatePhone, setGatePhone] = useState("");
-      const [gateOtp, setGateOtp] = useState("");
-      const [otpSent, setOtpSent] = useState(false);
-      const [otpCode, setOtpCode] = useState("");
-      const [verifyMode, setVerifyMode] = useState("pin");
-      const [gatePin, setGatePin] = useState(pinFromQr || "");
+      const [loginBusy, setLoginBusy] = useState(false);
       const pendingPlace = useRef(null);
       const [dietFilter, setDietFilter] = useState("All Diets");
       const [drinkTypeFilter, setDrinkTypeFilter] = useState("All drinks");
@@ -1554,130 +1557,65 @@
             }} showToast={showToast}
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
 
-          {showGuestGate && (
+{showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-obsidian/80 backdrop-blur-sm" role="dialog" aria-modal="true">
               <div className="glass-strong rounded-2xl max-w-md w-full p-6 shadow-float border border-champagne/20 animate-scale-in iphone-modal">
-                <h3 className="font-display text-2xl text-off-white mb-1">Verify to order</h3>
-                <p className="text-sage text-sm mb-4">Choose how to unlock ordering for this table.</p>
-                {!otpSent ? (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => setVerifyMode("pin")}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "pin" ? "bg-champagne text-obsidian border-champagne" : "border-champagne/25 text-sage"}`}>
-                        Table PIN
-                      </button>
-                      <button type="button" onClick={() => setVerifyMode("otp")}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "otp" ? "bg-champagne text-obsidian border-champagne" : "border-champagne/25 text-sage"}`}>
-                        Name + OTP
-                      </button>
-                    </div>
-
-                    {verifyMode === "pin" ? (
-                      <div className="space-y-3">
-                        <p className="text-sage text-xs">Ask your waiter for the table PIN, or use the code printed with the table QR.</p>
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-sage">Table PIN *</label>
-                          <input value={gatePin} onChange={e => setGatePin(e.target.value)} inputMode="numeric" maxLength={8}
-                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••" />
-                        </div>
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-sage">Your name (optional)</label>
-                          <input value={gateName} onChange={e => setGateName(e.target.value)}
-                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Name for the bill" />
-                        </div>
-                        <button type="button" onClick={() => {
-                          const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
-                          const expected = (tablePins && tKey && tablePins[tKey]) || "";
-                          if (!expected) {
-                            showToast("No PIN set for this table — ask staff, or use Name + OTP");
-                            return;
-                          }
-                          if (gatePin.trim() !== String(expected)) {
-                            showToast("Wrong table PIN");
-                            return;
-                          }
-                          const g = { name: gateName.trim() || "Guest", phone: "", method: "pin" };
-                          const payload = saveDiningGuest(g, tKey);
-                          setGuest(payload);
-                          setShowGuestGate(false);
-                          setGatePin("");
-                          if (pendingPlace.current) {
-                            const { items, tableLabel } = pendingPlace.current;
-                            pendingPlace.current = null;
-                            pushHistory(items, tableLabel);
-                            Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
-                              setSessionItems([]);
-                              setCartOpen(true);
-                              setCartTab("history");
-                              showToast("Order sent — Table " + tableLabel);
-                            });
-                          } else {
-                            showToast("Table verified — you can order again on this phone without re-entering PIN");
-                          }
-                        }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify with PIN</button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-sage">Your name *</label>
-                          <input value={gateName} onChange={e => setGateName(e.target.value)}
-                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Full name" />
-                        </div>
-                        <div>
-                          <label className="text-xs uppercase tracking-wider text-sage">Mobile *</label>
-                          <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
-                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="10-digit number" />
-                        </div>
-                        <p className="text-sage/60 text-[11px]">Demo OTP is shown on the next screen. Real SMS/WhatsApp can be added later.</p>
-                        <button type="button" onClick={() => {
-                          if (!gateName.trim() || gatePhone.replace(/\D/g,"").length < 10) { showToast("Enter name and valid mobile"); return; }
-                          const code = String(Math.floor(100000 + Math.random() * 900000));
-                          setOtpCode(code);
-                          setOtpSent(true);
-                        }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Send OTP</button>
-                      </div>
-                    )}
-                    <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-sage text-sm">Cancel</button>
+                <h3 className="font-display text-2xl text-off-white mb-1">Login to order</h3>
+                <p className="text-sage text-sm mb-4">
+                  Enter your name and mobile. This phone claims the table until the bill is paid.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Your name *</label>
+                    <input value={gateName} onChange={e => setGateName(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Full name" autoComplete="name" />
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-sage">Enter the 6-digit code for {gatePhone}</p>
-                    <div className="rounded-xl bg-champagne/10 border border-champagne/30 px-4 py-3 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-sage mb-1">Demo OTP</p>
-                      <p className="text-2xl font-semibold text-champagne tracking-[0.3em]">{otpCode}</p>
-                    </div>
-                    <input value={gateOtp} onChange={e => setGateOtp(e.target.value)} inputMode="numeric" maxLength={6}
-                      className="w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••••" />
-                    <button type="button" onClick={() => {
-                      if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
-                      const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
-                      const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Mobile number *</label>
+                    <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
+                      className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="10-digit mobile" autoComplete="tel" />
+                  </div>
+                  <p className="text-sage/60 text-[11px]">
+                    Only this number can order on this table until staff clears the bill. Name and number are used for this visit only.
+                  </p>
+                  <button type="button" disabled={loginBusy} onClick={async () => {
+                    if (!gateName.trim() || gatePhone.replace(/\D/g, "").length < 10) {
+                      showToast("Enter name and valid mobile");
+                      return;
+                    }
+                    const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                    const g = { name: gateName.trim(), phone: normalizePhoneIN(gatePhone), method: "claim" };
+                    setLoginBusy(true);
+                    try {
                       const payload = saveDiningGuest(g, tKey);
                       setGuest(payload);
                       setShowGuestGate(false);
-                      setOtpSent(false);
-                      setGateOtp("");
                       if (pendingPlace.current) {
                         const { items, tableLabel } = pendingPlace.current;
                         pendingPlace.current = null;
+                        const res = await Promise.resolve(onPlaceOrder(items, tableLabel, payload));
                         pushHistory(items, tableLabel);
-                        Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
-                          setSessionItems([]);
-                          setCartOpen(true);
-                          setCartTab("history");
-                          showToast("Order sent — Table " + tableLabel);
-                        });
+                        setSessionItems([]);
+                        setCartOpen(true);
+                        setCartTab("history");
+                        showToast("Order sent — Table " + tableLabel);
                       } else {
-                        showToast("Verified — you can place orders now");
+                        showToast("Logged in. You can order on this table.");
                       }
-                    }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify & place order</button>
-                    <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-sage text-sm">Back</button>
-                  </div>
-                )}
+                    } catch (e) {
+                      showToast(e.message || "Could not start order");
+                    } finally {
+                      setLoginBusy(false);
+                    }
+                  }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm disabled:opacity-60">
+                    {loginBusy ? "Please wait…" : "Continue & order"}
+                  </button>
+                  <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-sage text-sm">Cancel</button>
+                </div>
               </div>
             </div>
           )}
-{pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
+          {pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
           {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
 
           <footer className="border-t border-champagne/10 mt-16 py-10 px-4">
