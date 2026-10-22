@@ -1,0 +1,2804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0F1916" />
+  <title>Ayra Apex</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0F1916',
+            surface: '#1B2421',
+            champagne: '#E0B873',
+            'champagne-deep': '#D4A359',
+            'off-white': '#F2F5F3',
+            sage: '#92A39B',
+            emerald: '#1A3A32',
+          },
+          fontFamily: {
+            display: ['Playfair Display', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'glow': '0 0 40px rgba(224, 184, 115, 0.18)',
+            'glow-sm': '0 0 20px rgba(224, 184, 115, 0.12)',
+            'card': '0 8px 32px rgba(0,0,0,0.35)',
+            'float': '0 16px 48px rgba(0,0,0,0.4), 0 0 0 1px rgba(224,184,115,0.15)',
+          },
+          keyframes: {
+            'fade-up': {
+              '0%': { opacity: '0', transform: 'translateY(16px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            'scale-in': {
+              '0%': { opacity: '0', transform: 'scale(0.92)' },
+              '100%': { opacity: '1', transform: 'scale(1)' },
+            },
+            'slide-in-right': {
+              '0%': { opacity: '0', transform: 'translateX(24px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            'slide-in-left': {
+              '0%': { opacity: '0', transform: 'translateX(-24px)' },
+              '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            'pulse-gold': {
+              '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+              '50%': { transform: 'scale(1.02)', opacity: '0.92' },
+            },
+            'bounce-soft': {
+              '0%, 100%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(1.08)' },
+            },
+          },
+          animation: {
+            'fade-up': 'fade-up 0.45s cubic-bezier(0.16,1,0.3,1) forwards',
+            'scale-in': 'scale-in 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-in-right': 'slide-in-right 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-in-left': 'slide-in-left 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'pulse-gold': 'pulse-gold 2.4s ease-in-out infinite',
+            'bounce-soft': 'bounce-soft 0.35s cubic-bezier(0.16,1,0.3,1)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    html {
+      margin: 0;
+      max-width: 100%;
+      -webkit-overflow-scrolling: touch;
+    }
+    body {
+      margin: 0;
+      background: #0F1916;
+      color: #F2F5F3;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-variant-ligatures: none;
+      overflow-x: clip; /* clip does not break position:sticky the way hidden does */
+      width: 100%;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
+      line-height: 1.47;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overscroll-behavior-x: none;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+    #root { margin: 0; max-width: 100%; }
+    input, select, textarea {
+      font-size: 16px !important; /* prevent iOS focus zoom */
+    }
+    /* iPhone mobile polish */
+    img, video, canvas, svg { max-width: 100%; height: auto; }
+    button, a, input, select, textarea { max-width: 100%; }
+    .menu-card { min-width: 0; }
+    .menu-card h3, .menu-card p { overflow-wrap: anywhere; word-break: break-word; }
+    [role="tablist"], [role="group"] {
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      max-width: 100%;
+    }
+    [role="tablist"]::-webkit-scrollbar,
+    [role="group"]::-webkit-scrollbar { display: none; }
+    /* Floating session cart — clear Home Indicator */
+    .session-fab {
+      bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem)) !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: min(100% - 1.5rem, 22rem) !important;
+      max-width: calc(100vw - 1.5rem) !important;
+      z-index: 40 !important;
+    }
+    /* Toast — bottom above home indicator */
+    .toast-host {
+      top: auto !important;
+      bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1rem)) !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: min(100% - 1.5rem, 22rem) !important;
+      z-index: 200 !important;
+      pointer-events: none;
+    }
+    /* Cart drawer full iPhone height */
+    .cart-drawer {
+      height: 100dvh !important;
+      height: -webkit-fill-available !important;
+      max-height: 100dvh !important;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    @media (min-width: 480px) {
+      .cart-drawer { max-width: 28rem !important; }
+    }
+    /* Modals fit iPhone height */
+    .iphone-modal {
+      max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: env(safe-area-inset-top, 0px);
+      margin-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    /* Sticky search under Dynamic Island */
+    .sticky-search {
+      padding-top: max(0.5rem, env(safe-area-inset-top, 0px)) !important;
+    }
+    /* Device preview chrome */
+    .device-shell {
+      min-height: 100dvh;
+      background: #0a0f0d;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .device-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      width: 100%;
+      background: #121a17;
+      border-bottom: 1px solid rgba(224,184,115,0.2);
+      padding: 0.5rem 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+    }
+    .device-toolbar button {
+      min-height: 36px;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(224,184,115,0.25);
+      background: transparent;
+      color: #92A39B;
+      cursor: pointer;
+    }
+    .device-toolbar button.active {
+      background: #E0B873;
+      color: #0F1916;
+      border-color: #E0B873;
+    }
+    .device-frame-outer {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 12px;
+      overflow: auto;
+    }
+    .device-frame {
+      position: relative;
+      background: #0F1916;
+      overflow: hidden;
+      box-shadow: 0 0 0 3px #1a2420, 0 0 0 6px #2a3530, 0 24px 64px rgba(0,0,0,0.55);
+      border-radius: 44px;
+      transition: width 0.25s ease, height 0.25s ease;
+    }
+    .device-frame.full {
+      width: 100% !important;
+      height: auto !important;
+      min-height: calc(100dvh - 56px);
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .device-frame-inner {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+    .device-frame.full .device-frame-inner {
+      min-height: calc(100dvh - 56px);
+      height: auto;
+      overflow: visible;
+    }
+    .audit-panel {
+      position: fixed;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      width: min(100% - 24px, 420px);
+      max-height: 40vh;
+      overflow: auto;
+      background: #1B2421;
+      border: 1px solid rgba(224,184,115,0.35);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #F2F5F3;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+    .audit-pass { color: #6ee7b7; }
+    .audit-fail { color: #fca5a5; }
+    @media (max-width: 480px) {
+      .device-toolbar .hide-on-real-phone { display: none; }
+      .device-frame, .device-frame.full {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .device-frame-outer { padding: 0; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0F1916; }
+    ::-webkit-scrollbar-thumb { background: #E0B873; border-radius: 3px; }
+
+    .glass {
+      background: linear-gradient(145deg, rgba(27,36,33,0.92), rgba(15,25,22,0.88));
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(224, 184, 115, 0.1);
+    }
+    .glass-strong {
+      background: linear-gradient(160deg, rgba(27,36,33,0.97), rgba(20,30,27,0.95));
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(224, 184, 115, 0.18);
+    }
+    .ambient-bg {
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(224,184,115,0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 20%, rgba(26,58,50,0.5), transparent),
+        radial-gradient(ellipse 50% 30% at 50% 100%, rgba(224,184,115,0.04), transparent),
+        #0F1916;
+    }
+    .tag-high { background: linear-gradient(135deg, #2A4A3E, #1A3A32); }
+    .tag-trending { background: linear-gradient(135deg, #E0B873, #D4A359); color: #0F1916 !important; }
+    .tag-chef { background: linear-gradient(135deg, #3D2A1A, #2A1E12); }
+    .tag-diet { background: linear-gradient(135deg, #1A3A32, #0F2922); border: 1px solid rgba(146,163,155,0.3); }
+
+    .menu-card {
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease;
+      border: 1px solid rgba(224,184,115,0.1);
+      border-radius: 18px;
+      background: linear-gradient(160deg, rgba(27,36,33,0.97), rgba(20,30,27,0.95));
+      opacity: 0;
+      transform: translateY(12px);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+    .menu-card.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .menu-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(224,184,115,0.28);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+    }
+    @media (hover: none) {
+      .menu-card:hover { transform: none; }
+      .menu-card.is-visible:hover { transform: translateY(0); }
+    }
+    .menu-card-media {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: linear-gradient(145deg, #1A3A32 0%, #0F1916 100%);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .menu-card-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .menu-card-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      padding: 1.15rem 1.2rem 1.2rem;
+      min-height: 0;
+    }
+    .menu-card-actions {
+      margin-top: auto;
+      padding-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .chart-container { position: relative; height: 280px; }
+
+    .toast-progress {
+      height: 3px;
+      background: linear-gradient(90deg, #E0B873, #D4A359);
+      animation: toast-shrink 2.4s linear forwards;
+      transform-origin: left;
+    }
+    @keyframes toast-shrink {
+      from { transform: scaleX(1); }
+      to { transform: scaleX(0); }
+    }
+
+    .cat-enter { animation: fade-up 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+
+    .sticky-search.scrolled {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      border-bottom-color: rgba(224,184,115,0.18) !important;
+    }
+
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(224,184,115,0.4);
+      transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.2s ease, border-color 0.2s ease;
+    }
+    .pin-dot.filled {
+      background: #E0B873;
+      border-color: #E0B873;
+      transform: scale(1.1);
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-8px); }
+      40%,80% { transform: translateX(8px); }
+    }
+
+    .cart-drawer { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); }
+    .cart-overlay { transition: opacity 0.3s ease; }
+
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+      outline: 2px solid #E0B873;
+      outline-offset: 3px;
+    }
+    .hit-target { min-height: 44px; min-width: 44px; }
+    button, [role="button"] { min-height: 44px; }
+    button.btn-compact, button.hit-icon, .switch-toggle { min-height: 0 !important; min-width: 0; }
+    .hit-icon {
+      min-width: 44px; min-height: 44px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .text-sage { color: #A8B5AE !important; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .menu-card { opacity: 1; transform: none; }
+      .menu-card:hover { transform: none; }
+      .animate-pulse-gold, .animate-bounce-soft { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <script>window.__AYRA_APEX__ = true;</script>
+  <div id="root"><div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#0F1916;color:#92A39B;font-family:system-ui;font-size:14px">Loading Ayra Apex…</div></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========== AYRA MENU DATA (from restaurant menu pages) ==========
+    // Prices in INR. Multi-price items use base price; variants noted in description.
+    const INITIAL_DISHES = [
+      // —— APPETISERS VEG ——
+      { id: 1, name: "Veg Platter", description: "Assorted vegetarian starters for sharing.", price: 999, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 2, name: "Wok Fried Veg", description: "Crispy wok-tossed mixed vegetables.", price: 269, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 3, name: "Salsa Nachos", description: "Loaded nachos with salsa and cheese.", price: 240, category: "Appetisers", image: "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 4, name: "Thai Spring Roll", description: "Crispy Thai-style vegetable spring rolls.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1626804475297-41608ea09aeb?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 5, name: "Jalapeño Cheese Chilly Fritters", description: "Spicy jalapeño and cheese fritters.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 6, name: "Corn Cheese Kebab", description: "Grilled corn and cheese kebabs.", price: 270, category: "Appetisers", image: "https://images.unsplash.com/photo-1606491956689-2ea866880067?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 66, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 7, name: "Palak Corn Tikki", description: "Spinach and corn patties, crisp outside.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 63, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+
+      // —— TANDOORI VEG ——
+      { id: 8, name: "Hara Bhara Kebab", description: "Spinach and green vegetable kebabs from the tandoor.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 9, name: "Veg Seekh Kebab", description: "Minced vegetable seekh from the tandoor.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 10, name: "Veg Manchurian / Chilly", description: "Indo-Chinese veg balls in Manchurian or chilli sauce.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 11, name: "Mushroom Chilly / Manchurian", description: "Button mushrooms in chilli or Manchurian gravy.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 64, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 12, name: "Honey Chilly Potato", description: "Crispy potato tossed in honey chilli. Chicken variant ₹330.", price: 280, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 13, name: "Paneer Chilly / Manchurian", description: "Cottage cheese in Indo-Chinese sauces.", price: 290, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 14, name: "Naga Chilly Mushroom", description: "Mushrooms with fiery Naga chilli.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 61, ordersToday: 0, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 15, name: "Paneer Tikka", description: "Classic tandoori paneer tikka.", price: 320, category: "Appetisers", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [80], sortOrder: 150 },
+      { id: 16, name: "Stuffed Mushroom", description: "Cheese-stuffed mushrooms, baked.", price: 380, category: "Appetisers", image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 17, name: "Cheese Ball", description: "Crispy cheese balls. ₹330–340.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1541529086526-db283c563270?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 18, name: "Boiled Veg / Sautéed Veg", description: "Light boiled or sautéed seasonal vegetables. From ₹200.", price: 249, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 180 },
+
+      // —— APPETISER NON-VEG ——
+      { id: 19, name: "Lemon Chicken", description: "Tangy lemon-marinated chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 20, name: "Guntur Chicken", description: "Spicy Andhra-style Guntur chicken.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 200 },
+      { id: 21, name: "Chicken 65", description: "Classic spicy chicken 65. Veg/Egg ₹240/260.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 22, name: "Kungpao Chicken", description: "Sichuan-inspired kung pao chicken.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 0, visible: true, pairWith: [], sortOrder: 210 },
+      { id: 23, name: "Garlic Chicken", description: "Garlic-forward Indo-Chinese chicken.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: [], diet: [], margin: 53, ordersToday: 0, visible: true, pairWith: [], sortOrder: 220 },
+      { id: 24, name: "Non-Veg Platter", description: "Grand assortment of non-veg starters.", price: 1499, category: "Appetisers", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 230 },
+      { id: 25, name: "Chicken Popcorn", description: "Bite-sized crispy chicken popcorn.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: ["Trending"], diet: [], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 240 },
+      { id: 26, name: "Chicken Tikka", description: "Tandoori chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 52, ordersToday: 0, visible: true, pairWith: [80], sortOrder: 250 },
+      { id: 27, name: "Hariyali Chicken Tikka", description: "Herb-marinated green chicken tikka.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 260 },
+      { id: 28, name: "Malai Chicken Tikka", description: "Creamy malai chicken tikka.", price: 340, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 270 },
+      { id: 29, name: "Tandoori Chicken", description: "Half ₹399 · Full ₹799.", price: 399, category: "Appetisers", variants: [{ label: "Half", price: 399 }, { label: "Full", price: 799 }], image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 280 },
+      { id: 30, name: "Charcoal Chicken Tikka (9pc)", description: "Nine pieces of charcoal-grilled tikka.", price: 499, category: "Appetisers", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 290 },
+      { id: 31, name: "Chicken Lollipop / Heavens", description: "Lollipop ₹330 · Heavens ₹370.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 300 },
+      { id: 32, name: "Seekh Kebab Chicken / Mutton", description: "Chicken ₹370 · Mutton ₹399.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 310 },
+      { id: 33, name: "Ghee Roast Chicken / Mutton", description: "Mangalorean-style ghee roast. Chicken ₹370 · Mutton ₹430.", price: 370, category: "Appetisers", image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 320 },
+      { id: 34, name: "Crispy Fried Chicken", description: "Crispy fried chicken pieces.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80", tags: [], diet: [], margin: 56, ordersToday: 0, visible: true, pairWith: [], sortOrder: 330 },
+      { id: 35, name: "Crumb Fried Chicken / Fish", description: "Breaded and fried. ₹330.", price: 330, category: "Appetisers", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 0, visible: true, pairWith: [], sortOrder: 340 },
+
+      // —— SOUP ——
+      { id: 36, name: "Classic Manchow Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", variants: [{ label: "Veg", price: 149 }, { label: "Non-veg", price: 169 }], image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 350 },
+      { id: 37, name: "Hot & Sour Soup", description: "Veg ₹149 · Non-veg ₹169.", price: 149, category: "Appetisers", variants: [{ label: "Veg", price: 149 }, { label: "Non-veg", price: 169 }], image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 360 },
+      { id: 38, name: "Tom Yum Soup", description: "Thai tom yum. Veg ₹180 · Non-veg ₹210.", price: 180, category: "Appetisers", variants: [{ label: "Veg", price: 180 }, { label: "Non-veg", price: 210 }], image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 370 },
+      { id: 39, name: "Cream of Tomato / Mushroom", description: "Classic cream soup ₹149.", price: 149, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 380 },
+      { id: 40, name: "Shorba", description: "Indian broth. Veg ₹130 · Non-veg ₹159.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 390 },
+
+      // —— BAR BITES & SALAD ——
+      { id: 41, name: "All Day Fries", description: "Potato fries.", price: 220, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 400 },
+      { id: 42, name: "Basket Fries", description: "Veg ₹299 · Non-veg ₹359.", price: 299, category: "Appetisers", image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 410 },
+      { id: 43, name: "3 Cheese Garlic Toast", description: "Toasted with three cheeses and garlic.", price: 180, category: "Appetisers", image: "https://images.unsplash.com/photo-1573140401552-3fab0b24941f?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 420 },
+      { id: 44, name: "Caesar Salad", description: "Veg ₹240 · Non-veg ₹260.", price: 240, category: "Appetisers", variants: [{ label: "Veg", price: 240 }, { label: "Non-veg", price: 260 }], image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 430 },
+      { id: 45, name: "Tandoori Tikka Salad", description: "Paneer ₹170 · Chicken ₹200.", price: 170, category: "Appetisers", variants: [{ label: "Paneer", price: 170 }, { label: "Chicken", price: 200 }], image: "https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 440 },
+      { id: 46, name: "Garden Fresh Green Salad", description: "Fresh seasonal greens.", price: 130, category: "Appetisers", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 450 },
+
+      // —— MAINS ——
+      { id: 50, name: "Dal Tadka / Fry", description: "Yellow dal tadka or fry style.", price: 270, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 10 },
+      { id: 51, name: "Dal Makhani", description: "Slow-cooked black lentils in butter cream.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 5 },
+      { id: 52, name: "Subzi Miloni", description: "Mixed vegetable curry.", price: 249, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 53, name: "Kadai Paneer", description: "Paneer in kadai masala. Veg/Chicken variants available.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 30 },
+      { id: 54, name: "Kolhapuri Paneer", description: "Spicy Kolhapuri-style paneer. Veg/Chicken options.", price: 320, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 55, name: "Paneer Lababdar", description: "Rich tomato-cashew paneer gravy.", price: 330, category: "Mains", image: "https://images.unsplash.com/photo-1567188040759-fb8a430d1d31?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 56, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 50 },
+      { id: 56, name: "Butter Chicken", description: "Classic creamy tomato butter chicken.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 50, ordersToday: 0, visible: true, pairWith: [90, 91], sortOrder: 1 },
+      { id: 57, name: "Chicken Lababdar", description: "Chicken in lababdar gravy.", price: 340, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 58, name: "Methi Murgh", description: "Chicken with fenugreek.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 59, name: "Chicken Tikka Masala", description: "Tikka pieces in spiced tomato masala.", price: 349, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: ["Trending"], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [90], sortOrder: 80 },
+      { id: 60, name: "Chicken Chettinad", description: "Fiery Chettinad chicken.", price: 300, category: "Mains", image: "https://images.unsplash.com/photo-1603894584372-2bf52d239249?w=600&q=80", tags: [], diet: [], margin: 54, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 61, name: "Rogan Josh", description: "Kashmiri-style mutton rogan josh.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 0, visible: true, pairWith: [92], sortOrder: 100 },
+      { id: 62, name: "Rara Gosht", description: "Rich mutton rara gosht.", price: 470, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 40, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 63, name: "Mutton Saagwala", description: "Mutton in spinach gravy.", price: 430, category: "Mains", image: "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80", tags: [], diet: [], margin: 42, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 64, name: "Thai Green Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 65, name: "Thai Red Curry", description: "Veg ₹350 · Non-veg ₹399.", price: 350, category: "Mains", image: "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 140 },
+      { id: 66, name: "Egg Curry / Masala", description: "₹260.", price: 260, category: "Mains", image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 150 },
+      { id: 67, name: "Sizzler Indian / Chinese", description: "Veg ₹499 · Non-veg ₹599.", price: 499, category: "Mains", image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 68, name: "Aloo Jeera", description: "Cumin-tempered potatoes.", price: 220, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 170 },
+      { id: 69, name: "Mix Veg Curry", description: "Seasonal mixed vegetables in gravy.", price: 310, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 70, name: "Veg Hyderabadi / Chicken", description: "Hyderabadi-style. Veg ₹299 · Chicken ₹340.", price: 299, category: "Mains", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 190 },
+
+      // —— SEAFOOD ——
+      { id: 71, name: "Sea Food Platter", description: "Grand mixed seafood platter.", price: 1699, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 38, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 72, name: "Tandoori Pomfret", description: "Whole pomfret from the tandoor.", price: 599, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 42, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 73, name: "Tandoori Prawns", description: "Prawns marinated and tandoor-grilled.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: ["Trending"], diet: ["Gluten-Free"], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 74, name: "Prawns Chilli / Manchurian", description: "Indo-Chinese prawns.", price: 450, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 75, name: "Fish & Chips", description: "Classic battered fish with fries.", price: 340, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 76, name: "Amritsari Fish", description: "Punjabi-style fried fish.", price: 330, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 77, name: "Angel Fish Tawa / Rawa", description: "Tawa or rawa-fried angel fish ₹480.", price: 480, category: "Seafood", image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80", tags: [], diet: [], margin: 44, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+
+      // —— PIZZA, DIM SUM, PASTA ——
+      { id: 78, name: "Margherita Pizza", description: "Traditional Neapolitan. Veg ₹329 · Non-veg ₹359.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 79, name: "Paneer Tikka Pizza", description: "Pizza topped with paneer tikka. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 80, name: "Chicken Tikka Pizza", description: "Chicken tikka pizza. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 81, name: "Farm House Pizza", description: "Loaded farmhouse toppings. From ₹329.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 82, name: "Veg Money Bags Dumpling", description: "Crispy money-bag style veg dumplings.", price: 299, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 83, name: "Classic Chicken Dumpling", description: "Steamed chicken dumplings.", price: 329, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: [], diet: [], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 84, name: "Prawn Har Gow", description: "Crystal classic prawn har gow.", price: 349, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1496116218417-1a781b25c812?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 85, name: "Pasta by Choice", description: "Penne/Spaghetti · Alfredo/Arrabbiata · Veg/Chicken/Prawns ₹249/279/299.", price: 249, category: "Pizza & Pasta", image: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+
+      // —— RICE & BREADS ——
+      { id: 90, name: "Butter Naan", description: "Plain ₹65 · Butter ₹70 · Garlic ₹75 · Cheese ₹110.", price: 70, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 91, name: "Tandoori Roti", description: "Roti ₹60 · Butter roti ₹65.", price: 60, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 92, name: "Lachha Paratha", description: "Layered flaky paratha.", price: 75, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 93, name: "Stuffed Paratha", description: "Aloo/Gobi ₹99 · Paneer ₹110 · Veg stuffed ₹200 · Chicken keema ₹200.", price: 99, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 94, name: "Chicken Biryani", description: "Aromatic chicken biryani.", price: 330, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special", "Trending"], diet: ["Gluten-Free"], margin: 48, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 95, name: "Mutton Biryani", description: "Slow-cooked mutton biryani.", price: 430, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: ["Chef Special"], diet: ["Gluten-Free"], margin: 42, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 96, name: "Veg Biryani", description: "Vegetable biryani.", price: 280, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 97, name: "Prawns Biryani", description: "Prawn biryani.", price: 449, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80", tags: [], diet: ["Gluten-Free"], margin: 40, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 98, name: "Fried Rice", description: "Veg ₹229 · Egg ₹249 · Chicken ₹279 · Prawns ₹369.", price: 229, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 99, name: "Jeera Rice / Steam Rice", description: "Steam ₹160 · Jeera ₹160 · Ghee rice ₹260.", price: 160, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 100, name: "Kashmiri Pulao", description: "Fragrant Kashmiri pulao.", price: 299, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 58, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 101, name: "Dal Khichdi", description: "Comfort dal khichdi ₹260. Curd rice ₹210.", price: 260, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1516684735274-6c4c4c0e4f0a?w=600&q=80", tags: [], diet: ["Vegetarian", "Gluten-Free"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 102, name: "Bread Basket", description: "Assorted breads for the table.", price: 199, category: "Rice & Breads", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+
+      // —— DESSERTS ——
+      { id: 110, name: "Gulab Jamun", description: "Warm gulab jamun. With ice cream ₹200.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 78, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 111, name: "Shahi Tukda", description: "Royal bread pudding with rabri.", price: 190, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: ["Chef Special"], diet: ["Vegetarian"], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 112, name: "Carrot Halwa", description: "Gajar ka halwa.", price: 180, category: "Desserts", image: "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 113, name: "Chocolate Brownie", description: "Brownie ₹199 · With ice cream ₹210 · Sizzler ₹250.", price: 199, category: "Desserts", image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+
+      // —— DRINKS: Signature & Cocktails ——
+      { id: 120, name: "Temple Run", description: "Whiskey, coconut soda, aromatic bitters, grape fruit as garnish.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 5 },
+      { id: 121, name: "Miss You Matcha", description: "Mezcal, red apple juice, almond and citrus.", price: 599, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special", "Trending"], diet: [], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 10 },
+      { id: 122, name: "Blue Lips", description: "Gin, butterfly pea flower soda with edible flower.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 20 },
+      { id: 123, name: "Spicy Senorita", description: "Tequila, pickled brine (jalapeño & cilantro) and coriander salt rim.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 30 },
+      { id: 124, name: "Midnight Jamun", description: "Vodka, jamun carbonated soda with sea salt rim.", price: 499, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 40 },
+      { id: 125, name: "Pisco Sour", description: "Ayra Special — pisco, aromatic bitters, lime, sugar, vegan foam.", price: 549, category: "Drinks", drinkType: "Signature", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Chef Special"], diet: [], margin: 68, ordersToday: 0, visible: true, pairWith: [], sortOrder: 50 },
+      { id: 126, name: "Old Fashioned", description: "Whiskey, aromatic bitters and sugar syrup.", price: 395, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=600&q=80", tags: ["Trending"], diet: [], margin: 75, ordersToday: 0, visible: true, pairWith: [], sortOrder: 60 },
+      { id: 127, name: "Espresso Martini", description: "Vodka, coffee liqueur, dark chocolate espresso.", price: 379, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 74, ordersToday: 0, visible: true, pairWith: [], sortOrder: 70 },
+      { id: 128, name: "Spicy Margarita", description: "Tequila, jalapeño, lime and sugar.", price: 399, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 80 },
+      { id: 129, name: "Moscow Mule", description: "Vodka, lime, sugar, ginger beer.", price: 399, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 72, ordersToday: 0, visible: true, pairWith: [], sortOrder: 90 },
+      { id: 130, name: "South Side", description: "Gin, lime, sugar and mint.", price: 375, category: "Drinks", drinkType: "Cocktails", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 73, ordersToday: 0, visible: true, pairWith: [], sortOrder: 100 },
+      { id: 131, name: "Jagerbomb", description: "Jägermeister, Red Bull.", price: 555, category: "Drinks", drinkType: "Shooters", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 110 },
+      { id: 132, name: "Virgin Mojito", description: "Lime, mint, sweetener and soda.", price: 175, category: "Drinks", drinkType: "Mocktails", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: ["Trending"], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 120 },
+      { id: 133, name: "Blue Ocean", description: "Blue curaçao mocktail with lime and soda.", price: 175, category: "Drinks", drinkType: "Mocktails", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 80, ordersToday: 0, visible: true, pairWith: [], sortOrder: 130 },
+      { id: 134, name: "Fruit Punch", description: "Mixed fruit juices with sweeteners.", price: 175, category: "Drinks", drinkType: "Mocktails", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 82, ordersToday: 0, visible: true, pairWith: [], sortOrder: 140 },
+      // Bottled beer 330ml
+      { id: 135, name: "Kingfisher Premium (Bottle)", description: "330ml bottle.", price: 180, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 150 },
+      { id: 136, name: "Heineken (Bottle)", description: "330ml bottle.", price: 270, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 160 },
+      { id: 137, name: "Budweiser Premium (Bottle)", description: "330ml bottle.", price: 225, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 170 },
+      // Beer draught — Mug / Pitcher / Tower (choose on add)
+      { id: 145, name: "Kingfisher Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 150, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: ["Trending"], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 145,
+        variants: [{ label: "Mug", price: 150 }, { label: "Pitcher", price: 650 }, { label: "Tower", price: 1200 }] },
+      { id: 146, name: "Kingfisher Ultra Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 146,
+        variants: [{ label: "Mug", price: 180 }, { label: "Pitcher", price: 750 }, { label: "Tower", price: 1450 }] },
+      { id: 147, name: "Kingfisher Witbier Draught", description: "Choose Mug, Pitcher or Tower.", price: 180, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 147,
+        variants: [{ label: "Mug", price: 180 }, { label: "Pitcher", price: 750 }, { label: "Tower", price: 1450 }] },
+      { id: 148, name: "Heineken Silver Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 148,
+        variants: [{ label: "Mug", price: 240 }, { label: "Pitcher", price: 1000 }, { label: "Tower", price: 1900 }] },
+      { id: 149, name: "Geist Kamacitra Draught", description: "Choose Mug, Pitcher or Tower.", price: 260, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 149,
+        variants: [{ label: "Mug", price: 260 }, { label: "Pitcher", price: 1050 }, { label: "Tower", price: 2000 }] },
+      { id: 150, name: "Geist Weiss Guy Draught", description: "Choose Mug, Pitcher or Tower.", price: 240, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 150,
+        variants: [{ label: "Mug", price: 240 }, { label: "Pitcher", price: 1000 }, { label: "Tower", price: 1900 }] },
+      { id: 151, name: "Toit Hefeweizen Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 151,
+        variants: [{ label: "Mug", price: 170 }, { label: "Pitcher", price: 700 }, { label: "Tower", price: 1300 }] },
+      { id: 152, name: "Toit Basmati Blonde Draught", description: "Choose Mug, Pitcher or Tower.", price: 170, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 55, ordersToday: 0, visible: true, pairWith: [], sortOrder: 152,
+        variants: [{ label: "Mug", price: 170 }, { label: "Pitcher", price: 700 }, { label: "Tower", price: 1300 }] },
+      { id: 153, name: "Budweiser Magnum Draught", description: "Choose Mug, Pitcher or Tower.", price: 220, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 153,
+        variants: [{ label: "Mug", price: 220 }, { label: "Pitcher", price: 900 }, { label: "Tower", price: 1700 }] },
+      { id: 154, name: "Budweiser Premium Draught", description: "Choose Mug, Pitcher or Tower.", price: 200, category: "Drinks", drinkType: "Beer", image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=600&q=80", tags: [], diet: [], margin: 52, ordersToday: 0, visible: true, pairWith: [], sortOrder: 154,
+        variants: [{ label: "Mug", price: 200 }, { label: "Pitcher", price: 850 }, { label: "Tower", price: 1600 }] },
+      { id: 138, name: "Soft Drinks", description: "Soda / soft drinks from ₹45. Mineral water ₹100.", price: 45, category: "Drinks", drinkType: "Soft drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 85, ordersToday: 0, visible: true, pairWith: [], sortOrder: 180 },
+      { id: 139, name: "Red Bull / Monster", description: "Energy drinks ₹185.", price: 185, category: "Drinks", drinkType: "Soft drinks", image: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 190 },
+      { id: 140, name: "Old Monk", description: "Rum — choose size.", price: 45, category: "Drinks", drinkType: "Rum", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: ["Trending"], diet: [], margin: 70, ordersToday: 0, visible: true, pairWith: [], sortOrder: 200,
+        variants: [{ label: "30ml", price: 45 }, { label: "60ml", price: 85 }, { label: "750ml", price: 1070 }] },
+      { id: 141, name: "Absolut Vodka", description: "Choose size.", price: 190, category: "Drinks", drinkType: "Vodka", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 65, ordersToday: 0, visible: true, pairWith: [], sortOrder: 210,
+        variants: [{ label: "30ml", price: 190 }, { label: "60ml", price: 380 }] },
+      { id: 142, name: "Teachers 50", description: "Choose size.", price: 190, category: "Drinks", drinkType: "Whiskey", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 62, ordersToday: 0, visible: true, pairWith: [], sortOrder: 220,
+        variants: [{ label: "30ml", price: 190 }, { label: "60ml", price: 375 }] },
+      { id: 143, name: "Black Dog 12Y", description: "Choose size.", price: 200, category: "Drinks", drinkType: "Whiskey", image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=600&q=80", tags: [], diet: [], margin: 60, ordersToday: 0, visible: true, pairWith: [], sortOrder: 230,
+        variants: [{ label: "30ml", price: 200 }, { label: "60ml", price: 395 }] },
+      { id: 144, name: "Sula Shiraz", description: "Red wine 750ml.", price: 1395, category: "Drinks", drinkType: "Wine", image: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80", tags: [], diet: ["Vegetarian"], margin: 45, ordersToday: 0, visible: true, pairWith: [], sortOrder: 240 },
+    ];
+
+    const AI_RECOMMENDATIONS = [
+      { id: 1, title: "Push Butter Chicken + Naan combo", insight: "Butter Chicken is the top main. Auto-suggest Butter Naan on add to lift bread attachment.", impact: "+₹8,000 / week est.", type: "pairing", dishId: 56, targetId: 90, status: "pending" },
+      { id: 2, title: "Highlight Chicken 65", insight: "Chicken 65 leads appetiser orders. Pin it higher and add Most Ordered badge.", impact: "+12% starter AOV", type: "positioning", dishId: 21, status: "pending" },
+      { id: 3, title: "Dessert after biryani", insight: "Tables ordering Chicken Biryani under-order dessert. Suggest Gulab Jamun pop-up.", impact: "+₹4,200 / week", type: "pairing", dishId: 94, targetId: 110, status: "pending" },
+      { id: 4, title: "Feature Temple Run at peak", insight: "Signature cocktails convert best 8–11 PM. Feature Temple Run in session upsell.", impact: "+₹6,500 / weekend", type: "timing", dishId: 120, status: "pending" },
+    ];
+
+    const CATEGORIES = ["All", "Appetisers", "Mains", "Drinks", "Pizza & Pasta", "Rice & Breads", "Desserts", "Seafood"];
+    const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
+    const DRINK_TYPES = ["All drinks", "Signature", "Cocktails", "Shooters", "Beer", "Whiskey", "Vodka", "Rum", "Wine", "Mocktails", "Soft drinks"];
+    // Staff access: only a hash is stored (PIN itself is not in source). SHA-256("ayra-staff-v1:" + pin)
+    const STAFF_PIN_HASH = "b4bf6ca75c454a0214239cdc7475e7b122ff6f0f629dd0fe1035ab88a3e3cab5";
+    // /ayra/apex or apex.html → staff-only portal
+    const IS_APEX = (typeof window !== "undefined") && (
+      !!window.__AYRA_APEX__ ||
+      /\/apex(\.html)?\/?$/i.test(location.pathname) ||
+      /\/apex\//i.test(location.pathname)
+    );
+
+    async function hashStaffPin(pin) {
+      const data = new TextEncoder().encode("ayra-staff-v1:" + pin);
+      const buf = await crypto.subtle.digest("SHA-256", data);
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+    const MGR_PIN_HASH = "a499df265b3d26f14d02f15e42479a6f68477f260ca6929c9eac48cca93bd52e";
+    async function hashMgrPin(pin) {
+      const data = new TextEncoder().encode("ayra-mgr-v1:" + pin);
+      const buf = await crypto.subtle.digest("SHA-256", data);
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+    const DEFAULT_TABLE_PINS = Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
+    );
+
+    // —— Supabase backend ——
+    const SUPABASE_URL = "https://pmgquqxsgactmpwajrrj.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_Q7OSakh0s31jZTIqB8dG1w_9vK5YCmk";
+    const sb = (typeof supabase !== "undefined" && supabase.createClient)
+      ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    function mapCloudToLiveOrders(sessions, rounds) {
+      const bySession = {};
+      (rounds || []).forEach(r => {
+        if (!bySession[r.session_id]) bySession[r.session_id] = [];
+        bySession[r.session_id].push({
+          id: r.id,
+          status: r.status || "new",
+          items: r.items || [],
+          total: Number(r.total) || 0,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        });
+      });
+      return (sessions || [])
+        .filter(s => s.status === "open" || !s.status)
+        .map(s => ({
+          table: String(s.table_no),
+          sessionId: s.id,
+          guestName: s.guest_name || "",
+          guestPhone: s.guest_phone || "",
+          createdAt: s.created_at,
+          rounds: (bySession[s.id] || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        }))
+        .filter(s => s.rounds.length > 0 || true)
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+
+    async function cloudFetchLiveOrders() {
+      if (!sb) return null;
+      const { data: sessions, error: e1 } = await sb
+        .from("table_sessions")
+        .select("*")
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+      if (e1) throw e1;
+      if (!sessions || !sessions.length) return [];
+      const ids = sessions.map(s => s.id);
+      const { data: rounds, error: e2 } = await sb
+        .from("order_rounds")
+        .select("*")
+        .in("session_id", ids)
+        .order("created_at", { ascending: false });
+      if (e2) throw e2;
+      return mapCloudToLiveOrders(sessions, rounds || []);
+    }
+
+    async function cloudFetchPins() {
+      if (!sb) return null;
+      const { data, error } = await sb.from("table_pins").select("table_no, pin");
+      if (error) throw error;
+      const map = { ...DEFAULT_TABLE_PINS };
+      (data || []).forEach(r => { map[String(r.table_no)] = String(r.pin); });
+      return map;
+    }
+
+    function periodBounds(period) {
+      const now = new Date();
+      if (period === "all") return { from: null, to: null };
+      if (period === "month") {
+        const from = new Date(now.getFullYear(), now.getMonth(), 1);
+        return { from: from.toISOString(), to: null };
+      }
+      const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const to = new Date(from);
+      to.setDate(to.getDate() + 1);
+      return { from: from.toISOString(), to: to.toISOString() };
+    }
+
+    async function cloudFetchInsights(period) {
+      if (!sb) throw new Error("Cloud not connected");
+      const { from, to } = periodBounds(period || "day");
+      let q = sb.from("order_rounds").select("id, status, items, total, created_at, session_id");
+      if (from) q = q.gte("created_at", from);
+      if (to) q = q.lt("created_at", to);
+      const { data: rounds, error } = await q.order("created_at", { ascending: false }).limit(2000);
+      if (error) throw error;
+      let list = rounds || [];
+      const sids = [...new Set(list.map(r => r.session_id).filter(Boolean))];
+      let sessionMap = {};
+      if (sids.length) {
+        const { data: sessions, error: e2 } = await sb.from("table_sessions").select("id, table_no, status, guest_name").in("id", sids);
+        if (e2) throw e2;
+        (sessions || []).forEach(s => { sessionMap[s.id] = s; });
+        list = list.map(r => ({ ...r, table_sessions: sessionMap[r.session_id] || null }));
+      }
+      const confirmed = list.filter(r => r.status && r.status !== "new");
+      let revenue = 0;
+      const byTable = {};
+      const byDish = {};
+      confirmed.forEach(r => {
+        revenue += Number(r.total) || 0;
+        const tno = (r.table_sessions && r.table_sessions.table_no) || "?";
+        if (!byTable[tno]) byTable[tno] = { table: tno, rounds: 0, bill: 0 };
+        byTable[tno].rounds += 1;
+        byTable[tno].bill += Number(r.total) || 0;
+        (r.items || []).forEach(it => {
+          const name = it.name || "Item";
+          byDish[name] = (byDish[name] || 0) + (it.qty || 1);
+        });
+      });
+      const tables = Object.values(byTable);
+      const avgBill = tables.length ? Math.round(tables.reduce((s, x) => s + x.bill, 0) / tables.length) : 0;
+      const topDishes = Object.entries(byDish).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      return {
+        period: period || "day",
+        pending: list.filter(r => r.status === "new").length,
+        confirmedRounds: confirmed.length,
+        totalRounds: list.length,
+        revenue,
+        avgBill,
+        tablesActive: tables.length,
+        tables,
+        topDishes,
+        rawRounds: list,
+      };
+    }
+
+
+    async function cloudPlaceOrder(items, tableLabel, guest) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
+      const payloadItems = items.map(i => ({
+        id: i.id,
+        name: i.name,
+        variantLabel: i.variantLabel || null,
+        price: i.price,
+        qty: i.qty,
+      }));
+      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+
+      // Find open session for this table
+      let { data: existing, error: e0 } = await sb
+        .from("table_sessions")
+        .select("*")
+        .eq("table_no", tableKey)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (e0) throw e0;
+
+      let sessionId;
+      if (existing && existing.length) {
+        sessionId = existing[0].id;
+        const patch = {};
+        if (guest?.name) patch.guest_name = guest.name;
+        if (guest?.phone) patch.guest_phone = guest.phone;
+        if (Object.keys(patch).length) {
+          await sb.from("table_sessions").update(patch).eq("id", sessionId);
+        }
+      } else {
+        const { data: created, error: e1 } = await sb
+          .from("table_sessions")
+          .insert({
+            table_no: tableKey,
+            guest_name: guest?.name || null,
+            guest_phone: guest?.phone || null,
+            status: "open",
+          })
+          .select()
+          .single();
+        if (e1) throw e1;
+        sessionId = created.id;
+      }
+
+      const { error: e2 } = await sb.from("order_rounds").insert({
+        session_id: sessionId,
+        status: "new",
+        items: payloadItems,
+        total,
+      });
+      if (e2) throw e2;
+      return tableKey;
+    }
+
+    async function cloudUpdateRoundStatus(roundId, status) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const { error } = await sb
+        .from("order_rounds")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", roundId);
+      if (error) throw error;
+    }
+
+    async function cloudCancelRound(roundId) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const { error } = await sb.from("order_rounds").delete().eq("id", roundId);
+      if (error) throw error;
+    }
+
+    async function cloudClearTable(sessionId, tableNo) {
+      if (!sb) throw new Error("Supabase not loaded");
+      if (sessionId) {
+        const { error } = await sb
+          .from("table_sessions")
+          .update({ status: "paid", cleared_at: new Date().toISOString() })
+          .eq("id", sessionId);
+        if (error) throw error;
+      } else if (tableNo) {
+        const { error } = await sb
+          .from("table_sessions")
+          .update({ status: "paid", cleared_at: new Date().toISOString() })
+          .eq("table_no", String(tableNo))
+          .eq("status", "open");
+        if (error) throw error;
+      }
+    }
+
+    async function cloudUpsertPin(tableNo, pin) {
+      if (!sb) return;
+      const { error } = await sb.from("table_pins").upsert({ table_no: String(tableNo), pin: String(pin) });
+      if (error) console.error(error);
+    }
+
+    const CUSTOMER_VISIBLE_TAGS = ["Trending", "Chef Special", "Most Ordered", "Peak Feature", "Test Copy"];
+
+    const loadState = (key, fallback) => {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch { return fallback; }
+    };
+    const saveState = (key, value) => {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    };
+
+    const ICONS = {
+      x: <path d="M18 6 6 18M6 6l12 12" />,
+      "shopping-bag": <><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></>,
+      "dollar-sign": <><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
+      "trending-up": <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>,
+      "alert-triangle": <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></>,
+      cake: <><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/></>,
+      sparkles: <><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></>,
+      utensils: <><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></>,
+      lock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+      "log-out": <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></>,
+      check: <polyline points="20 6 9 17 4 12" />,
+      wine: <><path d="M8 22h8"/><path d="M12 11v11"/><path d="m19 3-7 8-7-8Z"/></>,
+      search: <><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>,
+      plus: <><path d="M5 12h14"/><path d="M12 5v14"/></>,
+      minus: <path d="M5 12h14" />,
+      trash: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></>,
+      "refresh-cw": <><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>,
+    };
+    const Icon = ({ name, size = 20, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+        {ICONS[name] || null}
+      </svg>
+    );
+
+    const formatPrice = (n) => `₹${Number(n).toLocaleString("en-IN")}`;
+
+    // "Choose size" vs "Choose flavour" vs "Choose option"
+    const getVariantPrompt = (dish) => {
+      if (dish?.variantKind === "flavour") return { button: "Choose flavour", title: "Choose flavour" };
+      if (dish?.variantKind === "option") return { button: "Choose option", title: "Choose option" };
+      if (dish?.variantKind === "size") return { button: "Choose size", title: "Choose size" };
+      const labels = (dish?.variants || []).map(v => String(v.label || "").toLowerCase());
+      if (!labels.length) return { button: "Choose option", title: "Choose option" };
+      const sizeLike = labels.every(l =>
+        /^(regular|large|small|medium|hot|iced|iced regular|iced large|mug|pitcher|tower|\d+ml)$/i.test(l.trim())
+      );
+      if (sizeLike) return { button: "Choose size", title: "Choose size" };
+      const flavourLike = labels.some(l =>
+        /matcha|strawberry|mango|red bean|custard|nutella|chocolate|taro|vanilla|sesame|black sesame|ube/i.test(l)
+      );
+      if (flavourLike) return { button: "Choose flavour", title: "Choose flavour" };
+      // Veg / Non-veg style labels common on Ayra menu
+      const optionLike = labels.some(l => /veg|non-?veg|half|full|portion/i.test(l));
+      if (optionLike) return { button: "Choose option", title: "Choose option" };
+      return { button: "Choose option", title: "Choose option" };
+    };
+
+
+    const Tag = ({ label }) => {
+      const cls = label.includes("High") ? "tag-high" :
+                  label.includes("Trending") ? "tag-trending" :
+                  label.includes("Chef") ? "tag-chef" :
+                  (label === "Vegetarian" || label === "Non-Veg") ? "tag-diet" : "bg-surface";
+      return (
+        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full text-off-white ${cls}`}>
+          {label}
+        </span>
+      );
+    };
+
+    const Toast = ({ message, onDone }) => {
+      useEffect(() => {
+        const t = setTimeout(onDone, 2400);
+        return () => clearTimeout(t);
+      }, [onDone]);
+      // Top-center so it never covers the floating cart button at bottom
+      return (
+        <div className="toast-host fixed animate-fade-up" role="status" aria-live="polite">
+          <div className="glass-strong rounded-xl shadow-float overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-champagne/20 flex items-center justify-center flex-shrink-0">
+                <Icon name="check" size={16} className="text-champagne" />
+              </div>
+              <p className="text-sm font-medium text-off-white flex-1">{message}</p>
+            </div>
+            <div className="toast-progress" />
+          </div>
+        </div>
+      );
+    };
+
+    // Size / variant picker (Mug · Pitcher · Tower, 30ml · 60ml, etc.)
+    const VariantPicker = ({ dish, onPick, onClose }) => {
+      if (!dish?.variants?.length) return null;
+      return (
+        <div className="fixed inset-0 z-[155] flex items-end sm:items-center justify-center p-4 bg-obsidian/70 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="variant-title">
+          <div className="glass-strong rounded-2xl max-w-sm w-full p-6 shadow-float border border-champagne/20 animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-1">
+              <h3 id="variant-title" className="font-display text-xl text-off-white pr-4">{dish.name}</h3>
+              <button onClick={onClose} className="hit-icon text-sage hover:text-off-white" aria-label="Close"><Icon name="x" size={20} /></button>
+            </div>
+            <p className="text-sage text-sm mb-5">{getVariantPrompt(dish).title}</p>
+            <div className="space-y-2">
+              {dish.variants.map(v => (
+                <button
+                  key={v.label}
+                  onClick={() => onPick(v)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl bg-surface border border-champagne/15 hover:border-champagne/40 hover:bg-champagne/10 transition text-left"
+                >
+                  <span className="font-medium text-off-white">{v.label}</span>
+                  <span className="text-champagne font-semibold">{formatPrice(v.price)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PinModal = ({ onSuccess, onClose, forced }) => {
+      const [pin, setPin] = useState("");
+      const [error, setError] = useState(false);
+      const [shake, setShake] = useState(false);
+
+      const handleDigit = (d) => {
+        if (pin.length >= 4) return;
+        const next = pin + d;
+        setPin(next);
+        setError(false);
+        if (next.length === 4) {
+          hashStaffPin(next).then(h => {
+            if (h === STAFF_PIN_HASH) setTimeout(() => onSuccess(), 180);
+            else {
+              setError(true);
+              setShake(true);
+              setTimeout(() => { setPin(""); setShake(false); }, 600);
+            }
+          }).catch(() => {
+            setError(true);
+            setShake(true);
+            setTimeout(() => { setPin(""); setShake(false); }, 600);
+          });
+        }
+      };
+      const handleBack = () => setPin(p => p.slice(0, -1));
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (e.key >= "0" && e.key <= "9") handleDigit(e.key);
+          else if (e.key === "Backspace") handleBack();
+          else if (e.key === "Escape" && !forced && onClose) onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [pin]);
+
+      return (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-obsidian/80 backdrop-blur-md" onClick={() => { if (!forced && onClose) onClose(); }} role="dialog" aria-modal="true" aria-labelledby="pin-title">
+          <div className={`glass-strong rounded-2xl max-w-sm w-full p-8 shadow-float border border-champagne/20 ${shake ? "" : "animate-scale-in"}`}
+            onClick={e => e.stopPropagation()}
+            style={shake ? { animation: "shake 0.4s ease" } : undefined}>
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-full bg-champagne/15 flex items-center justify-center mx-auto mb-4">
+                <Icon name="lock" size={26} className="text-champagne" />
+              </div>
+              <h3 id="pin-title" className="font-display text-2xl text-off-white">Staff Access</h3>
+              <p className="text-sage text-sm mt-1">Enter Staff Access PIN</p>
+            </div>
+            <div className="flex justify-center gap-3 mb-6" aria-label="PIN progress">
+              {[0,1,2,3].map(i => <div key={i} className={`pin-dot ${pin.length > i ? "filled" : ""}`} />)}
+            </div>
+            {error && <p className="text-center text-red-400 text-xs mb-3" role="alert">Incorrect PIN — try again</p>}
+            <div className="grid grid-cols-3 gap-2">
+              {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k, i) => (
+                <button key={i}
+                  onClick={() => { if (k === "⌫") handleBack(); else if (k !== "") handleDigit(String(k)); }}
+                  disabled={k === ""}
+                  aria-label={k === "⌫" ? "Backspace" : k === "" ? undefined : `Digit ${k}`}
+                  className={`h-14 rounded-xl text-lg font-medium transition-all ${
+                    k === "" ? "invisible" : k === "⌫" ? "text-sage hover:bg-surface" : "text-off-white hover:bg-champagne/15 active:bg-champagne/25"
+                  }`}>{k}</button>
+              ))}
+            </div>
+            <p className="text-center text-sage/50 text-xs mt-5">Staff only</p>
+          </div>
+        </div>
+      );
+    };
+
+
+    const MenuCard = ({ dish, onAdd, onPair, sessionItems, index }) => {
+      const cardRef = useRef(null);
+      const [visible, setVisible] = useState(false);
+      useEffect(() => {
+        const el = cardRef.current;
+        if (!el) return;
+        const io = new IntersectionObserver(
+          ([entry]) => { if (entry.isIntersecting) { setVisible(true); io.disconnect(); } },
+          { threshold: 0.08, rootMargin: "0px 0px -24px 0px" }
+        );
+        io.observe(el);
+        return () => io.disconnect();
+      }, []);
+      const qty = sessionItems.filter(i => i.id === dish.id).reduce((s, i) => s + i.qty, 0);
+      const inSession = qty > 0;
+      const soldOut = dish.soldOut === true;
+      const hasVariants = dish.variants && dish.variants.length > 0;
+      const variantPrompt = getVariantPrompt(dish);
+      const priceLabel = hasVariants
+        ? formatPrice(Math.min(...dish.variants.map(v => v.price)))
+        : formatPrice(dish.price);
+      // Show photo when image exists and not explicitly hidden
+      const showPhoto = !!dish.image && dish.imageVisible !== false;
+      const tags = (dish.tags || []).filter(t => CUSTOMER_VISIBLE_TAGS.includes(t));
+      return (
+        <article ref={cardRef} className={`menu-card ${visible ? "is-visible" : ""} ${soldOut ? "opacity-75" : ""}`} style={{ transitionDelay: `${Math.min(index % 6, 5) * 50}ms` }}>
+          {showPhoto && (
+            <div className="menu-card-media relative">
+              <img src={dish.image} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = "none"; }} />
+              {soldOut && (
+                <div className="absolute inset-0 bg-obsidian/55 flex items-center justify-center">
+                  <span className="text-white text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-obsidian/70">Sold out</span>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="menu-card-body">
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              {soldOut && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface text-sage font-semibold">Sold out</span>}
+              {tags.map(t => <Tag key={t} label={t} />)}
+              {dish.category !== "Drinks" && (
+                dish.diet?.includes("Vegetarian")
+                  ? <Tag key="veg" label="Vegetarian" />
+                  : <Tag key="nonveg" label="Non-Veg" />
+              )}
+            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="font-display text-[1.15rem] sm:text-xl text-off-white leading-snug tracking-tight">{dish.name}</h3>
+              <div className="text-right flex-shrink-0">
+                {hasVariants && !soldOut && <span className="block text-[10px] uppercase tracking-wider text-sage/80 leading-none mb-0.5">from</span>}
+                <span className="font-semibold text-champagne text-[0.95rem] sm:text-base tabular-nums">{priceLabel}</span>
+              </div>
+            </div>
+            {dish.description && (
+              <p className="mt-2 text-[13px] sm:text-sm text-sage leading-relaxed line-clamp-2">{dish.description}</p>
+            )}
+            <div className="menu-card-actions">
+              <button type="button" onClick={() => !soldOut && onAdd(dish)} disabled={soldOut}
+                className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors ${
+                  soldOut
+                    ? "bg-surface text-sage border border-champagne/10 cursor-not-allowed"
+                    : inSession
+                    ? "bg-emerald/40 text-champagne border border-champagne/30"
+                    : "bg-champagne text-obsidian hover:bg-champagne-deep"
+                }`}>
+                {soldOut ? "Sold out" : inSession ? `Added (${qty})` : hasVariants ? variantPrompt.button : "Add"}
+              </button>
+              {!soldOut && dish.pairWith && dish.pairWith.length > 0 && (
+                <button type="button" onClick={() => onPair(dish)}
+                  className="min-h-[44px] py-2.5 px-3.5 rounded-xl text-sm font-medium border border-champagne/25 text-champagne hover:bg-champagne/10 transition-colors">
+                  Pair
+                </button>
+              )}
+            </div>
+          </div>
+        </article>
+      );
+    };
+
+    const PairingModal = ({ dish, dishes, onClose, onAdd }) => {
+      if (!dish) return null;
+      const pairs = (dish.pairWith || []).map(id => dishes.find(d => d.id === id)).filter(Boolean);
+      return (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-obsidian/75 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true">
+          <div className="glass-strong rounded-2xl max-w-lg w-full p-6 shadow-float animate-scale-in border border-champagne/15" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-display text-2xl text-off-white">Pairs with {dish.name}</h3>
+              <button onClick={onClose} className="hit-icon text-sage hover:text-off-white transition" aria-label="Close"><Icon name="x" size={22} /></button>
+            </div>
+            <div className="space-y-3">
+              {pairs.map(p => (
+                <div key={p.id} className="flex gap-4 items-center p-3 rounded-xl bg-surface/80 border border-champagne/8">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-off-white">{p.name}</p>
+                    <p className="text-sm text-sage">{formatPrice(p.price)}</p>
+                  </div>
+                  <button onClick={() => { onAdd(p); onClose(); }}
+                    className="px-3.5 py-1.5 rounded-lg bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition">Add</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab }) => {
+      const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      const count = items.reduce((s, i) => s + i.qty, 0);
+      const lockedTable = (tableFromQr || "").toString().trim();
+      const effectiveTable = (lockedTable || "").replace(/^0+/, "") || lockedTable;
+
+      const handlePlaceOrder = () => {
+        if (!items.length) {
+          showToast("Add items first");
+          return;
+        }
+        if (!effectiveTable) {
+          showToast("Scan your table QR to order");
+          return;
+        }
+        try {
+          const snapshot = items.map(i => ({ ...i }));
+          const ok = onPlaceOrder(snapshot, effectiveTable);
+          if (ok === false) return;
+          // History immediately so UI updates even if network is slow
+          if (typeof onOrderPlaced === "function") onOrderPlaced(snapshot, effectiveTable);
+          if (setCartTab) setCartTab("history");
+          Promise.resolve(ok).then(() => {
+            setItems([]);
+            showToast("Order sent — Table " + effectiveTable + " (pending confirm)");
+          }).catch(err => {
+            console.error(err);
+            showToast("Could not place order — try again");
+          });
+        } catch (err) {
+          console.error(err);
+          showToast("Could not place order — try again");
+        }
+      };
+      const itemKey = (i) => i.sessionKey || String(i.id);
+      const updateQty = (key, delta) => {
+        setItems(prev => prev.map(i => {
+          if (itemKey(i) !== key) return i;
+          const next = i.qty + delta;
+          return next <= 0 ? null : { ...i, qty: next };
+        }).filter(Boolean));
+      };
+      const removeItem = (key) => {
+        setItems(prev => prev.filter(i => itemKey(i) !== key));
+        showToast("Item removed");
+      };
+      if (!open) return null;
+      return (
+        <>
+          <div className="fixed inset-0 z-[130] bg-obsidian/60 backdrop-blur-sm cart-overlay" onClick={onClose} aria-hidden="true" />
+          <div className="fixed top-0 right-0 bottom-0 z-[135] w-full max-w-md glass-strong border-l border-champagne/20 shadow-float cart-drawer animate-slide-in-right flex flex-col" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-champagne/10">
+              <h2 id="cart-title" className="font-display text-xl text-off-white">Cart</h2>
+              <button onClick={onClose} className="hit-icon btn-compact text-sage hover:text-off-white transition rounded-xl p-2" aria-label="Close cart"><Icon name="x" size={22} /></button>
+            </div>
+            <div className="flex gap-2 px-5 pt-3">
+              <button type="button" onClick={() => setCartTab && setCartTab("cart")}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium ${cartTab === "cart" ? "bg-champagne text-obsidian" : "text-sage border border-champagne/20"}`}>
+                Cart{count ? ` (${count})` : ""}
+              </button>
+              <button type="button" onClick={() => setCartTab && setCartTab("history")}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium ${cartTab === "history" ? "bg-champagne text-obsidian" : "text-sage border border-champagne/20"}`}>
+                History{orderHistory.length ? ` (${orderHistory.length})` : ""}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {cartTab === "history" ? (
+                orderHistory.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Icon name="shopping-bag" size={40} className="text-sage/40 mx-auto mb-3" />
+                    <p className="text-sage">No orders yet</p>
+                    <p className="text-sage/60 text-sm mt-1">Placed orders will show here</p>
+                  </div>
+                ) : orderHistory.map(h => (
+                  <div key={h.id} className="p-3 rounded-xl bg-surface/60 border border-champagne/10 space-y-2">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="text-xs text-sage">Table {h.table}</p>
+                        <p className="text-[11px] text-sage/70">{h.at ? new Date(h.at).toLocaleString() : ""}</p>
+                      </div>
+                      <p className="text-champagne font-semibold text-sm">{formatPrice(h.total)}</p>
+                    </div>
+                    <ul className="space-y-1">
+                      {(h.items || []).map((it, ii) => (
+                        <li key={ii} className="flex justify-between text-sm text-off-white gap-2">
+                          <span className="truncate">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                          <span className="text-sage whitespace-nowrap">{formatPrice((it.price || 0) * (it.qty || 1))}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[10px] uppercase tracking-wider text-champagne/80">Sent</p>
+                  </div>
+                ))
+              ) : items.length === 0 ? (
+                <div className="text-center py-16">
+                  <Icon name="shopping-bag" size={40} className="text-sage/40 mx-auto mb-3" />
+                  <p className="text-sage">Your cart is empty</p>
+                  <p className="text-sage/60 text-sm mt-1">Add dishes from the menu</p>
+                </div>
+              ) : items.map(item => (
+                <div key={itemKey(item)} className="flex gap-3 p-3 rounded-xl bg-surface/60 border border-champagne/8">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-off-white text-sm leading-tight">
+                      {item.name}{item.variantLabel ? ` · ${item.variantLabel}` : ""}
+                    </p>
+                    <p className="text-champagne text-sm mt-0.5">{formatPrice(item.price)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button onClick={() => updateQty(itemKey(item), -1)} className="hit-icon rounded-xl bg-surface border border-champagne/20 text-sage hover:text-off-white transition" aria-label="Decrease quantity"><Icon name="minus" size={14} /></button>
+                      <span className="w-8 text-center text-sm font-medium text-off-white tabular-nums" aria-live="polite">{item.qty}</span>
+                      <button onClick={() => updateQty(itemKey(item), 1)} className="hit-icon rounded-xl bg-surface border border-champagne/20 text-sage hover:text-off-white transition" aria-label="Increase quantity"><Icon name="plus" size={14} /></button>
+                      <button onClick={() => removeItem(itemKey(item))} className="hit-icon ml-auto text-sage hover:text-red-400 transition" aria-label="Remove item"><Icon name="trash" size={14} /></button>
+                    </div>
+                  </div>
+                  <p className="text-sm font-semibold text-off-white whitespace-nowrap">{formatPrice(item.price * item.qty)}</p>
+                </div>
+              ))}
+            </div>
+            {cartTab === "cart" && items.length > 0 && (
+              <div className="border-t border-champagne/10 px-5 py-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-sage">{count} item{count !== 1 ? "s" : ""}</span>
+                  <span className="font-semibold text-off-white text-lg">{formatPrice(total)}</span>
+                </div>
+                {lockedTable ? (
+                  <p className="text-sm text-champagne text-center py-1">Ordering for <strong>Table {lockedTable}</strong></p>
+                ) : (
+                  <p className="text-sm text-amber-300/90 text-center py-2 leading-relaxed">
+                    No table linked. Scan the QR on your table to order.
+                  </p>
+                )}
+                <button type="button" onClick={handlePlaceOrder} disabled={!lockedTable}
+                  className={`w-full py-3.5 rounded-xl font-semibold text-sm transition ${lockedTable ? "bg-champagne text-obsidian hover:bg-champagne-deep" : "bg-surface text-sage cursor-not-allowed opacity-60"}`}>
+                  Place Order
+                </button>
+                <button type="button" onClick={() => { setItems([]); showToast("Session cleared"); }} className="w-full py-2 text-sage text-sm hover:text-off-white transition">Clear Session</button>
+              </div>
+            )}
+          </div>
+        </>
+      );
+    };
+
+    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins }) => {
+      const [filter, setFilter] = useState("All");
+      const [tableNumber, setTableNumber] = useState(tableFromQr || "");
+      const loadDiningGuest = (tableHint) => {
+        try {
+          const tables = [];
+          if (tableHint) tables.push(String(tableHint));
+          tables.push("any");
+          for (const tkey of tables) {
+            const raw = localStorage.getItem("ayra_dining_" + tkey);
+            if (!raw) continue;
+            const g = JSON.parse(raw);
+            if (g && g.exp && Date.now() < g.exp) return g;
+            localStorage.removeItem("ayra_dining_" + tkey);
+          }
+          return null;
+        } catch { return null; }
+      };
+      const saveDiningGuest = (g, tableKey) => {
+        const payload = {
+          ...g,
+          table: String(tableKey || g.table || ""),
+          exp: Date.now() + 12 * 60 * 60 * 1000, // 12h dining window
+        };
+        try {
+          if (payload.table) localStorage.setItem("ayra_dining_" + payload.table, JSON.stringify(payload));
+          localStorage.setItem("ayra_dining_any", JSON.stringify(payload));
+        } catch {}
+        return payload;
+      };
+      const [guest, setGuest] = useState(() => loadDiningGuest(typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("table") || "") : ""));
+      const [showGuestGate, setShowGuestGate] = useState(false);
+      const [gateName, setGateName] = useState("");
+      const [gatePhone, setGatePhone] = useState("");
+      const [gateOtp, setGateOtp] = useState("");
+      const [otpSent, setOtpSent] = useState(false);
+      const [otpCode, setOtpCode] = useState("");
+      const [verifyMode, setVerifyMode] = useState("pin");
+      const [gatePin, setGatePin] = useState(pinFromQr || "");
+      const pendingPlace = useRef(null);
+      const [dietFilter, setDietFilter] = useState("All Diets");
+      const [drinkTypeFilter, setDrinkTypeFilter] = useState("All drinks");
+      const [search, setSearch] = useState("");
+      const [pairingDish, setPairingDish] = useState(null);
+      const [variantDish, setVariantDish] = useState(null);
+      const [cartOpen, setCartOpen] = useState(false);
+      const [cartTab, setCartTab] = useState("cart"); // cart | history
+      const [badgePulse, setBadgePulse] = useState(false);
+      const [headerScrolled, setHeaderScrolled] = useState(false);
+      useEffect(() => {
+        const onScroll = () => setHeaderScrolled(window.scrollY > 24);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+      }, []);
+      const [orderHistory, setOrderHistory] = useState(() => {
+        try {
+          const t = (tableFromQr || "").toString();
+          const key = "ayra_history_" + (t || "guest");
+          return JSON.parse(localStorage.getItem(key) || "[]");
+        } catch { return []; }
+      });
+      const pushHistory = (items, tableLabel) => {
+        const entry = {
+          id: "H-" + Date.now(),
+          table: String(tableLabel),
+          items: items.map(i => ({ name: i.name, variantLabel: i.variantLabel || null, qty: i.qty, price: i.price })),
+          total: items.reduce((s, i) => s + i.price * i.qty, 0),
+          at: new Date().toISOString(),
+        };
+        setOrderHistory(prev => {
+          const next = [entry, ...prev].slice(0, 40);
+          try {
+            localStorage.setItem("ayra_history_" + (String(tableLabel) || "guest"), JSON.stringify(next));
+            localStorage.setItem("ayra_history_guest", JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      };
+      // Filters scroll away naturally (not sticky) — only search bar sticks. No JS collapse = no glitch.
+
+      const filtered = useMemo(() => {
+        let list = dishes.filter(d => d.visible);
+        if (filter !== "All") list = list.filter(d => d.category === filter);
+        if (filter === "Drinks") {
+          if (drinkTypeFilter && drinkTypeFilter !== "All drinks") {
+            list = list.filter(d => {
+              const dt = d.drinkType || (INITIAL_DISHES.find(x => x.id === d.id) || {}).drinkType;
+              return dt === drinkTypeFilter;
+            });
+          }
+        } else {
+          if (dietFilter === "Vegetarian") list = list.filter(d => d.diet?.includes("Vegetarian"));
+          else if (dietFilter === "Non-Veg") list = list.filter(d => !d.diet?.includes("Vegetarian") && d.category !== "Drinks");
+        }
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          // Name only — no description
+          list = list.filter(d => d.name.toLowerCase().includes(q));
+        }
+        const catOrder = { "Appetisers": 1, "Mains": 2, "Pizza & Pasta": 3, "Rice & Breads": 4, "Desserts": 5, "Drinks": 6, "Seafood": 7 };
+        return [...list].sort((a, b) => {
+          const ca = catOrder[a.category] || 50;
+          const cb = catOrder[b.category] || 50;
+          if (ca !== cb) return ca - cb;
+          return (a.sortOrder || 99) - (b.sortOrder || 99);
+        });
+      }, [dishes, filter, dietFilter, drinkTypeFilter, search]);
+
+      const total = sessionItems.reduce((s, i) => s + i.price * i.qty, 0);
+      const itemCount = sessionItems.reduce((s, i) => s + i.qty, 0);
+
+
+      const addToSession = (item) => {
+        // item may include variantLabel + price override
+        const key = item.variantLabel ? `${item.id}::${item.variantLabel}` : String(item.id);
+        setSessionItems(prev => {
+          const existing = prev.find(i => (i.sessionKey || String(i.id)) === key);
+          if (existing) return prev.map(i => (i.sessionKey || String(i.id)) === key ? { ...i, qty: i.qty + 1 } : i);
+          return [...prev, { ...item, sessionKey: key, qty: 1 }];
+        });
+        setBadgePulse(true);
+        setTimeout(() => setBadgePulse(false), 400);
+        const label = item.variantLabel ? `${item.name} (${item.variantLabel})` : item.name;
+        showToast(`${label} added`);
+        const newTotal = total + item.price;
+      };
+
+      const handleAdd = (dish) => {
+        if (!tableFromQr) {
+          showToast("Scan the QR on your table to order");
+          return;
+        }
+        if (dish.variants && dish.variants.length > 0) {
+          setVariantDish(dish);
+          return;
+        }
+        addToSession(dish);
+      };
+
+      const handleVariantPick = (variant) => {
+        if (!variantDish) return;
+        addToSession({
+          ...variantDish,
+          price: variant.price,
+          variantLabel: variant.label,
+          name: variantDish.name,
+        });
+        setVariantDish(null);
+      };
+
+      return (
+        <div className="min-h-screen ambient-bg pb-10" style={{ paddingBottom: "max(2.5rem, calc(env(safe-area-inset-bottom) + 1.5rem))" }}>
+          <header className="relative pt-10 pb-10 px-4 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(224,184,115,0.1)_0%,_transparent_55%)]" />
+            <div className="relative max-w-5xl mx-auto text-center">
+              <p className="text-champagne tracking-[0.3em] uppercase text-xs font-medium mb-3">Restaurant & Bar</p>
+              <h1 className="font-display text-5xl md:text-7xl text-off-white tracking-tight">Ayra</h1>
+              {tableFromQr ? (
+                <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-champagne/15 border border-champagne/30">
+                  <span className="w-2 h-2 rounded-full bg-champagne animate-pulse" />
+                  <span className="text-champagne text-sm font-medium">Table {tableFromQr}</span>
+                </div>
+              ) : (
+                <div className="mt-5 max-w-sm mx-auto px-3">
+                  <p className="text-sage text-sm leading-relaxed">
+                    Scan the <span className="text-champagne">QR code on your table</span> to open the menu and order.
+                  </p>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Sticky: search always; categories + diets collapse on scroll down */}
+          {/* Only search sticks — category/diet scroll away with the page (no JS hide = no glitch) */}
+          <div className={`sticky top-0 z-40 glass border-y border-champagne/10 sticky-search ${headerScrolled ? "scrolled" : ""}`}>
+            <div className="max-w-6xl mx-auto px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <Icon name="search" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sage pointer-events-none" aria-hidden="true" />
+                  <input type="search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
+                    className="w-full min-h-[44px] bg-surface/80 border border-champagne/15 rounded-2xl pl-11 pr-4 text-[15px] leading-5 text-off-white placeholder:text-sage/50 focus:outline-none focus:border-champagne/40 transition"
+                    aria-label="Search menu" autoComplete="off" />
+                </div>
+                <button type="button" onClick={() => setCartOpen(true)}
+                  className={`relative shrink-0 glass-strong rounded-2xl min-h-[44px] min-w-[44px] px-3 flex items-center justify-center border border-champagne/25 hover:border-champagne/50 transition ${badgePulse ? "animate-bounce-soft" : ""}`}
+                  aria-label={itemCount ? `Cart, ${itemCount} items` : "Open cart"}>
+                  <Icon name="shopping-bag" size={20} className="text-champagne" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-champagne text-obsidian text-[10px] font-bold flex items-center justify-center">{itemCount}</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="max-w-6xl mx-auto px-4 pt-3 pb-1 space-y-2">
+            <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
+              {CATEGORIES.map(cat => (
+                <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => { setFilter(cat); if (cat === "Drinks") setDietFilter("All Diets"); else setDrinkTypeFilter("All drinks"); }}
+                  className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                    filter === cat ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
+                  }`}>{cat}</button>
+              ))}
+            </div>
+            {filter === "Drinks" ? (
+              <div className="flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Drink types">
+                {DRINK_TYPES.map(d => (
+                  <button key={d} aria-pressed={drinkTypeFilter === d} onClick={() => setDrinkTypeFilter(d)}
+                    className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                      drinkTypeFilter === d ? "bg-champagne/20 text-champagne border border-champagne/40" : "text-sage border border-transparent hover:border-champagne/20"
+                    }`}>{d}</button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-0.5" role="group" aria-label="Dietary filters">
+                {DIET_FILTERS.map(d => (
+                  <button key={d} aria-pressed={dietFilter === d} onClick={() => setDietFilter(d)}
+                    className={`px-4 min-h-[36px] rounded-full text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                      dietFilter === d ? "bg-emerald/40 text-champagne border border-champagne/30" : "text-sage border border-transparent hover:border-champagne/20"
+                    }`}>{d}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+
+          <main className="max-w-6xl mx-auto px-4 py-8">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-sage">{filtered.length} dish{filtered.length !== 1 ? "es" : ""}</p>
+              {(search || dietFilter !== "All Diets" || drinkTypeFilter !== "All drinks" || filter !== "All") && (
+                <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); setDrinkTypeFilter("All drinks"); }} className="text-xs text-champagne hover:underline">Clear filters</button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch" key={`${filter}-${dietFilter}-${drinkTypeFilter}`}>
+              {filtered.map((dish, i) => (
+                <MenuCard key={dish.id} dish={dish} onAdd={handleAdd} onPair={setPairingDish} sessionItems={sessionItems} index={i} />
+              ))}
+            </div>
+            {filtered.length === 0 && (
+              <div className="text-center py-20">
+                <Icon name="search" size={36} className="text-sage/40 mx-auto mb-3" />
+                <p className="text-sage">No dishes match your filters.</p>
+                <button onClick={() => { setSearch(""); setFilter("All"); setDietFilter("All Diets"); setDrinkTypeFilter("All drinks"); }} className="mt-3 text-champagne text-sm hover:underline">Reset all filters</button>
+              </div>
+            )}
+          </main>
+          <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={sessionItems} setItems={setSessionItems}
+            orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
+            onOrderPlaced={(items, tableLabel) => pushHistory(items, tableLabel)}
+            onPlaceOrder={(items, tableLabel) => {
+              const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
+              const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
+              if (saved && saved.exp && Date.now() < saved.exp) {
+                if (!guest) setGuest(saved);
+                // Return promise so cart waits, then history updates via onOrderPlaced
+                return Promise.resolve(onPlaceOrder(items, tkey, saved));
+              }
+              pendingPlace.current = { items, tableLabel: tkey };
+              setShowGuestGate(true);
+              return false;
+            }} showToast={showToast}
+            tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
+
+          {showGuestGate && (
+            <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-obsidian/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+              <div className="glass-strong rounded-2xl max-w-md w-full p-6 shadow-float border border-champagne/20 animate-scale-in iphone-modal">
+                <h3 className="font-display text-2xl text-off-white mb-1">Verify to order</h3>
+                <p className="text-sage text-sm mb-4">Choose how to unlock ordering for this table.</p>
+                {!otpSent ? (
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setVerifyMode("pin")}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "pin" ? "bg-champagne text-obsidian border-champagne" : "border-champagne/25 text-sage"}`}>
+                        Table PIN
+                      </button>
+                      <button type="button" onClick={() => setVerifyMode("otp")}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition ${verifyMode === "otp" ? "bg-champagne text-obsidian border-champagne" : "border-champagne/25 text-sage"}`}>
+                        Name + OTP
+                      </button>
+                    </div>
+
+                    {verifyMode === "pin" ? (
+                      <div className="space-y-3">
+                        <p className="text-sage text-xs">Ask your waiter for the table PIN, or use the code printed with the table QR.</p>
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Table PIN *</label>
+                          <input value={gatePin} onChange={e => setGatePin(e.target.value)} inputMode="numeric" maxLength={8}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••" />
+                        </div>
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Your name (optional)</label>
+                          <input value={gateName} onChange={e => setGateName(e.target.value)}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Name for the bill" />
+                        </div>
+                        <button type="button" onClick={() => {
+                          const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                          const expected = (tablePins && tKey && tablePins[tKey]) || "";
+                          if (!expected) {
+                            showToast("No PIN set for this table — ask staff, or use Name + OTP");
+                            return;
+                          }
+                          if (gatePin.trim() !== String(expected)) {
+                            showToast("Wrong table PIN");
+                            return;
+                          }
+                          const g = { name: gateName.trim() || "Guest", phone: "", method: "pin" };
+                          const payload = saveDiningGuest(g, tKey);
+                          setGuest(payload);
+                          setShowGuestGate(false);
+                          setGatePin("");
+                          if (pendingPlace.current) {
+                            const { items, tableLabel } = pendingPlace.current;
+                            pendingPlace.current = null;
+                            pushHistory(items, tableLabel);
+                            Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
+                              setSessionItems([]);
+                              setCartOpen(true);
+                              setCartTab("history");
+                              showToast("Order sent — Table " + tableLabel);
+                            });
+                          } else {
+                            showToast("Table verified — you can order again on this phone without re-entering PIN");
+                          }
+                        }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify with PIN</button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Your name *</label>
+                          <input value={gateName} onChange={e => setGateName(e.target.value)}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="Full name" />
+                        </div>
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-sage">Mobile *</label>
+                          <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
+                            className="mt-1 w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-sm focus:outline-none focus:border-champagne" placeholder="10-digit number" />
+                        </div>
+                        <p className="text-sage/60 text-[11px]">Demo OTP is shown on the next screen. Real SMS/WhatsApp can be added later.</p>
+                        <button type="button" onClick={() => {
+                          if (!gateName.trim() || gatePhone.replace(/\D/g,"").length < 10) { showToast("Enter name and valid mobile"); return; }
+                          const code = String(Math.floor(100000 + Math.random() * 900000));
+                          setOtpCode(code);
+                          setOtpSent(true);
+                        }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Send OTP</button>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => { setShowGuestGate(false); pendingPlace.current = null; }} className="w-full py-2 text-sage text-sm">Cancel</button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-sage">Enter the 6-digit code for {gatePhone}</p>
+                    <div className="rounded-xl bg-champagne/10 border border-champagne/30 px-4 py-3 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-sage mb-1">Demo OTP</p>
+                      <p className="text-2xl font-semibold text-champagne tracking-[0.3em]">{otpCode}</p>
+                    </div>
+                    <input value={gateOtp} onChange={e => setGateOtp(e.target.value)} inputMode="numeric" maxLength={6}
+                      className="w-full min-h-[44px] bg-surface border border-champagne/20 rounded-xl px-4 text-off-white text-center text-lg tracking-widest focus:outline-none focus:border-champagne" placeholder="••••••" />
+                    <button type="button" onClick={() => {
+                      if (gateOtp.trim() !== otpCode) { showToast("Wrong OTP"); return; }
+                      const g = { name: gateName.trim(), phone: gatePhone.trim(), method: "otp" };
+                      const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                      const payload = saveDiningGuest(g, tKey);
+                      setGuest(payload);
+                      setShowGuestGate(false);
+                      setOtpSent(false);
+                      setGateOtp("");
+                      if (pendingPlace.current) {
+                        const { items, tableLabel } = pendingPlace.current;
+                        pendingPlace.current = null;
+                        pushHistory(items, tableLabel);
+                        Promise.resolve(onPlaceOrder(items, tableLabel, payload)).finally(() => {
+                          setSessionItems([]);
+                          setCartOpen(true);
+                          setCartTab("history");
+                          showToast("Order sent — Table " + tableLabel);
+                        });
+                      } else {
+                        showToast("Verified — you can place orders now");
+                      }
+                    }} className="w-full py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm">Verify & place order</button>
+                    <button type="button" onClick={() => { setOtpSent(false); setGateOtp(""); }} className="w-full py-2 text-sage text-sm">Back</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+{pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
+          {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
+
+          <footer className="border-t border-champagne/10 mt-16 py-10 px-4">
+            <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+              <div>
+                <p className="font-display text-lg text-champagne">Ayra</p>
+                <p className="text-sage/60 text-xs mt-1">Restaurant & Bar</p>
+              </div>
+              <button onClick={onStaffAccess} className="text-sage/40 hover:text-sage text-[10px] tracking-wide transition flex items-center gap-1.5 opacity-60">
+                <Icon name="lock" size={12} /> Staff
+              </button>
+            </div>
+          </footer>
+        </div>
+      );
+    };
+
+    const OrdersChart = ({ dishes }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const sorted = [...dishes].sort((a, b) => b.ordersToday - a.ordersToday).slice(0, 8);
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: sorted.map(d => d.name.length > 14 ? d.name.slice(0, 12) + "…" : d.name),
+            datasets: [{
+              label: "Orders Today",
+              data: sorted.map(d => d.ordersToday),
+              backgroundColor: sorted.map((_, i) => i === 0 ? "rgba(224,184,115,0.9)" : i < 3 ? "rgba(224,184,115,0.5)" : "rgba(146,163,155,0.35)"),
+              borderRadius: 6, borderSkipped: false,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: "#1B2421", titleColor: "#F2F5F3", bodyColor: "#E0B873", borderColor: "rgba(224,184,115,0.3)", borderWidth: 1 } },
+            scales: {
+              x: { ticks: { color: "rgba(146,163,155,0.7)", font: { size: 11 } }, grid: { display: false } },
+              y: { ticks: { color: "rgba(146,163,155,0.5)" }, grid: { color: "rgba(255,255,255,0.04)" } }
+            }
+          }
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [dishes]);
+      return <div className="chart-container"><canvas ref={canvasRef} /></div>;
+    };
+
+    const CategoryChart = ({ dishes }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const cats = ["Appetisers", "Mains", "Seafood", "Pizza & Pasta", "Rice & Breads", "Desserts", "Drinks"];
+        const data = cats.map(c => dishes.filter(d => d.category === c).reduce((s, d) => s + d.ordersToday, 0));
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: cats,
+            datasets: [{ data, backgroundColor: ["rgba(224,184,115,0.85)", "rgba(26,58,50,0.9)", "rgba(146,163,155,0.7)", "rgba(212,163,89,0.6)", "rgba(224,184,115,0.45)", "rgba(146,163,155,0.5)", "rgba(26,58,50,0.6)"], borderWidth: 0 }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: "bottom", labels: { color: "rgba(146,163,155,0.8)", padding: 12, font: { size: 11 } } } },
+            cutout: "62%"
+          }
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [dishes]);
+      return <div className="chart-container"><canvas ref={canvasRef} /></div>;
+    };
+
+    const InsightBarChart = ({ labels, values, title }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const labs = labels || [];
+        const vals = values || [];
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: labs.map(n => n.length > 16 ? n.slice(0, 14) + "…" : n),
+            datasets: [{
+              label: title || "Qty",
+              data: vals,
+              backgroundColor: vals.map((_, i) => i === 0 ? "rgba(224,184,115,0.95)" : i < 3 ? "rgba(224,184,115,0.55)" : "rgba(146,163,155,0.4)"),
+              borderRadius: 6,
+              borderSkipped: false,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { backgroundColor: "#1B2421", titleColor: "#F2F5F3", bodyColor: "#E0B873", borderColor: "rgba(224,184,115,0.3)", borderWidth: 1 },
+            },
+            scales: {
+              x: { ticks: { color: "rgba(146,163,155,0.75)", font: { size: 10 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+              y: { beginAtZero: true, ticks: { color: "rgba(146,163,155,0.5)", precision: 0 }, grid: { color: "rgba(255,255,255,0.04)" } },
+            },
+          },
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [labels, values, title]);
+      return <div className="h-56"><canvas ref={canvasRef} /></div>;
+    };
+
+    const InsightPieChart = ({ labels, values }) => {
+      const canvasRef = useRef(null);
+      const chartRef = useRef(null);
+      useEffect(() => {
+        if (!canvasRef.current) return;
+        if (chartRef.current) chartRef.current.destroy();
+        const colors = [
+          "rgba(224,184,115,0.9)", "rgba(26,58,50,0.95)", "rgba(146,163,155,0.75)",
+          "rgba(212,163,89,0.7)", "rgba(224,184,115,0.5)", "rgba(100,140,120,0.7)",
+          "rgba(180,140,90,0.65)", "rgba(60,90,80,0.8)",
+        ];
+        chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: labels || [],
+            datasets: [{
+              data: values || [],
+              backgroundColor: (labels || []).map((_, i) => colors[i % colors.length]),
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { color: "rgba(146,163,155,0.85)", padding: 10, font: { size: 11 }, boxWidth: 12 } },
+              tooltip: { backgroundColor: "#1B2421", titleColor: "#F2F5F3", bodyColor: "#E0B873" },
+            },
+            cutout: "58%",
+          },
+        });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [labels, values]);
+      return <div className="h-64"><canvas ref={canvasRef} /></div>;
+    };
+
+    const ORDER_FLOW = [
+      { key: "new", label: "Pending confirm", next: "accepted", nextLabel: "Confirm order" },
+      { key: "accepted", label: "Confirmed", next: "cooking", nextLabel: "Send to kitchen" },
+      { key: "cooking", label: "In kitchen", next: "ready", nextLabel: "Mark ready" },
+      { key: "ready", label: "Ready to serve", next: "delivered", nextLabel: "Mark served" },
+      { key: "delivered", label: "Served", next: null, nextLabel: null },
+    ];
+    const statusMeta = (s) => ORDER_FLOW.find(x => x.key === s) || ORDER_FLOW[0];
+    const statusColor = (s) => ({
+      new: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+      accepted: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+      cooking: "bg-orange-500/20 text-orange-300 border-orange-500/40",
+      ready: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+      delivered: "bg-champagne/20 text-champagne border-champagne/40",
+    }[s] || "bg-surface text-sage");
+
+    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders }) => {
+      const [editingDish, setEditingDish] = useState(null);
+      const [staffTab, setStaffTab] = useState("live"); // live | tables | menu | insights
+      const [mgrUnlocked, setMgrUnlocked] = useState(() => {
+        try { return sessionStorage.getItem("ayra_mgr") === "1"; } catch { return false; }
+      });
+      const [mgrPin, setMgrPin] = useState("");
+      const [mgrError, setMgrError] = useState(false);
+      const [insightPeriod, setInsightPeriod] = useState("day");
+      const [insights, setInsights] = useState(null);
+      const [insightsLoading, setInsightsLoading] = useState(false);
+      const [insightsError, setInsightsError] = useState("");
+
+      const loadInsights = useCallback(async (period) => {
+        const p = period || insightPeriod;
+        setInsightsLoading(true);
+        setInsightsError("");
+        try {
+          const data = await cloudFetchInsights(p);
+          let drinks = 0, desserts = 0;
+          const catMap = {};
+          const drinkMap = {};
+          const dessertMap = {};
+          const dishById = Object.fromEntries((dishes || []).map(d => [d.id, d]));
+          (data.rawRounds || []).filter(r => r.status && r.status !== "new").forEach(r => {
+            (r.items || []).forEach(it => {
+              const dish = dishById[it.id];
+              const cat = (dish && dish.category) || "Other";
+              const qty = it.qty || 1;
+              const name = it.name || (dish && dish.name) || "Item";
+              catMap[cat] = (catMap[cat] || 0) + qty;
+              if (cat === "Drinks") {
+                drinks += qty;
+                drinkMap[name] = (drinkMap[name] || 0) + qty;
+              }
+              if (cat === "Desserts") {
+                desserts += qty;
+                dessertMap[name] = (dessertMap[name] || 0) + qty;
+              }
+            });
+          });
+          const nTables = data.tablesActive || 1;
+          const categoryEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+          const topDrinks = Object.entries(drinkMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+          const topDesserts = Object.entries(dessertMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+          setInsights({
+            ...data,
+            drinks,
+            desserts,
+            drinksPerTable: data.tablesActive ? Math.round((drinks / nTables) * 10) / 10 : 0,
+            dessertsPerTable: data.tablesActive ? Math.round((desserts / nTables) * 10) / 10 : 0,
+            categoryLabels: categoryEntries.map(e => e[0]),
+            categoryValues: categoryEntries.map(e => e[1]),
+            topDrinks,
+            topDesserts,
+          });
+        } catch (e) {
+          console.error(e);
+          setInsightsError(e.message || "Failed to load insights");
+        }
+        setInsightsLoading(false);
+      }, [insightPeriod, dishes]);
+
+      useEffect(() => {
+        if (staffTab === "insights" && mgrUnlocked) loadInsights(insightPeriod);
+      }, [staffTab, mgrUnlocked, insightPeriod, loadInsights]);
+
+      const handleRecAction = (rec, action) => {
+        setRecommendations(prev => {
+          const next = prev.map(r => r.id === rec.id ? { ...r, status: action } : r);
+          saveState("ayra_recs", next);
+          return next;
+        });
+        if (action === "applied") {
+          setDishes(prev => {
+            let next = [...prev];
+            if (rec.type === "positioning" && rec.dishId) {
+              next = next.map(d => d.id === rec.dishId ? { ...d, tags: d.tags.includes("Most Ordered") ? d.tags : [...d.tags, "Most Ordered"], sortOrder: 1 } : d);
+            }
+            if (rec.type === "pairing" && rec.dishId && rec.targetId) {
+              next = next.map(d => d.id === rec.dishId ? { ...d, pairWith: d.pairWith.includes(rec.targetId) ? d.pairWith : [...d.pairWith, rec.targetId] } : d);
+            }
+            if (rec.type === "timing" && rec.dishId) {
+              next = next.map(d => d.id === rec.dishId ? { ...d, tags: d.tags.includes("Peak Feature") ? d.tags : [...d.tags, "Peak Feature"], sortOrder: 1 } : d);
+            }
+            saveState("ayra_dishes", next);
+            return next;
+          });
+          showToast(`Applied: ${rec.title}`);
+        } else if (action === "dismissed") showToast("Recommendation dismissed");
+        else showToast("A/B test scheduled");
+      };
+
+      const saveDish = (updated) => {
+        if (updated.id === null) {
+          setDishes(prev => {
+            const newId = Math.max(0, ...prev.map(d => d.id)) + 1;
+            const dish = { ...updated, id: newId, tags: updated.tags || [], diet: updated.diet || [], margin: updated.margin ?? 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 99 };
+            const next = [...prev, dish];
+            saveState("ayra_dishes", next);
+            return next;
+          });
+          showToast(`"${updated.name}" added to menu`);
+        } else {
+          setDishes(prev => {
+            const next = prev.map(d => d.id === updated.id ? updated : d);
+            saveState("ayra_dishes", next);
+            return next;
+          });
+          showToast("Dish updated successfully");
+        }
+        setEditingDish(null);
+      };
+
+      const deleteDish = (id) => {
+        const dish = dishes.find(d => d.id === id);
+        if (!dish || !window.confirm(`Remove "${dish.name}" from the menu?`)) return;
+        setDishes(prev => {
+          const next = prev.filter(d => d.id !== id);
+          saveState("ayra_dishes", next);
+          return next;
+        });
+        showToast(`"${dish.name}" removed`);
+      };
+
+      const openAddDish = () => setEditingDish({
+        id: null, name: "", description: "", price: 0, category: "Appetisers",
+        image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80",
+        tags: [], diet: [], margin: 50, ordersToday: 0, visible: true, pairWith: [], sortOrder: 99,
+      });
+
+      const toggleVisible = (id) => {
+        setDishes(prev => {
+          const next = prev.map(x => x.id === id ? { ...x, visible: !x.visible } : x);
+          saveState("ayra_dishes", next);
+          return next;
+        });
+      };
+
+      return (
+        <div className="min-h-screen ambient-bg pb-16">
+          <div className="bg-champagne/10 border-b border-champagne/20 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-champagne animate-pulse" />
+              <span className="text-champagne font-medium">Staff Mode Active</span>
+            </div>
+            <div className="flex items-center gap-3">
+              
+              <button onClick={onLogout} className="flex items-center gap-1.5 text-sage hover:text-off-white text-sm transition">
+                <Icon name="log-out" size={14} /> Logout
+              </button>
+            </div>
+          </div>
+
+          <header className="border-b border-champagne/10 px-4 py-6">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display text-3xl text-off-white">Staff Portal</h1>
+                <p className="text-sage text-sm mt-1">Ayra · Live tables & menu control</p>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-sage">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald animate-pulse" /> Live</span>
+                <span>·</span>
+                <span>{new Date().toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric" })}</span>
+              </div>
+            </div>
+            <div className="max-w-7xl mx-auto mt-5 flex gap-2 overflow-x-auto">
+              {[
+                { id: "live", label: "Live Tables", count: liveOrders.length },
+                { id: "tables", label: "Tables" },
+                { id: "menu", label: "Menu", locked: true },
+                { id: "insights", label: "Insights", locked: true },
+              ].map(tab => (
+                <button key={tab.id} onClick={() => setStaffTab(tab.id)}
+                  className={`px-5 min-h-[44px] rounded-full text-sm font-medium whitespace-nowrap transition ${
+                    staffTab === tab.id ? "bg-champagne text-obsidian" : "text-sage hover:text-off-white hover:bg-surface"
+                  }`}>
+                  {tab.label}{tab.count != null ? ` (${tab.count})` : ""}{tab.locked && !mgrUnlocked ? " ·" : ""}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
+            {staffTab === "live" && (
+              <section>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                  <h2 className="font-display text-2xl text-off-white">Live Tables</h2>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sage text-sm">{liveOrders.length} table{liveOrders.length !== 1 ? "s" : ""}</p>
+                    <button type="button" onClick={() => { if (onRefreshOrders) onRefreshOrders(); }}
+                      className="px-3 py-2 rounded-xl border border-champagne/30 text-champagne text-xs font-semibold hover:bg-champagne/10 transition flex items-center gap-1.5">
+                      <Icon name="refresh-cw" size={14} /> Refresh
+                    </button>
+                  </div>
+                </div>
+                {liveOrders.length === 0 ? (
+                  <div className="glass rounded-2xl p-10 text-center border border-champagne/8">
+                    <Icon name="shopping-bag" size={36} className="text-sage/40 mx-auto mb-3" />
+                    <p className="text-sage">No live tables yet</p>
+                    <p className="text-sage/60 text-sm mt-1">Live cloud: orders sync to all staff devices via Supabase</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {liveOrders.map(session => {
+                      const rounds = session.rounds || [];
+                      const grandTotal = rounds.reduce((s, r) => s + (r.total || 0), 0);
+                      const pending = rounds.filter(r => r.status === "new");
+                      const allServed = rounds.length > 0 && rounds.every(r => r.status === "delivered");
+                      return (
+                        <div key={session.table} className="glass rounded-2xl p-5 border border-champagne/10 flex flex-col">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                              <p className="font-display text-xl text-off-white">Table {session.table}</p>
+                              {(session.guestName || session.guestPhone) && (
+                                <p className="text-sage text-xs mt-0.5">{session.guestName || "Guest"}{session.guestPhone ? ` · ${session.guestPhone}` : ""}</p>
+                              )}
+                              <p className="text-sage/60 text-[10px] mt-0.5">{rounds.length} order round{rounds.length !== 1 ? "s" : ""}</p>
+                            </div>
+                            {pending.length > 0 && (
+                              <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border font-semibold ${statusColor("new")}`}>{pending.length} pending</span>
+                            )}
+                            {allServed && pending.length === 0 && (
+                              <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border font-semibold ${statusColor("delivered")}`}>All served</span>
+                            )}
+                          </div>
+
+                          <div className="space-y-3 flex-1 mb-3 max-h-72 overflow-y-auto">
+                            {rounds.filter(r => r.items && r.items.length).map((round, ri) => {
+                              const meta = statusMeta(round.status);
+                              return (
+                                <div key={round.id} className="rounded-xl bg-surface/60 border border-champagne/8 p-3">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs text-sage">Round {rounds.length - ri} · {new Date(round.createdAt).toLocaleTimeString()}</span>
+                                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusColor(round.status)}`}>{meta.label}</span>
+                                  </div>
+                                  <ul className="space-y-1 mb-2">
+                                    {(round.items || []).map((it, idx) => (
+                                      <li key={idx} className="flex justify-between text-sm gap-2">
+                                        <span className="text-off-white">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                                        <span className="text-sage whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div className="flex flex-wrap gap-2">
+                                    {meta.next && (
+                                      <button type="button" onClick={() => { updateRoundStatus(session.table, round.id, meta.next); showToast(`Table ${session.table}: ${meta.nextLabel}`); }}
+                                        className="px-3 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-semibold hover:bg-champagne-deep transition">
+                                        {meta.nextLabel}
+                                      </button>
+                                    )}
+                                    {round.status === "new" && (
+                                      <button type="button" onClick={() => { if (window.confirm("Cancel this round?")) { cancelRound(session.table, round.id); showToast("Round cancelled"); } }}
+                                        className="px-3 py-1.5 rounded-lg text-sage text-xs hover:text-red-400 transition">Cancel</button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex justify-between items-center border-t border-champagne/10 pt-3 mb-3">
+                            <span className="text-sage text-sm">Bill total</span>
+                            <span className="font-semibold text-champagne text-lg">{formatPrice(grandTotal)}</span>
+                          </div>
+                          <button type="button"
+                            onClick={() => { if (window.confirm(`Clear Table ${session.table}? Mark bill paid (₹${grandTotal}) and remove from live board.`)) { clearTable(session.table); showToast(`Table ${session.table} paid & cleared`); } }}
+                            className="w-full py-2.5 rounded-xl border border-champagne/40 text-champagne text-sm font-semibold hover:bg-champagne/10 transition">
+                            Paid · Clear table
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            
+            
+            {staffTab === "tables" && (
+              <section>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                  <div>
+                    <h2 className="font-display text-2xl text-off-white">Tables</h2>
+                    <p className="text-sage text-sm">Add or remove tables, set PINs, copy QR links</p>
+                  </div>
+                  <button type="button" onClick={() => {
+                    const nums = Object.keys(tablePins || {}).map(Number).filter(n => !isNaN(n));
+                    const next = (nums.length ? Math.max(...nums) : 0) + 1;
+                    const pin = String(1000 + next);
+                    setTablePins(prev => ({ ...prev, [String(next)]: pin }));
+                    cloudUpsertPin(next, pin);
+                    showToast("Table " + next + " added · PIN " + pin);
+                  }} className="px-4 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-semibold">+ Add table</button>
+                </div>
+                <div className="glass rounded-2xl p-4 border border-champagne/10 space-y-3">
+                  <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+                    {Object.keys(tablePins || {}).length === 0 ? (
+                      <p className="text-sage text-sm py-8 text-center">No tables yet. Tap + Add table.</p>
+                    ) : Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
+                      const base = (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : 'https://jordanworld.co/ayra/').replace(/\/?$/, '/');
+                      const pin = (tablePins && tablePins[String(n)]) || "";
+                      const url = base + '?table=' + n + (pin ? ('&pin=' + pin) : '');
+                      return (
+                        <div key={n} className="flex flex-wrap items-center gap-2 text-xs p-2 rounded-xl bg-surface/40 border border-champagne/8">
+                          <span className="text-off-white font-medium w-10">T{n}</span>
+                          <input type="text" inputMode="numeric" maxLength={6} placeholder="PIN"
+                            value={pin}
+                            onChange={e => { const v = e.target.value.trim(); setTablePins(prev => ({ ...prev, [String(n)]: v })); if (v) cloudUpsertPin(n, v); }}
+                            className="w-16 min-h-[36px] bg-surface border border-champagne/20 rounded-lg px-2 text-center text-off-white" />
+                          <button type="button" onClick={() => { navigator.clipboard.writeText(url).then(() => showToast('Copied T' + n + ' QR link')).catch(() => showToast(url)); }}
+                            className="flex-1 min-w-0 truncate text-left px-2 py-2 rounded-lg bg-surface/80 border border-champagne/10 hover:border-champagne/30 text-champagne" title={url}>
+                            Copy QR link
+                          </button>
+                          <button type="button" onClick={() => {
+                            if (!window.confirm("Remove table " + n + "?")) return;
+                            setTablePins(prev => {
+                              const copy = { ...prev };
+                              delete copy[String(n)];
+                              return copy;
+                            });
+                            if (sb) sb.from("table_pins").delete().eq("table_no", String(n)).then(() => {});
+                            showToast("Table " + n + " removed");
+                          }} className="px-2 py-2 rounded-lg text-sage hover:text-red-400 border border-champagne/10">Remove</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+            )}
+
+{(staffTab === "menu" || staffTab === "insights") && !mgrUnlocked && (
+              <div className="glass rounded-2xl p-8 max-w-md mx-auto border border-champagne/15 text-center">
+                <Icon name="lock" size={28} className="text-champagne mx-auto mb-3" />
+                <h2 className="font-display text-2xl text-off-white mb-2">Manager access</h2>
+                <p className="text-sage text-sm mb-5">Menu editing and Insights need the manager PIN.</p>
+                <input type="password" inputMode="numeric" maxLength={4} value={mgrPin}
+                  onChange={e => { setMgrPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setMgrError(false); }}
+                  className="w-40 mx-auto min-h-[48px] bg-surface border border-champagne/25 rounded-xl px-4 text-center text-xl tracking-[0.4em] text-off-white focus:outline-none focus:border-champagne"
+                  placeholder="••••" autoComplete="off" />
+                {mgrError && <p className="text-red-400 text-sm mt-2">Wrong PIN</p>}
+                <button type="button" className="mt-5 w-full max-w-xs mx-auto py-3 rounded-xl bg-champagne text-obsidian font-semibold text-sm"
+                  onClick={async () => {
+                    try {
+                      const pin = String(mgrPin || "").trim();
+                      if (pin.length < 4) { setMgrError(true); return; }
+                      const h = await hashMgrPin(pin);
+                      if (h === MGR_PIN_HASH) {
+                        setMgrUnlocked(true);
+                        try { sessionStorage.setItem("ayra_mgr", "1"); } catch {}
+                        setMgrPin("");
+                        showToast("Manager access unlocked");
+                      } else {
+                        setMgrError(true);
+                        setMgrPin("");
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      setMgrError(true);
+                      setMgrPin("");
+                    }
+                  }}>Unlock</button>
+              </div>
+            )}
+
+            {staffTab === "insights" && mgrUnlocked && (
+            <>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                  <div>
+                    <h2 className="font-display text-2xl text-off-white">Live Insights</h2>
+                    <p className="text-sage text-xs">From confirmed orders in Supabase · updates when you change period or refresh</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {[
+                      { id: "day", label: "Today" },
+                      { id: "month", label: "This month" },
+                      { id: "all", label: "All time" },
+                    ].map(p => (
+                      <button key={p.id} type="button" onClick={() => setInsightPeriod(p.id)}
+                        className={`px-4 min-h-[40px] rounded-full text-sm font-medium ${insightPeriod === p.id ? "bg-champagne text-obsidian" : "border border-champagne/25 text-sage"}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => loadInsights(insightPeriod)}
+                      className="px-3 py-2 rounded-xl border border-champagne/30 text-champagne text-xs font-semibold flex items-center gap-1.5">
+                      <Icon name="refresh-cw" size={14} /> Refresh
+                    </button>
+                    <button type="button" onClick={() => { setMgrUnlocked(false); try { sessionStorage.removeItem("ayra_mgr"); } catch {}; }}
+                      className="px-3 py-2 text-sage text-xs hover:text-off-white">Lock</button>
+                  </div>
+                </div>
+
+                {insightsLoading && <p className="text-sage text-sm py-6">Loading insights…</p>}
+                {insightsError && <p className="text-red-400 text-sm py-4">{insightsError}</p>}
+
+                {insights && !insightsLoading && (
+                  <>
+                    <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: insightPeriod === "day" ? "Confirmed rounds (today)" : insightPeriod === "month" ? "Confirmed rounds (month)" : "Confirmed rounds (all)", value: insights.confirmedRounds, icon: "shopping-bag", sub: `${insights.pending} still pending · ${insights.totalRounds} total rounds` },
+                        { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.tablesActive} tables with orders` },
+                        { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "Among tables in this period" },
+                        { label: "Drinks ordered", value: insights.drinks, icon: "wine", sub: `Desserts: ${insights.desserts} · ${insights.drinksPerTable}/table avg drinks` },
+                      ].map((kpi, i) => (
+                        <div key={kpi.label} className="glass rounded-2xl p-5 border border-champagne/8 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Icon name={kpi.icon} size={16} className="text-champagne" />
+                            <span className="text-sage text-xs uppercase tracking-wider">{kpi.label}</span>
+                          </div>
+                          <p className="font-display text-2xl text-off-white truncate">{kpi.value}</p>
+                          {kpi.sub && <p className="text-sage text-xs mt-1">{kpi.sub}</p>}
+                        </div>
+                      ))}
+                    </section>
+
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Orders by category</h3>
+                        {(insights.categoryValues || []).every(v => !v) ? (
+                          <p className="text-sage text-sm">No category data yet.</p>
+                        ) : (
+                          <InsightPieChart labels={insights.categoryLabels} values={insights.categoryValues} />
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top dishes</h3>
+                        {!(insights.topDishes && insights.topDishes.length) ? (
+                          <p className="text-sage text-sm">No dish data yet.</p>
+                        ) : (
+                          <InsightBarChart
+                            title="Qty"
+                            labels={insights.topDishes.map(x => x[0])}
+                            values={insights.topDishes.map(x => x[1])}
+                          />
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top drinks</h3>
+                        {!(insights.topDrinks && insights.topDrinks.length) ? (
+                          <p className="text-sage text-sm">No drinks ordered in this period.</p>
+                        ) : (
+                          <InsightBarChart
+                            title="Drinks"
+                            labels={insights.topDrinks.map(x => x[0])}
+                            values={insights.topDrinks.map(x => x[1])}
+                          />
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top desserts</h3>
+                        {!(insights.topDesserts && insights.topDesserts.length) ? (
+                          <p className="text-sage text-sm">No desserts ordered in this period.</p>
+                        ) : (
+                          <InsightBarChart
+                            title="Desserts"
+                            labels={insights.topDesserts.map(x => x[0])}
+                            values={insights.topDesserts.map(x => x[1])}
+                          />
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">Top dishes (list)</h3>
+                        {insights.topDishes.length === 0 ? (
+                          <p className="text-sage text-sm">No confirmed orders in this period.</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {insights.topDishes.map(([name, qty]) => (
+                              <li key={name} className="flex justify-between text-sm border-b border-champagne/10 pb-2">
+                                <span className="text-off-white truncate pr-3">{name}</span>
+                                <span className="text-champagne font-medium">{qty}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div className="glass rounded-2xl p-6 border border-champagne/8">
+                        <h3 className="font-display text-xl text-off-white mb-4">By table</h3>
+                        {insights.tables.length === 0 ? (
+                          <p className="text-sage text-sm">No table data.</p>
+                        ) : (
+                          <ul className="space-y-2 max-h-72 overflow-y-auto">
+                            {insights.tables.sort((a,b) => b.bill - a.bill).map(tb => (
+                              <li key={tb.table} className="flex justify-between text-sm border-b border-champagne/10 pb-2">
+                                <span className="text-off-white">Table {tb.table} · {tb.rounds} round{tb.rounds !== 1 ? "s" : ""}</span>
+                                <span className="text-champagne font-medium">{formatPrice(tb.bill)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </section>
+                  </>
+                )}
+            </>
+            )}
+
+            {staffTab === "menu" && mgrUnlocked && (
+            <section>
+              <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <Icon name="utensils" size={22} className="text-champagne" />
+                  <h2 className="font-display text-2xl text-off-white">Dish Management</h2>
+                </div>
+                <button onClick={openAddDish} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-semibold hover:bg-champagne-deep transition shadow-glow-sm">
+                  <Icon name="plus" size={16} /> Add Dish
+                </button>
+              </div>
+              <div className="glass rounded-2xl overflow-hidden border border-champagne/8">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-champagne/10 text-sage text-xs uppercase tracking-wider">
+                        <th className="px-5 py-3 font-medium">Dish</th>
+                        <th className="px-5 py-3 font-medium">Category</th>
+                        <th className="px-5 py-3 font-medium">Price</th>
+                        <th className="px-5 py-3 font-medium">Margin</th>
+                        <th className="px-5 py-3 font-medium">Orders</th>
+                        <th className="px-5 py-3 font-medium">Visible</th>
+                        <th className="px-5 py-3 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dishes.map(d => (
+                        <tr key={d.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <img src={d.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                              <span className="font-medium text-off-white">{d.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3 text-sage">{d.category}</td>
+                          <td className="px-5 py-3 text-champagne">{formatPrice(d.price)}</td>
+                          <td className="px-5 py-3 text-off-white">{d.margin}%</td>
+                          <td className="px-5 py-3 text-off-white">{d.ordersToday}</td>
+                          <td className="px-5 py-3">
+                            <button onClick={() => toggleVisible(d.id)}
+                              className={`switch-toggle w-10 h-5 rounded-full transition relative ${d.visible ? "bg-champagne" : "bg-surface"}`}
+                              aria-label={d.visible ? "Hide dish" : "Show dish"}>
+                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-off-white transition-all ${d.visible ? "left-5" : "left-0.5"}`} />
+                            </button>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <button onClick={() => setEditingDish({ ...d })} className="text-champagne hover:text-champagne-deep text-sm font-medium">Edit</button>
+                              <button onClick={() => deleteDish(d.id)} className="text-red-400/80 hover:text-red-400 text-sm font-medium">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+            )}
+          </div>
+
+          {editingDish && (
+            <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-obsidian/75 backdrop-blur-sm" onClick={() => setEditingDish(null)} role="dialog" aria-modal="true">
+              <div className="glass-strong rounded-2xl max-w-lg w-full p-6 shadow-float max-h-[90vh] overflow-y-auto animate-scale-in border border-champagne/15" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="font-display text-2xl text-off-white">{editingDish.id === null ? "Add New Dish" : "Edit Dish"}</h3>
+                  <button onClick={() => setEditingDish(null)} className="text-sage hover:text-off-white" aria-label="Close"><Icon name="x" size={22} /></button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Image URL</label>
+                    <input type="text" value={editingDish.image} onChange={e => setEditingDish({ ...editingDish, image: e.target.value })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                    {editingDish.image && <img src={editingDish.image} alt="Preview" className="mt-2 w-full h-32 object-cover rounded-xl" onError={e => { e.target.style.display = "none"; }} />}
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Name *</label>
+                    <input type="text" value={editingDish.name} onChange={e => setEditingDish({ ...editingDish, name: e.target.value })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Description</label>
+                    <textarea rows={3} value={editingDish.description} onChange={e => setEditingDish({ ...editingDish, description: e.target.value })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne resize-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-sage">Price (₹)</label>
+                      <input type="number" min="0" value={editingDish.price} onChange={e => setEditingDish({ ...editingDish, price: parseFloat(e.target.value) || 0 })}
+                        className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-sage">Category</label>
+                      <select value={editingDish.category} onChange={e => setEditingDish({ ...editingDish, category: e.target.value })}
+                        className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne">
+                        {CATEGORIES.filter(c => c !== "All").map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-sage">Margin (%)</label>
+                    <input type="number" min="0" max="100" value={editingDish.margin ?? 50} onChange={e => setEditingDish({ ...editingDish, margin: parseFloat(e.target.value) || 0 })}
+                      className="mt-1 w-full bg-surface border border-champagne/20 rounded-xl px-4 py-2.5 text-off-white text-sm focus:outline-none focus:border-champagne" />
+                    <p className="text-sage/60 text-xs mt-1">Staff can set real food-cost margin here</p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <button onClick={() => {
+                      if (!editingDish.name.trim()) { showToast("Please enter a dish name"); return; }
+                      saveDish(editingDish);
+                    }} className="flex-1 py-3 rounded-xl bg-champagne text-obsidian font-semibold hover:bg-champagne-deep transition">
+                      {editingDish.id === null ? "Add to Menu" : "Save Changes"}
+                    </button>
+                    <button onClick={() => setEditingDish(null)} className="px-5 py-3 rounded-xl text-sage hover:text-off-white">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+
+    const ORDER_STATUS_RANK = { new: 0, accepted: 1, cooking: 2, ready: 3, delivered: 4 };
+
+    function normalizeOrderSessions(raw) {
+      const byTable = {};
+      for (const o of (raw || [])) {
+        const k = String(o.table ?? "").trim().replace(/^0+/, "") || String(o.table ?? "").trim();
+        if (!k) continue;
+        if (!byTable[k]) {
+          byTable[k] = {
+            table: k,
+            guestName: o.guestName || "",
+            guestPhone: o.guestPhone || "",
+            rounds: [],
+            createdAt: o.createdAt || new Date().toISOString(),
+          };
+        }
+        if (o.guestName) byTable[k].guestName = o.guestName;
+        if (o.guestPhone) byTable[k].guestPhone = o.guestPhone;
+        const incoming = o.rounds
+          ? o.rounds
+          : [{
+              id: o.id || ("R-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7)),
+              status: o.status || "new",
+              items: o.items || [],
+              total: o.total || 0,
+              createdAt: o.createdAt || new Date().toISOString(),
+              updatedAt: o.updatedAt,
+            }];
+        for (const r of incoming) {
+          if (!r || !r.id) continue;
+          // Skip empty rounds
+          if (!r.items || r.items.length === 0) continue;
+          const existing = byTable[k].rounds.find(x => x.id === r.id);
+          if (!existing) {
+            byTable[k].rounds.push({
+              id: r.id,
+              status: r.status || "new",
+              items: r.items || [],
+              total: r.total || 0,
+              createdAt: r.createdAt || new Date().toISOString(),
+              updatedAt: r.updatedAt || null,
+            });
+          } else {
+            // Keep the further-along status / latest update
+            const rankNew = ORDER_STATUS_RANK[r.status] ?? 0;
+            const rankOld = ORDER_STATUS_RANK[existing.status] ?? 0;
+            const newerUpdate = (r.updatedAt && (!existing.updatedAt || r.updatedAt > existing.updatedAt));
+            if (rankNew > rankOld || (rankNew === rankOld && newerUpdate)) {
+              existing.status = r.status || existing.status;
+              existing.updatedAt = r.updatedAt || existing.updatedAt;
+              existing.items = r.items && r.items.length ? r.items : existing.items;
+              existing.total = r.total != null ? r.total : existing.total;
+            }
+          }
+        }
+        if (o.createdAt && (!byTable[k].createdAt || o.createdAt < byTable[k].createdAt)) {
+          byTable[k].createdAt = o.createdAt;
+        }
+      }
+      return Object.values(byTable)
+        .map(s => ({
+          ...s,
+          rounds: (s.rounds || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+        }))
+        .filter(s => (s.rounds || []).length > 0);
+    }
+
+    function persistOrders(orders) {
+      try {
+        localStorage.setItem("ayra_orders", JSON.stringify(orders));
+      } catch (e) {
+        console.error("Failed to save orders", e);
+      }
+      return orders;
+    }
+
+    function getTableFromUrl() {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        const t = q.get("table") || q.get("t") || "";
+        return (t || "").trim();
+      } catch { return ""; }
+    }
+    function getPinFromUrl() {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        return (q.get("pin") || q.get("code") || "").trim();
+      } catch { return ""; }
+    }
+
+    
+    function App() {
+      const [view, setView] = useState(() => {
+        try {
+          if (IS_APEX) return sessionStorage.getItem("ayra_staff") === "1" ? "owner" : "apex-gate";
+          return sessionStorage.getItem("ayra_staff") === "1" ? "owner" : "customer";
+        } catch { return IS_APEX ? "apex-gate" : "customer"; }
+      });
+      const [staffAuth, setStaffAuth] = useState(() => { try { return sessionStorage.getItem("ayra_staff") === "1"; } catch { return false; } });
+      const [showPin, setShowPin] = useState(() => IS_APEX && !(typeof sessionStorage !== "undefined" && sessionStorage.getItem("ayra_staff") === "1"));
+      const [dishes, setDishes] = useState(() => {
+        const byId = Object.fromEntries(INITIAL_DISHES.map(d => [d.id, d]));
+        const loaded = loadState("ayra_dishes", null);
+        const merge = (list) => list.map(d => {
+          const base = byId[d.id];
+          return {
+            ...d,
+            drinkType: d.drinkType || (base && base.drinkType) || undefined,
+            category: d.category || (base && base.category),
+            variants: d.variants || (base && base.variants),
+          };
+        });
+        if (!loaded) return INITIAL_DISHES;
+        const wiped = sessionStorage.getItem("ayra_stats_wiped");
+        if (!wiped) {
+          try { sessionStorage.setItem("ayra_stats_wiped", "1"); } catch {}
+          return merge(loaded.map(d => ({ ...d, ordersToday: 0 })));
+        }
+        return merge(loaded);
+      });
+      const [recommendations, setRecommendations] = useState(() => loadState("ayra_recs", AI_RECOMMENDATIONS));
+      const [sessionItems, setSessionItems] = useState([]);
+      const [liveOrders, setLiveOrders] = useState([]);
+      const [tablePins, setTablePins] = useState(() => ({ ...DEFAULT_TABLE_PINS }));
+      const [toast, setToast] = useState(null);
+      const [tableFromQr] = useState(() => getTableFromUrl());
+      const [pinFromQr] = useState(() => getPinFromUrl());
+      const [cloudReady, setCloudReady] = useState(false);
+
+      useEffect(() => { saveState("ayra_dishes", dishes); }, [dishes]);
+      useEffect(() => { saveState("ayra_recs", recommendations); }, [recommendations]);
+
+      const showToast = useCallback((msg) => setToast(msg), []);
+
+      const refreshOrders = useCallback(async () => {
+        try {
+          if (!sb) {
+            showToast("Cloud not connected — check Supabase script");
+            return;
+          }
+          const next = await cloudFetchLiveOrders();
+          setLiveOrders(next || []);
+          showToast("Orders refreshed");
+        } catch (e) {
+          console.error(e);
+          showToast("Refresh failed: " + (e.message || "error"));
+        }
+      }, [showToast]);
+
+      // Load pins + orders from Supabase on start
+      useEffect(() => {
+        let channel;
+        (async () => {
+          try {
+            if (!sb) {
+              setTablePins({ ...DEFAULT_TABLE_PINS });
+              showToast("Supabase client missing");
+              return;
+            }
+            const pins = await cloudFetchPins();
+            if (pins) setTablePins(pins);
+            const orders = await cloudFetchLiveOrders();
+            setLiveOrders(orders || []);
+            setCloudReady(true);
+            // Realtime
+            channel = sb.channel("ayra-live")
+              .on("postgres_changes", { event: "*", schema: "public", table: "order_rounds" }, async () => {
+                try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch (e) { console.error(e); }
+              })
+              .on("postgres_changes", { event: "*", schema: "public", table: "table_sessions" }, async () => {
+                try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch (e) { console.error(e); }
+              })
+              .subscribe();
+          } catch (e) {
+            console.error(e);
+            showToast("Cloud load failed: " + (e.message || "check tables/RLS"));
+            setTablePins({ ...DEFAULT_TABLE_PINS });
+          }
+        })();
+        return () => { if (channel && sb) sb.removeChannel(channel); };
+      }, [showToast]);
+
+      const placeOrder = useCallback(async (items, tableLabel, guest) => {
+        try {
+          await cloudPlaceOrder(items, tableLabel, guest);
+          const next = await cloudFetchLiveOrders();
+          setLiveOrders(next || []);
+        } catch (e) {
+          console.error(e);
+          showToast("Order failed: " + (e.message || "cloud error"));
+          throw e;
+        }
+      }, [showToast]);
+
+      const updateRoundStatus = useCallback(async (tableKey, roundId, status) => {
+        // Optimistic UI
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          return {
+            ...session,
+            rounds: (session.rounds || []).map(r =>
+              String(r.id) === String(roundId) ? { ...r, status, updatedAt: new Date().toISOString() } : r
+            ),
+          };
+        }));
+        try {
+          await cloudUpdateRoundStatus(roundId, status);
+          if (status === "accepted") {
+            const session = liveOrders.find(s => String(s.table) === String(tableKey));
+            const round = session?.rounds?.find(r => String(r.id) === String(roundId));
+            const confirmedItems = round?.items || [];
+            if (confirmedItems.length) {
+              setDishes(ds => {
+                const dnext = ds.map(d => {
+                  const ordered = confirmedItems.find(i => i.id === d.id);
+                  if (!ordered) return d;
+                  return { ...d, ordersToday: (d.ordersToday || 0) + (ordered.qty || 1) };
+                });
+                saveState("ayra_dishes", dnext);
+                return dnext;
+              });
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          showToast("Status update failed: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [showToast, liveOrders]);
+
+      const clearTable = useCallback(async (tableKey) => {
+        const session = liveOrders.find(s => String(s.table) === String(tableKey));
+        setLiveOrders(prev => prev.filter(s => String(s.table) !== String(tableKey)));
+        try {
+          await cloudClearTable(session?.sessionId, tableKey);
+        } catch (e) {
+          console.error(e);
+          showToast("Clear failed: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [liveOrders, showToast]);
+
+      const cancelRound = useCallback(async (tableKey, roundId) => {
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          return { ...session, rounds: (session.rounds || []).filter(r => String(r.id) !== String(roundId)) };
+        }).filter(s => (s.rounds || []).length > 0));
+        try {
+          await cloudCancelRound(roundId);
+        } catch (e) {
+          console.error(e);
+          showToast("Cancel failed: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [showToast]);
+
+      const handleStaffAccess = () => {
+        if (staffAuth) setView("owner");
+        else setShowPin(true);
+      };
+      const handlePinSuccess = () => {
+        setStaffAuth(true);
+        try { sessionStorage.setItem("ayra_staff", "1"); } catch {}
+        setShowPin(false);
+        setView("owner");
+        showToast("Staff access granted");
+      };
+      const handleLogout = () => {
+        setStaffAuth(false);
+        try { sessionStorage.removeItem("ayra_staff"); } catch {}
+        if (IS_APEX) {
+          setView("apex-gate");
+          setShowPin(true);
+        } else {
+          setView("customer");
+        }
+        showToast("Logged out of Staff Mode");
+      };
+      const resetDemo = () => {
+        localStorage.removeItem("ayra_dishes");
+        localStorage.removeItem("ayra_recs");
+        localStorage.removeItem("ayra_orders");
+        localStorage.removeItem("ayra_table_pins");
+        localStorage.removeItem("ayra_cleared_tables");
+        localStorage.removeItem("ayra_guest");
+        try { sessionStorage.removeItem("ayra_guest"); } catch {}
+        setTablePins({});
+        setDishes(INITIAL_DISHES);
+        setRecommendations(AI_RECOMMENDATIONS);
+        setLiveOrders([]);
+        setSessionItems([]);
+        showToast("Demo data reset");
+      };
+
+      return (
+        <div className="min-h-screen bg-obsidian">
+          {IS_APEX ? (
+            staffAuth && view === "owner" ? (
+              <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                tablePins={tablePins} setTablePins={setTablePins}
+                onLogout={handleLogout} showToast={showToast} onReset={resetDemo} onRefreshOrders={refreshOrders} />
+            ) : (
+              <div className="min-h-screen flex flex-col items-center justify-center p-6">
+                <h1 className="font-display text-3xl text-off-white mb-2">Ayra Apex</h1>
+                <p className="text-sage text-sm mb-6">Staff portal · enter PIN to continue</p>
+              </div>
+            )
+          ) : (
+            (view === "customer" || !staffAuth) ? (
+              <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} />
+            ) : (
+              <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                tablePins={tablePins} setTablePins={setTablePins}
+                onLogout={handleLogout} showToast={showToast} onReset={resetDemo} onRefreshOrders={refreshOrders} />
+            )
+          )}
+          {showPin && (
+            <PinModal
+              onSuccess={handlePinSuccess}
+              onClose={IS_APEX ? undefined : () => setShowPin(false)}
+              forced={IS_APEX}
+            />
+          )}
+          {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
