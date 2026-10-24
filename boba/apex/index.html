@@ -898,7 +898,15 @@
         (sessions || []).forEach(s => { sessionMap[s.id] = s; });
         list = list.map(r => ({ ...r, table_sessions: sessionMap[r.session_id] || null }));
       }
-      const confirmed = list.filter(r => r.status && r.status !== "new");
+      const isOpenSess = (r) => r.table_sessions && r.table_sessions.status === "open";
+      const isCancelled = (r) => /cancel/i.test(String(r.status || ""));
+      // Pending = waiting confirm on a table that is still open (not old abandoned rounds)
+      const pendingList = list.filter(r => r.status === "new" && isOpenSess(r) && !isCancelled(r));
+      // Confirmed flow (exclude new + cancelled)
+      const confirmed = list.filter(r => {
+        if (!r.status || r.status === "new" || isCancelled(r)) return false;
+        return true;
+      });
       let revenue = 0;
       const byTable = {};
       const byDish = {};
@@ -916,17 +924,18 @@
       const tables = Object.values(byTable);
       const avgBill = tables.length ? Math.round(tables.reduce((s, x) => s + x.bill, 0) / tables.length) : 0;
       const topDishes = Object.entries(byDish).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const meaningful = list.filter(r => !isCancelled(r));
       return {
         period: period || "day",
-        pending: list.filter(r => r.status === "new").length,
+        pending: pendingList.length,
         confirmedRounds: confirmed.length,
-        totalRounds: list.length,
+        totalRounds: pendingList.length + confirmed.length,
         revenue,
         avgBill,
         tablesActive: tables.length,
         tables,
         topDishes,
-        rawRounds: list,
+        rawRounds: meaningful,
       };
     }
 
@@ -935,6 +944,43 @@
       if (!sb || !tableKey) return "";
       const open = await cloudGetOpenSession(tableKey);
       return (open && open.join_code) ? String(open.join_code) : "";
+    }
+
+    async function cloudFetchTableHistory(tableKey) {
+      if (!sb || !tableKey) return [];
+      const key = String(tableKey).trim().replace(/^0+/, "") || String(tableKey).trim();
+      const open = await cloudGetOpenSession(key);
+      if (!open) return [];
+      let rounds = [];
+      const r1 = await sb
+        .from("bloom_order_rounds")
+        .select("id, status, items, total, created_at, ordered_by_name, ordered_by_phone")
+        .eq("session_id", open.id)
+        .order("created_at", { ascending: false });
+      if (r1.error && /ordered_by/i.test(r1.error.message || "")) {
+        const r2 = await sb
+          .from("bloom_order_rounds")
+          .select("id, status, items, total, created_at")
+          .eq("session_id", open.id)
+          .order("created_at", { ascending: false });
+        if (r2.error) throw r2.error;
+        rounds = r2.data || [];
+      } else if (r1.error) {
+        throw r1.error;
+      } else {
+        rounds = r1.data || [];
+      }
+      return rounds.map(r => ({
+        id: String(r.id),
+        roundId: String(r.id),
+        table: key,
+        orderedBy: r.ordered_by_name || null,
+        items: r.items || [],
+        total: Number(r.total) || 0,
+        status: r.status || "new",
+        at: r.created_at,
+        shared: true,
+      }));
     }
 
     let __menuCache = { at: 0, byId: null };
@@ -1138,11 +1184,18 @@
 
     async function cloudClearTable(sessionId, tableNo) {
       if (!sb) throw new Error("Supabase not loaded");
-      if (sessionId) {
+      let sid = sessionId;
+      if (!sid && tableNo) {
+        const open = await cloudGetOpenSession(tableNo);
+        sid = open && open.id;
+      }
+      if (sid) {
+        // Drop unconfirmed rounds so insights don't keep counting them as pending
+        await sb.from("bloom_order_rounds").delete().eq("session_id", sid).eq("status", "new");
         const { error } = await sb
           .from("bloom_table_sessions")
           .update({ status: "paid", cleared_at: new Date().toISOString() })
-          .eq("id", sessionId);
+          .eq("id", sid);
         if (error) throw error;
       } else if (tableNo) {
         const { error } = await sb
@@ -2176,10 +2229,9 @@
           at: new Date().toISOString(),
         };
         setOrderHistory(prev => {
-          const next = [entry, ...prev].slice(0, 40);
+          const next = [entry, ...prev.filter(h => String(h.id) !== String(entry.id) && String(h.roundId || "") !== String(entry.roundId || ""))].slice(0, 40);
           try {
             localStorage.setItem("bloom_history_" + (String(tableLabel) || "guest"), JSON.stringify(next));
-            localStorage.setItem("bloom_history_guest", JSON.stringify(next));
           } catch {}
           return next;
         });
@@ -2198,47 +2250,23 @@
       }, [tableFromQr]);
 
       const syncHistoryWithSession = useCallback(async () => {
-        const t = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
-        if (!t || !sb) return;
+        const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
+        if (!tk || !sb) return;
         try {
-          const { data, error } = await sb
-            .from("bloom_table_sessions")
-            .select("id, status, created_at")
-            .eq("table_no", t)
-            .eq("status", "open")
-            .order("created_at", { ascending: false })
-            .limit(1);
-          if (error) throw error;
-          if (!data || data.length === 0) {
-            clearLocalHistory(t);
+          const list = await cloudFetchTableHistory(tk);
+          if (!list.length) {
+            // Session closed or no orders yet — keep empty shared view
+            const open = await cloudGetOpenSession(tk);
+            if (!open) {
+              clearLocalHistory(tk);
+              return;
+            }
+            setOrderHistory([]);
+            try { localStorage.setItem("bloom_history_" + tk, "[]"); } catch (e) {}
             return;
           }
-          const sessionId = data[0].id;
-          const sessionStarted = new Date(data[0].created_at).getTime();
-          const { data: rounds } = await sb
-            .from("bloom_order_rounds")
-            .select("id, status, total, items, created_at")
-            .eq("session_id", sessionId)
-            .order("created_at", { ascending: false });
-          const byId = {};
-          (rounds || []).forEach(r => { byId[String(r.id)] = r; });
-          setOrderHistory(prev => {
-            let kept = (prev || []).filter(h => {
-              if (!h.at) return false;
-              return new Date(h.at).getTime() >= sessionStarted - 5000;
-            });
-            kept = kept.map(h => {
-              const rid = h.roundId ? String(h.roundId) : (String(h.id).match(/^[0-9a-f-]{8,}/i) ? String(h.id) : null);
-              if (rid && byId[rid]) {
-                return { ...h, status: byId[rid].status || h.status, total: Number(byId[rid].total) || h.total };
-              }
-              return h;
-            });
-            try {
-              localStorage.setItem("bloom_history_" + t, JSON.stringify(kept));
-            } catch {}
-            return kept;
-          });
+          setOrderHistory(list);
+          try { localStorage.setItem("bloom_history_" + tk, JSON.stringify(list)); } catch (e) {}
         } catch (e) {
           console.error("history sync", e);
         }
@@ -2246,13 +2274,28 @@
 
       useEffect(() => {
         syncHistoryWithSession();
-        const id = setInterval(syncHistoryWithSession, 12000);
+        const id = setInterval(syncHistoryWithSession, 4000);
         return () => clearInterval(id);
       }, [syncHistoryWithSession]);
 
       useEffect(() => {
         if (cartOpen) syncHistoryWithSession();
       }, [cartOpen, syncHistoryWithSession]);
+
+      // Live updates when anyone at the table orders
+      useEffect(() => {
+        if (!sb || !tableFromQr) return;
+        const tk = String(tableFromQr).replace(/^0+/, "") || String(tableFromQr);
+        const ch = sb.channel("table-hist-" + tk)
+          .on("postgres_changes", { event: "*", schema: "public", table: "bloom_order_rounds" }, () => {
+            syncHistoryWithSession();
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "bloom_table_sessions" }, () => {
+            syncHistoryWithSession();
+          })
+          .subscribe();
+        return () => { try { sb.removeChannel(ch); } catch (e) {} };
+      }, [tableFromQr, syncHistoryWithSession]);
 
       const filtered = useMemo(() => {
         let list = dishes.filter(d => d.visible);
