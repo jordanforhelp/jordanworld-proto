@@ -806,7 +806,7 @@
         price: d.price,
         category: d.category,
         image: d.image || "",
-        imageVisible: d.imageVisible === true,
+        imageVisible: !!(d.image && String(d.image).trim()),
         soldOut: d.soldOut === true,
         tags: d.tags || [],
         diet: d.diet || [],
@@ -870,7 +870,13 @@
           variants: d.variants || (base && base.variants),
           variantKind: d.variantKind || (base && base.variantKind),
           image: fixMenuImageUrl(d.image != null ? d.image : (base && base.image) || ""),
-          imageVisible: d.imageVisible === true,
+          // Default ON when there is a photo (was false → looked "off" on other devices)
+          imageVisible: (function() {
+            const img = fixMenuImageUrl(d.image != null ? d.image : (base && base.image) || "");
+            if (!img) return false;
+            if (d.imageVisible === false) return false;
+            return true;
+          })(),
           soldOut: d.soldOut === true,
           visible: d.visible !== false,
         };
@@ -1591,7 +1597,7 @@
       const priceLabel = hasVariants
         ? formatPrice(Math.min(...dish.variants.map(v => v.price)))
         : formatPrice(dish.price);
-      const showPhoto = dish.imageVisible === true && !!dish.image;
+      const showPhoto = !!dish.image;
       const tags = (dish.tags || []).filter(t => CUSTOMER_VISIBLE_TAGS.includes(t));
       return (
         <article ref={cardRef} className={`menu-card ${visible ? "is-visible" : ""} ${soldOut ? "opacity-75" : ""}`} style={{ transitionDelay: `${Math.min(index % 6, 5) * 50}ms` }}>
@@ -3015,7 +3021,7 @@
         const payload = {
           ...updated,
           image: img,
-          imageVisible: updated.imageVisible === true,
+          imageVisible: !!img && updated.imageVisible !== false,
         };
         if (updated.id === null) {
           setDishes(prev => {
@@ -3794,13 +3800,14 @@
       const [pinFromQr] = useState(() => getPinFromUrl());
       const menuCloudReady = useRef(false);
       const applyingRemoteMenu = useRef(false);
+      const menuSkipCloudPush = useRef(true); // don't upload stale localStorage over cloud
 
       useEffect(() => { saveState("bloom_dishes", dishes); }, [dishes]);
       useEffect(() => { saveState("bloom_recs", recommendations); }, [recommendations]);
 
-      // Push menu edits (photo on/off, uploads, prices) to Supabase for all devices
+      // Push menu edits to Supabase — never before first cloud load (avoids wiping other devices)
       useEffect(() => {
-        if (!menuCloudReady.current || applyingRemoteMenu.current) return;
+        if (!menuCloudReady.current || applyingRemoteMenu.current || menuSkipCloudPush.current) return;
         scheduleCloudSaveMenu(dishes);
       }, [dishes]);
 
@@ -3851,19 +3858,36 @@
             try {
               const remote = await cloudFetchMenu();
               if (remote && remote.dishes && remote.dishes.length) {
-                applyRemoteMenu(remote.dishes, remote.updatedAt);
+                // Prefer cloud as source of truth on open (photos stick across devices)
+                applyingRemoteMenu.current = true;
+                const merged = mergeMenuList(remote.dishes).map(d => ({
+                  ...d,
+                  image: fixMenuImageUrl(d.image || ""),
+                  imageVisible: !!(d.image || "").trim(),
+                }));
+                setDishes(merged);
+                saveState("bloom_dishes", merged);
+                queueMicrotask(() => { applyingRemoteMenu.current = false; });
               } else {
-                // First time: seed cloud from current local menu
-                await cloudSaveMenu(dishes);
+                // First time: seed cloud — photos on if image present
+                const seed = dishes.map(d => ({
+                  ...d,
+                  imageVisible: !!(d.image || "").trim(),
+                }));
+                setDishes(seed);
+                await cloudSaveMenu(seed);
               }
+              menuSkipCloudPush.current = false;
               if (remote && remote.snakeDiscount) {
                 const s = saveSnakeDiscountSettings(remote.snakeDiscount);
                 setSnakeDiscount(s);
               }
             } catch (menuErr) {
               console.error("menu load", menuErr);
+              menuSkipCloudPush.current = false;
             }
             menuCloudReady.current = true;
+            menuSkipCloudPush.current = false;
 
             channel = sb.channel("bloom-live")
               .on("postgres_changes", { event: "*", schema: "public", table: "bloom_order_rounds" }, async () => {
@@ -3875,7 +3899,18 @@
               .on("postgres_changes", { event: "*", schema: "public", table: "bloom_menu" }, async () => {
                 try {
                   const remote = await cloudFetchMenu();
-                  if (remote && remote.dishes) applyRemoteMenu(remote.dishes, remote.updatedAt);
+                  if (remote && remote.dishes) {
+                    if (editingMenuLock.current) return;
+                    if (Date.now() - _lastLocalMenuWriteAt < 5000) return;
+                    applyingRemoteMenu.current = true;
+                    const merged = mergeMenuList(remote.dishes).map(d => ({
+                      ...d,
+                      image: fixMenuImageUrl(d.image || ""),
+                      imageVisible: !!(d.image || "").trim() ? (d.imageVisible !== false) : false,
+                    }));
+                    setDishes(merged);
+                    queueMicrotask(() => { applyingRemoteMenu.current = false; });
+                  }
                   if (remote && remote.snakeDiscount) {
                     const s = saveSnakeDiscountSettings(remote.snakeDiscount);
                     setSnakeDiscount(s);
