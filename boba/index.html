@@ -2115,26 +2115,23 @@
       const [needJoinOtp, setNeedJoinOtp] = useState(false);
       const [gateError, setGateError] = useState("");
       const [shownTableOtp, setShownTableOtp] = useState("");
-      // Load table OTP from storage + cloud session so host always sees it
+      // OTP only after successful claim/join on THIS browser — never load from public table link
       React.useEffect(() => {
-        let cancelled = false;
-        (async () => {
-          try {
-            const q = new URLSearchParams(window.location.search).get("table") || "";
-            const tk = String(q).replace(/^0+/, "") || q;
-            if (!tk) return;
-            const local = localStorage.getItem("bloom_table_otp_" + tk);
-            if (local && !cancelled) setShownTableOtp(local);
-            if (sb) {
-              const code = await cloudFetchJoinCode(tk);
-              if (code && !cancelled) {
-                setShownTableOtp(code);
-                try { localStorage.setItem("bloom_table_otp_" + tk, code); } catch (e) {}
-              }
-            }
-          } catch (e) {}
-        })();
-        return () => { cancelled = true; };
+        const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
+        if (!tk) {
+          setShownTableOtp("");
+          return;
+        }
+        const g = guest && guest.exp && Date.now() < guest.exp && String(guest.table || "") === String(tk) ? guest : null;
+        if (!g) {
+          setShownTableOtp("");
+          return;
+        }
+        const fromGuest = g.joinCode || g.tableOtp || "";
+        let fromStore = "";
+        try { fromStore = localStorage.getItem("bloom_table_otp_" + tk) || ""; } catch (e) {}
+        // Do not call Supabase for OTP here — that would leak it to anyone
+        setShownTableOtp(fromGuest || fromStore || "");
       }, [tableFromQr, guest]);
       const [gatePhone, setGatePhone] = useState("");
       const [loginBusy, setLoginBusy] = useState(false);
