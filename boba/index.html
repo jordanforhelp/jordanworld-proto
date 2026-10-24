@@ -1951,7 +1951,7 @@
       );
     };
 
-    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate }) => {
+    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate, onNeedJoin }) => {
       const [placing, setPlacing] = useState(false);
       const placingRef = useRef(false);
       const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
@@ -1996,7 +1996,18 @@
             );
           }).catch(err => {
             console.error(err);
-            showToast(err && err.message ? err.message : "Could not place order. Try again.");
+            {
+              const m = (err && err.message) || "";
+              if (/TABLE_IN_USE|table_in_use/i.test(m)) {
+                showToast("This table is already in use. Enter the table OTP to join.");
+                if (typeof onNeedJoin === "function") onNeedJoin();
+              } else if (/BAD_OTP/i.test(m)) {
+                showToast("That table OTP does not match. Ask your friend for the code.");
+                if (typeof onNeedJoin === "function") onNeedJoin();
+              } else {
+                showToast(m || "Could not place order. Try again.");
+              }
+            }
           }).finally(() => {
             placingRef.current = false;
             setPlacing(false);
@@ -2005,7 +2016,18 @@
           console.error(err);
           placingRef.current = false;
           setPlacing(false);
-          showToast(err && err.message ? err.message : "Could not place order. Try again.");
+          {
+              const m = (err && err.message) || "";
+              if (/TABLE_IN_USE|table_in_use/i.test(m)) {
+                showToast("This table is already in use. Enter the table OTP to join.");
+                if (typeof onNeedJoin === "function") onNeedJoin();
+              } else if (/BAD_OTP/i.test(m)) {
+                showToast("That table OTP does not match. Ask your friend for the code.");
+                if (typeof onNeedJoin === "function") onNeedJoin();
+              } else {
+                showToast(m || "Could not place order. Try again.");
+              }
+            }
         }
       };
       const itemKey = (i) => i.sessionKey || String(i.id);
@@ -2189,7 +2211,7 @@
         const payload = {
           ...g,
           table: tk,
-          exp: Date.now() + 12 * 60 * 60 * 1000,
+          exp: Date.now() + 2 * 60 * 60 * 1000, // 2 hours max on this phone
         };
         try {
           if (tk) localStorage.setItem("bloom_dining_" + tk, JSON.stringify(payload));
@@ -2364,25 +2386,31 @@
       const syncHistoryWithSession = useCallback(async () => {
         const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
         if (!tk || !sb) return;
+        // Only members who logged in / joined this table on THIS phone can see shared history
+        const g = guest && guest.exp && Date.now() < guest.exp && String(guest.table || "") === String(tk) ? guest : loadDiningGuest(tk);
+        if (!g || !g.phone) {
+          setOrderHistory([]);
+          return;
+        }
         try {
-          const list = await cloudFetchTableHistory(tk);
-          if (!list.length) {
-            // Session closed or no orders yet — keep empty shared view
-            const open = await cloudGetOpenSession(tk);
-            if (!open) {
-              clearLocalHistory(tk);
-              return;
-            }
-            setOrderHistory([]);
-            try { localStorage.setItem("bloom_history_" + tk, "[]"); } catch (e) {}
+          const open = await cloudGetOpenSession(tk);
+          if (!open) {
+            // Staff cleared table — wipe local login + history so home spam is harder
+            clearLocalHistory(tk);
+            setGuest(null);
+            try {
+              localStorage.removeItem("bloom_dining_" + tk);
+              localStorage.removeItem("bloom_table_otp_" + tk);
+            } catch (e) {}
             return;
           }
-          setOrderHistory(list);
-          try { localStorage.setItem("bloom_history_" + tk, JSON.stringify(list)); } catch (e) {}
+          const list = await cloudFetchTableHistory(tk);
+          setOrderHistory(list || []);
+          try { localStorage.setItem("bloom_history_" + tk, JSON.stringify(list || [])); } catch (e) {}
         } catch (e) {
           console.error("history sync", e);
         }
-      }, [tableFromQr, clearLocalHistory]);
+      }, [tableFromQr, clearLocalHistory, guest]);
 
       useEffect(() => {
         syncHistoryWithSession();
@@ -2563,6 +2591,12 @@
             })}
             onPlaySnake={() => { setCartOpen(false); setCartTab("cart"); setShowSnake(true); }}
             onOrderCelebrate={() => { setOrderBurst(true); }}
+            onNeedJoin={() => {
+              setNeedJoinOtp(true);
+              setGateError("");
+              setGateJoinCode("");
+              setShowGuestGate(true);
+            }}
             onPlaceOrder={(items, tableLabel, disc) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
               let saved = null;
