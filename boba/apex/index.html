@@ -668,6 +668,8 @@
           status: r.status || "new",
           items: r.items || [],
           total: Number(r.total) || 0,
+          orderedBy: r.ordered_by_name || null,
+          orderedByPhone: r.ordered_by_phone || null,
           createdAt: r.created_at,
           updatedAt: r.updated_at,
         });
@@ -935,14 +937,23 @@
       return (open && open.join_code) ? String(open.join_code) : "";
     }
 
-    /** Never trust client prices — reprice from bloom_menu or reject unknown items. */
-    async function repriceOrderItems(items) {
+    let __menuCache = { at: 0, byId: null };
+
+    async function getMenuByIdMap() {
+      const now = Date.now();
+      if (__menuCache.byId && now - __menuCache.at < 60000) return __menuCache.byId;
       if (!sb) throw new Error("Cloud not connected");
       const { data, error } = await sb.from("bloom_menu").select("dishes").eq("id", "main").maybeSingle();
       if (error) throw error;
-      const dishes = (data && data.dishes) || [];
       const byId = {};
-      dishes.forEach(d => { byId[String(d.id)] = d; });
+      ((data && data.dishes) || []).forEach(d => { byId[String(d.id)] = d; });
+      __menuCache = { at: now, byId };
+      return byId;
+    }
+
+    /** Never trust client prices — reprice from cached bloom_menu. */
+    async function repriceOrderItems(items) {
+      const byId = await getMenuByIdMap();
       const out = [];
       for (const i of items) {
         if (String(i.id) === "snake-discount") continue;
@@ -972,8 +983,17 @@
     async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       if (!sb) throw new Error("Supabase not loaded");
       const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
-      // Server-side prices from bloom_menu (client prices ignored)
-      const payloadItems = await repriceOrderItems(items);
+
+      if (!isRegisteredTable(tableKey, typeof tablePins !== "undefined" ? tablePins : DEFAULT_TABLE_PINS)) {
+        throw new Error("Invalid table. Scan the QR code on your table.");
+      }
+
+      // Parallel: menu prices + open session (one round-trip each)
+      const [payloadItems, openSess] = await Promise.all([
+        repriceOrderItems(items),
+        cloudGetOpenSession(tableKey),
+      ]);
+
       let total = payloadItems.reduce((s, i) => s + i.price * i.qty, 0);
       let pct = 0;
       if (discount && discount.percent > 0) {
@@ -991,64 +1011,114 @@
         });
       }
 
-      // Only real restaurant tables (from staff Tables list) — blocks ?table=100 hacks
-      if (!isRegisteredTable(tableKey, typeof tablePins !== "undefined" ? tablePins : DEFAULT_TABLE_PINS)) {
-        throw new Error("Invalid table. Scan the QR code on your table.");
+      // Claim check — OTP is mandatory on someone else's table
+      const phone = normalizePhoneIN(guest && guest.phone);
+      if (!phone || phone.replace(/\D/g, "").length < 10) {
+        throw new Error("Enter a valid mobile number to order");
       }
-
-      // Enforce table claim (phone + optional join OTP)
-      await cloudAssertTableClaim(tableKey, guest);
-
-      let { data: existing, error: e0 } = await sb
-        .from("bloom_table_sessions")
-        .select("*")
-        .eq("table_no", tableKey)
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (e0) throw e0;
-
+      // Guest must be scoped to this table number
+      if (guest && guest.table && String(guest.table).replace(/^0+/, "") !== String(tableKey)) {
+        throw new Error("TABLE_IN_USE");
+      }
       let sessionId;
-      if (existing && existing.length) {
-        sessionId = existing[0].id;
-        const patch = {};
-        if (guest?.name) patch.guest_name = guest.name;
-        if (guest?.phone) patch.guest_phone = normalizePhoneIN(guest.phone);
-        if (!existing[0].join_code) patch.join_code = makeJoinCode();
-        if (Object.keys(patch).length) {
-          await sb.from("bloom_table_sessions").update(patch).eq("id", sessionId);
+      let jcOut = "";
+      const ordererName = (guest && guest.name) ? String(guest.name).slice(0, 80) : null;
+      if (openSess) {
+        const owner = openSess.guest_phone || "";
+        const isOwner = !owner || phonesMatch(owner, phone);
+        if (!isOwner) {
+          const code = String((guest && (guest.joinCode || guest.tableOtp)) || "").replace(/\D/g, "");
+          const sessionCode = String(openSess.join_code || "").replace(/\D/g, "");
+          if (!code || !sessionCode || code !== sessionCode) {
+            if (code && sessionCode) throw new Error("BAD_OTP");
+            throw new Error("TABLE_IN_USE");
+          }
         }
-      } else {
-        const jc = makeJoinCode();
-        const { data: created, error: e1 } = await sb
-          .from("bloom_table_sessions")
-          .insert({
-            table_no: tableKey,
-            guest_name: guest?.name || null,
-            guest_phone: guest?.phone ? normalizePhoneIN(guest.phone) : null,
-            join_code: jc,
-            status: "open",
-          })
-          .select()
-          .single();
-        if (e1) throw e1;
-        sessionId = created.id;
+        sessionId = openSess.id;
+        jcOut = openSess.join_code || "";
+        const patch = {};
+        // First claimer only: set owner name/phone. Joiners never overwrite owner.
+        if (isOwner) {
+          if (guest && guest.name && !openSess.guest_name) patch.guest_name = guest.name;
+          if (!owner) patch.guest_phone = phone;
+        }
+        if (!openSess.join_code) {
+          jcOut = makeJoinCode();
+          patch.join_code = jcOut;
+        }
+        const roundPayload = {
+          session_id: sessionId,
+          status: "new",
+          items: payloadItems,
+          total,
+          ordered_by_name: ordererName,
+          ordered_by_phone: phone,
+        };
+        const tasks = [
+          sb.from("bloom_order_rounds").insert(roundPayload).select("id").single(),
+        ];
+        if (Object.keys(patch).length) {
+          tasks.push(sb.from("bloom_table_sessions").update(patch).eq("id", sessionId));
+        }
+        const results = await Promise.all(tasks);
+        const roundRes = results[0];
+        if (roundRes.error) {
+          // Fallback if ordered_by columns missing
+          if (/ordered_by/i.test(roundRes.error.message || "")) {
+            const { data: r2, error: e2 } = await sb.from("bloom_order_rounds").insert({
+              session_id: sessionId, status: "new", items: payloadItems, total,
+            }).select("id").single();
+            if (e2) throw e2;
+            if (jcOut) { try { localStorage.setItem("bloom_table_otp_" + tableKey, jcOut); } catch (e) {} }
+            return { tableKey, sessionId, roundId: r2 && r2.id, joinCode: jcOut, orderedBy: ordererName };
+          }
+          throw roundRes.error;
+        }
+        if (jcOut) {
+          try { localStorage.setItem("bloom_table_otp_" + tableKey, jcOut); } catch (e) {}
+        }
+        return { tableKey, sessionId, roundId: roundRes.data && roundRes.data.id, joinCode: jcOut, orderedBy: ordererName };
       }
 
-      const { data: roundRow, error: e2 } = await sb.from("bloom_order_rounds").insert({
-        session_id: sessionId,
-        status: "new",
-        items: payloadItems,
-        total,
-      }).select("id").single();
-      if (e2) throw e2;
-      let jcOut = "";
-      try {
-        const openNow = await cloudGetOpenSession(tableKey);
-        jcOut = (openNow && openNow.join_code) || "";
-        if (jcOut) localStorage.setItem("bloom_table_otp_" + tableKey, jcOut);
-      } catch (e) {}
-      return { tableKey, sessionId, roundId: roundRow && roundRow.id, joinCode: jcOut };
+      // New session + order
+      jcOut = makeJoinCode();
+      const { data: created, error: e1 } = await sb
+        .from("bloom_table_sessions")
+        .insert({
+          table_no: tableKey,
+          guest_name: guest && guest.name ? guest.name : null,
+          guest_phone: phone,
+          join_code: jcOut,
+          status: "open",
+        })
+        .select("id")
+        .single();
+      if (e1) throw e1;
+      sessionId = created.id;
+      let roundRow = null;
+      {
+        const ins = await sb.from("bloom_order_rounds").insert({
+          session_id: sessionId,
+          status: "new",
+          items: payloadItems,
+          total,
+          ordered_by_name: ordererName,
+          ordered_by_phone: phone,
+        }).select("id").single();
+        if (ins.error && /ordered_by/i.test(ins.error.message || "")) {
+          const ins2 = await sb.from("bloom_order_rounds").insert({
+            session_id: sessionId, status: "new", items: payloadItems, total,
+          }).select("id").single();
+          if (ins2.error) throw ins2.error;
+          roundRow = ins2.data;
+        } else if (ins.error) {
+          throw ins.error;
+        } else {
+          roundRow = ins.data;
+        }
+      }
+      try { localStorage.setItem("bloom_table_otp_" + tableKey, jcOut); } catch (e) {}
+      return { tableKey, sessionId, roundId: roundRow && roundRow.id, joinCode: jcOut, orderedBy: ordererName };
     }
 
     async function cloudUpdateRoundStatus(roundId, status) {
@@ -1895,6 +1965,7 @@
                     <div className="flex justify-between items-start gap-2">
                       <div>
                         <p className="text-xs text-mist">Table {h.table}</p>
+                        {h.orderedBy && <p className="text-xs text-ink font-medium">Ordered by {h.orderedBy}</p>}
                         <p className="text-[11px] text-mist/70">{h.at ? new Date(h.at).toLocaleString() : ""}</p>
                       </div>
                       <div className="text-right">
@@ -2005,32 +2076,40 @@
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
       const loadDiningGuest = (tableHint) => {
         try {
-          const tables = [];
-          if (tableHint) tables.push(String(tableHint));
-          tables.push("any");
-          for (const tkey of tables) {
-            const raw = localStorage.getItem("bloom_dining_" + tkey);
-            if (!raw) continue;
-            const g = JSON.parse(raw);
-            if (g && g.exp && Date.now() < g.exp) return g;
-            localStorage.removeItem("bloom_dining_" + tkey);
-          }
+          const tkey = String(tableHint || "").replace(/^0+/, "") || String(tableHint || "");
+          if (!tkey) return null;
+          const raw = localStorage.getItem("bloom_dining_" + tkey);
+          if (!raw) return null;
+          const g = JSON.parse(raw);
+          if (g && g.exp && Date.now() < g.exp && String(g.table || tkey) === String(tkey)) return g;
+          localStorage.removeItem("bloom_dining_" + tkey);
           return null;
         } catch { return null; }
       };
       const saveDiningGuest = (g, tableKey) => {
+        const tk = String(tableKey || g.table || "").replace(/^0+/, "") || String(tableKey || g.table || "");
         const payload = {
           ...g,
-          table: String(tableKey || g.table || ""),
+          table: tk,
           exp: Date.now() + 12 * 60 * 60 * 1000,
         };
         try {
-          if (payload.table) localStorage.setItem("bloom_dining_" + payload.table, JSON.stringify(payload));
-          localStorage.setItem("bloom_dining_any", JSON.stringify(payload));
+          if (tk) localStorage.setItem("bloom_dining_" + tk, JSON.stringify(payload));
+          try { localStorage.removeItem("bloom_dining_any"); } catch (e) {}
         } catch {}
         return payload;
       };
       const [guest, setGuest] = useState(() => loadDiningGuest(typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("table") || "") : ""));
+      // Never carry a login from table A to table B
+      React.useEffect(() => {
+        const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
+        if (!tk) { setGuest(null); return; }
+        const g = loadDiningGuest(tk);
+        setGuest(g);
+        if (!g) {
+          setShownTableOtp("");
+        }
+      }, [tableFromQr]);
       const [showGuestGate, setShowGuestGate] = useState(false);
       const [gateName, setGateName] = useState("");
       const [gateJoinCode, setGateJoinCode] = useState("");
@@ -2087,6 +2166,7 @@
           id: (extra && extra.roundId) ? String(extra.roundId) : ("H-" + Date.now()),
           roundId: extra && extra.roundId ? String(extra.roundId) : null,
           table: String(tableLabel),
+          orderedBy: (extra && extra.orderedBy) || (guest && guest.name) || null,
           items: items.map(i => ({
             name: i.name,
             variantLabel: i.variantLabel || null,
@@ -2325,6 +2405,7 @@
           <CartDrawer open={cartOpen} onClose={() => { setCartOpen(false); setCartTab("cart"); }} items={sessionItems} setItems={setSessionItems}
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
             onOrderPlaced={(items, tableLabel, res) => pushHistory(items, tableLabel, {
+              orderedBy: (res && res.orderedBy) || (guest && guest.name) || null,
               roundId: res && res.roundId,
               status: "new",
             })}
@@ -2332,9 +2413,14 @@
             onOrderCelebrate={() => { setOrderBurst(true); }}
             onPlaceOrder={(items, tableLabel, disc) => {
               const tkey = String(tableLabel || "").replace(/^0+/, "") || String(tableLabel);
-              const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
-              if (saved && saved.phone && saved.exp && Date.now() < saved.exp) {
-                if (!guest) setGuest(saved);
+              let saved = null;
+              if (guest && guest.exp && Date.now() < guest.exp && String(guest.table || "") === String(tkey)) {
+                saved = guest;
+              } else {
+                saved = loadDiningGuest(tkey);
+              }
+              if (saved && saved.phone && saved.exp && Date.now() < saved.exp && String(saved.table || "") === String(tkey)) {
+                if (!guest || String(guest.table) !== String(tkey)) setGuest(saved);
                 return Promise.resolve(onPlaceOrder(items, tkey, saved, disc)).then(res => {
                   if (res && res.joinCode) {
                     setShownTableOtp(res.joinCode);
@@ -2472,7 +2558,7 @@
                           setShownTableOtp(res.joinCode);
                           try { localStorage.setItem("bloom_table_otp_" + tableLabel, res.joinCode); } catch (e) {}
                         }
-                        pushHistory(items, tableLabel, { roundId: res && res.roundId, status: "new" });
+                        pushHistory(items, tableLabel, { roundId: res && res.roundId, status: "new", orderedBy: (res && res.orderedBy) || (payload && payload.name) || null });
                         setSessionItems([]);
                         setCartOpen(false);
                         setCartTab("history");
@@ -2935,7 +3021,7 @@
                               return (
                                 <div key={round.id} className="rounded-xl bg-blush border border-pink/10 p-3">
                                   <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs text-mist">Round {rounds.length - ri}, {new Date(round.createdAt).toLocaleTimeString()}</span>
+                                    <span className="text-xs text-mist">Round {rounds.length - ri}, {new Date(round.createdAt).toLocaleTimeString()}{round.orderedBy ? " · " + round.orderedBy : ""}</span>
                                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusColor(round.status)}`}>{meta.label}</span>
                                   </div>
                                   <ul className="space-y-1 mb-2">
@@ -3578,8 +3664,8 @@
       const placeOrder = useCallback(async (items, tableLabel, guest, discount) => {
         try {
           const res = await cloudPlaceOrder(items, tableLabel, guest, discount || null);
-          const next = await cloudFetchLiveOrders();
-          setLiveOrders(next || []);
+          // Refresh staff board in background — don't make the guest wait
+          cloudFetchLiveOrders().then(next => setLiveOrders(next || [])).catch(() => {});
           return res;
         } catch (e) {
           console.error(e);
