@@ -12,7 +12,7 @@
   <meta property="og:description" content="Order from your table at jordanworld.co/cafe. Fresh boba, milk tea, and snacks." />
   <meta property="og:type" content="website" />
   <meta name="robots" content="index,follow" />
-  <title>BOBA</title>
+  <title>BOBA Café</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -963,6 +963,7 @@
 
     let _menuSaveTimer = null;
     let _lastLocalMenuWriteAt = 0;
+    let _editingMenuLock = false;
 
     async function cloudSaveMenu(dishes) {
       if (!sb || !Array.isArray(dishes)) return;
@@ -2461,6 +2462,12 @@
       };
       const [guest, setGuest] = useState(() => loadDiningGuest(typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("table") || "") : ""));
       const [activeCloudSession, setActiveCloudSession] = useState(null);
+      const [shownTableOtp, setShownTableOtp] = useState(() => {
+        try {
+          const tk = String(tableFromQr || (typeof window !== "undefined" ? (new URLSearchParams(window.location.search).get("table") || "") : "")).replace(/^0+/, "");
+          return (tk && typeof localStorage !== "undefined" ? (localStorage.getItem("boba_table_otp_" + tk) || "") : "");
+        } catch (e) { return ""; }
+      });
       const guestRef = useRef(guest);
       guestRef.current = guest;
 
@@ -3165,8 +3172,7 @@
 
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
       const [editingDish, setEditingDish] = useState(null);
-      const editingMenuLock = useRef(false);
-      React.useEffect(() => { editingMenuLock.current = !!editingDish; }, [editingDish]);
+      React.useEffect(() => { _editingMenuLock = !!editingDish; }, [editingDish]);
       const [staffTab, setStaffTab] = useState("live");
       const prevNewRoundsRef = useRef(null);
       useEffect(() => {
@@ -4165,7 +4171,7 @@
 
       const applyRemoteMenu = useCallback((list, remoteUpdatedAt) => {
         if (!Array.isArray(list) || !list.length) return;
-        if (editingMenuLock.current) return;
+        if (_editingMenuLock) return;
         if (Date.now() - _lastLocalMenuWriteAt < 8000) return;
         if (remoteUpdatedAt) {
           const remoteMs = new Date(remoteUpdatedAt).getTime();
