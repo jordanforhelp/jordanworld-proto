@@ -576,6 +576,21 @@
       Array.from({ length: 12 }, (_, i) => [String(i + 1), String(1000 + i + 1)])
     );
 
+    function normalizeTableNo(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "";
+      const n = s.replace(/^0+/, "") || s;
+      return n;
+    }
+
+    /** Only tables that exist in staff table list (pins) can be used. */
+    function isRegisteredTable(tableNo, pins) {
+      const key = normalizeTableNo(tableNo);
+      if (!key) return false;
+      const map = pins && typeof pins === "object" ? pins : DEFAULT_TABLE_PINS;
+      return Object.prototype.hasOwnProperty.call(map, key) || Object.prototype.hasOwnProperty.call(map, String(tableNo));
+    }
+
     // Bloom dedicated Supabase (separate from Ayra)
     // Tables: bloom_table_sessions, bloom_order_rounds, bloom_table_pins
     // Run bloom-schema.sql once in SQL Editor if tables don't exist yet.
@@ -638,10 +653,10 @@
       if (code && sessionCode && code === sessionCode) {
         return { claimed: true, session: open, joined: true, joinCode: sessionCode };
       }
-      const who = open.guest_name ? open.guest_name.split(" ")[0] : "another guest";
-      throw new Error(
-        "Table " + tableKey + " is already claimed by " + who + ". Ask them for the 4-digit table OTP, or ask staff to clear the table."
-      );
+      if (code && sessionCode && code !== sessionCode) {
+        throw new Error("BAD_OTP");
+      }
+      throw new Error("TABLE_IN_USE");
     }
 
     function mapCloudToLiveOrders(sessions, rounds) {
@@ -913,31 +928,75 @@
       };
     }
 
+
+    async function cloudFetchJoinCode(tableKey) {
+      if (!sb || !tableKey) return "";
+      const open = await cloudGetOpenSession(tableKey);
+      return (open && open.join_code) ? String(open.join_code) : "";
+    }
+
+    /** Never trust client prices — reprice from bloom_menu or reject unknown items. */
+    async function repriceOrderItems(items) {
+      if (!sb) throw new Error("Cloud not connected");
+      const { data, error } = await sb.from("bloom_menu").select("dishes").eq("id", "main").maybeSingle();
+      if (error) throw error;
+      const dishes = (data && data.dishes) || [];
+      const byId = {};
+      dishes.forEach(d => { byId[String(d.id)] = d; });
+      const out = [];
+      for (const i of items) {
+        if (String(i.id) === "snake-discount") continue;
+        const d = byId[String(i.id)];
+        if (!d || d.visible === false) throw new Error("Item unavailable: " + (i.name || i.id));
+        let unit = Number(d.price) || 0;
+        const vLabel = i.variantLabel || null;
+        if (vLabel && Array.isArray(d.variants)) {
+          const v = d.variants.find(x => x.label === vLabel);
+          if (!v) throw new Error("Invalid size for " + d.name);
+          unit = Number(v.price) || unit;
+        }
+        const qty = Math.max(1, Math.min(50, Number(i.qty) || 1));
+        out.push({
+          id: d.id,
+          name: d.name,
+          variantLabel: vLabel,
+          price: unit,
+          qty,
+          note: i.note ? String(i.note).slice(0, 120) : null,
+        });
+      }
+      if (!out.length) throw new Error("Cart is empty");
+      return out;
+    }
+
     async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       if (!sb) throw new Error("Supabase not loaded");
       const tableKey = String(tableLabel).trim().replace(/^0+/, "") || String(tableLabel).trim();
-      const payloadItems = items.map(i => ({
-        id: i.id,
-        name: i.name,
-        variantLabel: i.variantLabel || null,
-        price: i.price,
-        qty: i.qty,
-        note: i.note ? String(i.note).slice(0, 120) : null,
-      }));
-      let total = items.reduce((s, i) => s + i.price * i.qty, 0);
+      // Server-side prices from bloom_menu (client prices ignored)
+      const payloadItems = await repriceOrderItems(items);
+      let total = payloadItems.reduce((s, i) => s + i.price * i.qty, 0);
+      let pct = 0;
       if (discount && discount.percent > 0) {
-        const off = Math.round(total * (discount.percent / 100));
+        pct = Math.min(5, Math.max(0, Number(discount.percent) || 0));
+      }
+      if (pct > 0) {
+        const off = Math.round(total * (pct / 100));
         total = Math.max(0, total - off);
         payloadItems.push({
           id: "snake-discount",
-          name: `Snake reward (${discount.percent}% off)`,
+          name: "Snake reward (" + pct + "% off)",
           variantLabel: null,
           price: -off,
           qty: 1,
         });
       }
 
-      // Enforce table claim (same phone only while session is open)
+      // Only real restaurant tables (from staff Tables list) — blocks ?table=100 hacks
+      if (!isRegisteredTable(tableKey, typeof tablePins !== "undefined" ? tablePins : DEFAULT_TABLE_PINS)) {
+        throw new Error("Invalid table. Scan the QR code on your table.");
+      }
+
+      // Enforce table claim (phone + optional join OTP)
       await cloudAssertTableClaim(tableKey, guest);
 
       let { data: existing, error: e0 } = await sb
@@ -983,7 +1042,13 @@
         total,
       }).select("id").single();
       if (e2) throw e2;
-      return { tableKey, sessionId, roundId: roundRow && roundRow.id };
+      let jcOut = "";
+      try {
+        const openNow = await cloudGetOpenSession(tableKey);
+        jcOut = (openNow && openNow.join_code) || "";
+        if (jcOut) localStorage.setItem("bloom_table_otp_" + tableKey, jcOut);
+      } catch (e) {}
+      return { tableKey, sessionId, roundId: roundRow && roundRow.id, joinCode: jcOut };
     }
 
     async function cloudUpdateRoundStatus(roundId, status) {
@@ -1972,17 +2037,27 @@
       const [needJoinOtp, setNeedJoinOtp] = useState(false);
       const [gateError, setGateError] = useState("");
       const [shownTableOtp, setShownTableOtp] = useState("");
-      // Load table OTP from storage so host still sees it after refresh
+      // Load table OTP from storage + cloud session so host always sees it
       React.useEffect(() => {
-        try {
-          const q = new URLSearchParams(window.location.search).get("table") || "";
-          const tk = String(q).replace(/^0+/, "") || q;
-          if (tk) {
-            const o = localStorage.getItem("bloom_table_otp_" + tk);
-            if (o) setShownTableOtp(o);
-          }
-        } catch (e) {}
-      }, []);
+        let cancelled = false;
+        (async () => {
+          try {
+            const q = new URLSearchParams(window.location.search).get("table") || "";
+            const tk = String(q).replace(/^0+/, "") || q;
+            if (!tk) return;
+            const local = localStorage.getItem("bloom_table_otp_" + tk);
+            if (local && !cancelled) setShownTableOtp(local);
+            if (sb) {
+              const code = await cloudFetchJoinCode(tk);
+              if (code && !cancelled) {
+                setShownTableOtp(code);
+                try { localStorage.setItem("bloom_table_otp_" + tk, code); } catch (e) {}
+              }
+            }
+          } catch (e) {}
+        })();
+        return () => { cancelled = true; };
+      }, [tableFromQr, guest]);
       const [gatePhone, setGatePhone] = useState("");
       const [loginBusy, setLoginBusy] = useState(false);
       const pendingPlace = useRef(null);
@@ -2139,6 +2214,10 @@
           showToast("Scan the QR on your table to order");
           return;
         }
+        if (!isRegisteredTable(tableFromQr, tablePins)) {
+          showToast("Invalid table. Scan the official QR on your table.");
+          return;
+        }
         if (dish.variants && dish.variants.length > 0) {
           setVariantDish(dish);
           return;
@@ -2164,7 +2243,11 @@
             <div className="relative max-w-5xl mx-auto text-center">
               <p className="text-pink tracking-[0.3em] uppercase text-xs font-medium mb-3">Boba Café</p>
               <h1 className="font-display text-5xl md:text-7xl text-ink tracking-tight">Bloom</h1>
-              {tableFromQr ? (
+              {tableFromQr && !isRegisteredTable(tableFromQr, tablePins) ? (
+                <div className="mt-5 max-w-md mx-auto rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 text-left">
+                  <strong>Table {tableFromQr}</strong> is not valid. Do not change the link — scan the QR on your table.
+                </div>
+              ) : tableFromQr ? (
                 <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-soft border border-pink/25">
                   <span className="w-2 h-2 rounded-full bg-pink" />
                   <span className="text-pink text-sm font-medium">Table {tableFromQr}</span>
@@ -2252,7 +2335,13 @@
               const saved = guest && guest.exp && Date.now() < guest.exp ? guest : loadDiningGuest(tkey);
               if (saved && saved.phone && saved.exp && Date.now() < saved.exp) {
                 if (!guest) setGuest(saved);
-                return Promise.resolve(onPlaceOrder(items, tkey, saved, disc));
+                return Promise.resolve(onPlaceOrder(items, tkey, saved, disc)).then(res => {
+                  if (res && res.joinCode) {
+                    setShownTableOtp(res.joinCode);
+                    try { localStorage.setItem("bloom_table_otp_" + tkey, res.joinCode); } catch (e) {}
+                  }
+                  return res;
+                });
               }
               pendingPlace.current = { items, tableLabel: tkey, disc };
               setNeedJoinOtp(false);
@@ -2300,7 +2389,7 @@
                 <h3 className="font-display text-2xl text-ink mb-1">Login to order</h3>
                 <p className="text-mist text-sm mb-4">
                   {needJoinOtp
-                    ? "This table is already claimed. Enter the table OTP from the person who started the order."
+                    ? "This table is already in use. If you are with them, enter the table OTP to join and order."
                     : "Enter your name and mobile to start ordering on this table."}
                 </p>
                 <div className="space-y-3">
@@ -2317,12 +2406,12 @@
                   {needJoinOtp && (
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Table OTP *</label>
-                    <input type="tel" inputMode="numeric" maxLength={6} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm tracking-[0.3em] focus:outline-none focus:border-pink" placeholder="4-digit code" autoFocus />
-                    <p className="text-mist/60 text-[11px] mt-1">Ask the first guest at this table for their OTP, or ask staff to clear the table.</p>
+                    <input type="tel" inputMode="numeric" maxLength={4} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="Table OTP" autoFocus />
+                    <p className="text-mist text-xs mt-1">Ask the first guest for the code, or ask staff to free the table.</p>
                   </div>
                   )}
-                  {gateError && <p className="text-sm text-red-600">{gateError}</p>}
+                  {gateError && <p className="text-sm text-mist">{gateError}</p>}
                   <button type="button" disabled={loginBusy} onClick={async () => {
                     if (!gateName.trim() || gatePhone.replace(/\D/g, "").length < 10) {
                       showToast("Enter name and valid mobile");
@@ -2333,6 +2422,10 @@
                       return;
                     }
                     const tKey = String(tableFromQr || (pendingPlace.current && pendingPlace.current.tableLabel) || "").replace(/^0+/, "") || "any";
+                    if (tKey && tKey !== "any" && !isRegisteredTable(tKey, tablePins)) {
+                      setGateError("Invalid table. Scan the official QR on your table — do not change the link.");
+                      return;
+                    }
                     const g = { name: gateName.trim(), phone: normalizePhoneIN(gatePhone), method: "claim" };
                     setLoginBusy(true);
                     setGateError("");
@@ -2341,39 +2434,44 @@
                       if (tKey && tKey !== "any" && sb) {
                         claimInfo = await cloudAssertTableClaim(tKey, g, needJoinOtp ? gateJoinCode : "");
                       }
-                      const payload = saveDiningGuest(g, tKey);
-                      setGuest(payload);
+                      let jcFinal = (claimInfo && claimInfo.joinCode) || (needJoinOtp ? gateJoinCode : "") || "";
                       // Ensure session + join code exist when first claim
                       if (tKey && tKey !== "any" && sb) {
                         const open = await cloudGetOpenSession(tKey);
                         if (!open) {
-                          const jc = makeJoinCode();
+                          jcFinal = makeJoinCode();
                           await sb.from("bloom_table_sessions").insert({
                             table_no: tKey,
                             guest_name: g.name,
                             guest_phone: g.phone,
-                            join_code: jc,
+                            join_code: jcFinal,
                             status: "open",
                           });
-                          setShownTableOtp(jc);
-                          try { localStorage.setItem("bloom_table_otp_" + tKey, jc); } catch (e) {}
                         } else {
-                          let jc = open.join_code;
-                          if (!jc && (claimInfo && (claimInfo.mine || claimInfo.takeover || !claimInfo.joined))) {
-                            jc = makeJoinCode();
-                            await sb.from("bloom_table_sessions").update({ join_code: jc, guest_name: g.name, guest_phone: g.phone }).eq("id", open.id);
-                          }
-                          if (jc) {
-                            setShownTableOtp(jc);
-                            try { localStorage.setItem("bloom_table_otp_" + tKey, jc); } catch (e) {}
+                          jcFinal = open.join_code || jcFinal;
+                          if (!open.join_code && claimInfo && (claimInfo.mine || claimInfo.takeover || !claimInfo.joined)) {
+                            jcFinal = makeJoinCode();
+                            await sb.from("bloom_table_sessions").update({ join_code: jcFinal, guest_name: g.name, guest_phone: g.phone }).eq("id", open.id);
                           }
                         }
                       }
+                      if (jcFinal) {
+                        setShownTableOtp(jcFinal);
+                        try { localStorage.setItem("bloom_table_otp_" + tKey, jcFinal); } catch (e) {}
+                      }
+                      g.joinCode = jcFinal || "";
+                      g.tableOtp = jcFinal || "";
+                      const payload = saveDiningGuest(g, tKey);
+                      setGuest(payload);
                       setShowGuestGate(false);
                       if (pendingPlace.current) {
                         const { items, tableLabel, disc } = pendingPlace.current;
                         pendingPlace.current = null;
                         const res = await Promise.resolve(onPlaceOrder(items, tableLabel, payload, disc));
+                        if (res && res.joinCode) {
+                          setShownTableOtp(res.joinCode);
+                          try { localStorage.setItem("bloom_table_otp_" + tableLabel, res.joinCode); } catch (e) {}
+                        }
                         pushHistory(items, tableLabel, { roundId: res && res.roundId, status: "new" });
                         setSessionItems([]);
                         setCartOpen(false);
@@ -2386,9 +2484,12 @@
                       }
                     } catch (e) {
                       const msg = (e && e.message) || "Could not claim table";
-                      if (/already claimed|already in use|table OTP/i.test(msg)) {
+                      if (/BAD_OTP/i.test(msg)) {
                         setNeedJoinOtp(true);
-                        setGateError(msg);
+                        setGateError("That code does not match. Try again or ask the first guest.");
+                      } else if (/TABLE_IN_USE|already claimed|already in use|table OTP/i.test(msg)) {
+                        setNeedJoinOtp(true);
+                        setGateError("");
                       } else {
                         setGateError(msg);
                         showToast(msg);
@@ -2811,7 +2912,7 @@
                                 <p className="text-mist text-xs mt-0.5">
                                   Claimed by {session.guestName || "Guest"}
                                   {session.guestPhone ? (
-                                    <span className="block text-ink font-medium text-sm mt-0.5">📱 {session.guestPhone}</span>
+                                    <span className="block text-ink font-medium text-sm mt-0.5">{session.guestPhone}</span>
                                   ) : null}
                                   {session.joinCode ? (
                                     <span className="block text-pink text-[11px] mt-0.5">Table OTP {session.joinCode}</span>
