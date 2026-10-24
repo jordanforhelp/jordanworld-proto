@@ -842,15 +842,20 @@
 
     function fixMenuImageUrl(url) {
       if (!url) return "";
+      let u = String(url).trim();
       const map = {
         "https://images.unsplash.com/photo-1558857563-b37103387363?w=600&q=80": "https://images.unsplash.com/photo-1558857563-b371033873b8?w=600&q=80",
         "https://images.unsplash.com/photo-1536256263959-770b48d82b0e?w=600&q=80": "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=600&q=80",
       };
-      if (map[url]) return map[url];
-      // strip broken path without query variants
-      if (url.includes("photo-1558857563-b37103387363")) return "https://images.unsplash.com/photo-1558857563-b371033873b8?w=600&q=80";
-      if (url.includes("photo-1536256263959-770b48d82b0e")) return "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=600&q=80";
-      return url;
+      if (map[u]) return map[u];
+      if (u.includes("photo-1558857563-b37103387363")) return "https://images.unsplash.com/photo-1558857563-b371033873b8?w=600&q=80";
+      if (u.includes("photo-1536256263959-770b48d82b0e")) return "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=600&q=80";
+      try {
+        if (/giphy\.com/i.test(u) && !/\.(gif|webp|mp4)(\?|$)/i.test(u) && !/\/giphy\.gif/i.test(u)) {
+          if (/\/media\//i.test(u)) u = u.replace(/\/?$/, "/") + "giphy.gif";
+        }
+      } catch (e) {}
+      return u;
     }
 
     function mergeMenuList(list) {
@@ -2911,6 +2916,8 @@
 
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
       const [editingDish, setEditingDish] = useState(null);
+      const editingMenuLock = useRef(false);
+      React.useEffect(() => { editingMenuLock.current = !!editingDish; }, [editingDish]);
       const [staffTab, setStaffTab] = useState("live");
       const prevNewRoundsRef = useRef(null);
       useEffect(() => {
@@ -3003,18 +3010,24 @@
       };
 
       const saveDish = (updated) => {
+        _lastLocalMenuWriteAt = Date.now();
+        const img = fixMenuImageUrl(updated.image || "");
+        const payload = {
+          ...updated,
+          image: img,
+          imageVisible: updated.imageVisible === true,
+        };
         if (updated.id === null) {
           setDishes(prev => {
             const newId = Math.max(0, ...prev.map(d => d.id)) + 1;
             const dish = {
-              ...updated,
+              ...payload,
               id: newId,
               tags: updated.tags || [],
               diet: updated.diet || [],
               margin: updated.margin ?? 50,
               ordersToday: 0,
               visible: true,
-              imageVisible: updated.imageVisible === true,
               pairWith: [],
               sortOrder: 99,
             };
@@ -3025,7 +3038,7 @@
           showToast(`"${updated.name}" added to menu`);
         } else {
           setDishes(prev => {
-            const next = prev.map(d => d.id === updated.id ? { ...updated, imageVisible: updated.imageVisible === true } : d);
+            const next = prev.map(d => d.id === updated.id ? { ...d, ...payload, id: updated.id } : d);
             saveState("bloom_dishes", next);
             return next;
           });
@@ -3060,6 +3073,7 @@
       };
 
       const toggleImageVisible = (id) => {
+        _lastLocalMenuWriteAt = Date.now();
         setDishes(prev => {
           const next = prev.map(x => x.id === id ? { ...x, imageVisible: !x.imageVisible } : x);
           saveState("bloom_dishes", next);
@@ -3085,6 +3099,43 @@
           saveState("bloom_dishes", next);
           return next;
         });
+      };
+
+      /** Move item up/down within its category (controls customer menu order). */
+      const moveDish = (id, direction) => {
+        setDishes(prev => {
+          const dish = prev.find(d => d.id === id);
+          if (!dish) return prev;
+          const cat = dish.category;
+          const inCat = prev
+            .filter(d => d.category === cat)
+            .slice()
+            .sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99) || a.id - b.id);
+          const idx = inCat.findIndex(d => d.id === id);
+          if (idx < 0) return prev;
+          const swapWith = direction < 0 ? idx - 1 : idx + 1;
+          if (swapWith < 0 || swapWith >= inCat.length) return prev;
+          const a = inCat[idx];
+          const b = inCat[swapWith];
+          const orderA = a.sortOrder != null ? a.sortOrder : (idx + 1) * 10;
+          const orderB = b.sortOrder != null ? b.sortOrder : (swapWith + 1) * 10;
+          const next = prev.map(d => {
+            if (d.id === a.id) return { ...d, sortOrder: orderB };
+            if (d.id === b.id) return { ...d, sortOrder: orderA };
+            return d;
+          });
+          // Normalize category to 10,20,30... so order stays stable
+          const sortedCat = next
+            .filter(d => d.category === cat)
+            .slice()
+            .sort((x, y) => (x.sortOrder || 99) - (y.sortOrder || 99) || x.id - y.id);
+          const orderMap = {};
+          sortedCat.forEach((d, i) => { orderMap[d.id] = (i + 1) * 10; });
+          const normalized = next.map(d => orderMap[d.id] != null ? { ...d, sortOrder: orderMap[d.id] } : d);
+          saveState("bloom_dishes", normalized);
+          return normalized;
+        });
+        showToast(direction < 0 ? "Moved up" : "Moved down");
       };
 
       const handleImageUpload = (file) => {
@@ -3522,11 +3573,13 @@
                 )}
               </div>
 
+              <p className="text-mist text-sm mb-3">Use <strong className="text-ink">Up / Down</strong> to set what guests see first within each category. Order saves to the live menu.</p>
               <div className="glass rounded-2xl overflow-hidden border border-pink/10">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-pink/10 text-mist text-xs uppercase tracking-wider">
+                        <th className="px-5 py-3 font-medium">Order</th>
                         <th className="px-5 py-3 font-medium">Item</th>
                         <th className="px-5 py-3 font-medium">Category</th>
                         <th className="px-5 py-3 font-medium">Price</th>
@@ -3537,8 +3590,23 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {dishes.map(d => (
+                      {[...dishes].sort((a, b) => {
+                        const ca = String(a.category || "");
+                        const cb = String(b.category || "");
+                        if (ca !== cb) return ca.localeCompare(cb);
+                        return (a.sortOrder || 99) - (b.sortOrder || 99) || (a.id - b.id);
+                      }).map(d => (
                         <tr key={d.id} className="border-b border-pink/5 hover:bg-pink/[0.03]">
+                          <td className="px-5 py-3">
+                            <div className="flex flex-col gap-1">
+                              <button type="button" onClick={() => moveDish(d.id, -1)}
+                                className="min-h-[32px] min-w-[36px] px-2 rounded-lg border border-pink/20 text-ink text-xs font-semibold hover:bg-pink-soft"
+                                title="Move up in category" aria-label="Move up">Up</button>
+                              <button type="button" onClick={() => moveDish(d.id, 1)}
+                                className="min-h-[32px] min-w-[36px] px-2 rounded-lg border border-pink/20 text-ink text-xs font-semibold hover:bg-pink-soft"
+                                title="Move down in category" aria-label="Move down">Down</button>
+                            </div>
+                          </td>
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-3">
                               {d.image ? (
@@ -3621,8 +3689,26 @@
                     </div>
                     <p className="text-mist/70 text-[11px] mt-2">Or paste a link below. Max ~2.5 MB for uploads.</p>
                     <input type="text" value={editingDish.image && !String(editingDish.image).startsWith("data:") ? editingDish.image : ""}
-                      onChange={e => setEditingDish({ ...editingDish, image: e.target.value })}
-                      placeholder="https://… image URL (optional)"
+                      onChange={e => {
+                        const raw = e.target.value;
+                        setEditingDish({ ...editingDish, image: raw });
+                      }}
+                      onBlur={e => {
+                        const fixed = fixMenuImageUrl(e.target.value);
+                        setEditingDish(prev => {
+                          const next = { ...prev, image: fixed };
+                          if (prev && prev.id != null) {
+                            _lastLocalMenuWriteAt = Date.now();
+                            setDishes(ds => {
+                              const list = ds.map(d => d.id === prev.id ? { ...d, image: fixed } : d);
+                              saveState("bloom_dishes", list);
+                              return list;
+                            });
+                          }
+                          return next;
+                        });
+                      }}
+                      placeholder="https://… image or GIF URL"
                       className="mt-2 w-full bg-white border border-pink/20 rounded-xl px-4 py-2.5 text-ink text-sm focus:outline-none focus:border-pink" />
                     {editingDish.image && (
                       <div className="mt-3 relative">
@@ -3638,7 +3724,18 @@
                         <p className="text-[11px] text-mist">Off by default. Customers will not see it until you turn this on.</p>
                       </div>
                       <button type="button"
-                        onClick={() => setEditingDish({ ...editingDish, imageVisible: !editingDish.imageVisible })}
+                        onClick={() => {
+                          const nextVis = !editingDish.imageVisible;
+                          setEditingDish({ ...editingDish, imageVisible: nextVis });
+                          if (editingDish.id != null) {
+                            _lastLocalMenuWriteAt = Date.now();
+                            setDishes(prev => {
+                              const list = prev.map(d => d.id === editingDish.id ? { ...d, imageVisible: nextVis, image: editingDish.image || d.image } : d);
+                              saveState("bloom_dishes", list);
+                              return list;
+                            });
+                          }
+                        }}
                         className={`switch-toggle w-12 h-7 rounded-full flex-shrink-0 ${editingDish.imageVisible ? "is-on" : "is-off"}`}
                         aria-pressed={!!editingDish.imageVisible}
                         aria-label={editingDish.imageVisible ? "Hide photo" : "Show photo"}>
@@ -3765,14 +3862,11 @@
 
       const applyRemoteMenu = useCallback((list, remoteUpdatedAt) => {
         if (!Array.isArray(list) || !list.length) return;
-        // Don't clobber a toggle the user just made with an older cloud snapshot
+        if (editingMenuLock.current) return;
+        if (Date.now() - _lastLocalMenuWriteAt < 8000) return;
         if (remoteUpdatedAt) {
           const remoteMs = new Date(remoteUpdatedAt).getTime();
-          if (Number.isFinite(remoteMs) && remoteMs < _lastLocalMenuWriteAt - 50) {
-            return;
-          }
-        } else if (Date.now() - _lastLocalMenuWriteAt < 2000) {
-          return;
+          if (Number.isFinite(remoteMs) && remoteMs < _lastLocalMenuWriteAt - 50) return;
         }
         applyingRemoteMenu.current = true;
         setDishes(mergeMenuList(list));
