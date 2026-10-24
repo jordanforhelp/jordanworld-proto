@@ -1,12 +1,13 @@
 {
+  "cleanUrls": true,
   "rewrites": [
-    {
-      "source": "/links/:path*",
-      "destination": "https://test-4-2qge-olive.vercel.app/links/:path*"
-    },
-    {
-      "source": "/assets/:path*",
-      "destination": "https://test-4-2qge-olive.vercel.app/assets/:path*"
-    }
+    { "source": "/cafe/apex", "destination": "/cafe/apex.html" },
+    { "source": "/cafe/apex/:path*", "destination": "/cafe/apex.html" },
+    { "source": "/cafe", "destination": "/cafe/index.html" },
+    { "source": "/cafe/:path*", "destination": "/cafe/index.html" },
+    { "source": "/boba/apex", "destination": "/cafe/apex.html" },
+    { "source": "/boba", "destination": "/cafe/index.html" },
+    { "source": "/links/:path*", "destination": "https://test-4-2qge-olive.vercel.app/links/:path*" },
+    { "source": "/assets/:path*", "destination": "https://test-4-2qge-olive.vercel.app/assets/:path*" }
   ]
 }
