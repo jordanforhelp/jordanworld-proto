@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/cafe/apex", "destination": "/apex.html" },
+    { "source": "/cafe/apex.html", "destination": "/apex.html" },
+    { "source": "/cafe", "destination": "/index.html" },
+    { "source": "/cafe/(.*)", "destination": "/index.html" },
+    { "source": "/boba/apex", "destination": "/apex.html" },
+    { "source": "/boba/apex.html", "destination": "/apex.html" },
+    { "source": "/boba", "destination": "/index.html" },
+    { "source": "/boba/(.*)", "destination": "/index.html" },
+    { "source": "/apex", "destination": "/apex.html" },
+    { "source": "/apex.html", "destination": "/apex.html" },
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
