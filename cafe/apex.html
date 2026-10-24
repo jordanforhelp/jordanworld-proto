@@ -561,7 +561,20 @@
       return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
     }
 
-    // Server-verified Staff PIN Login with rate-limiting & lockout
+    function getOrCreateDeviceId() {
+      try {
+        let id = localStorage.getItem("boba_device_id");
+        if (!id) {
+          id = "dev_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now().toString(36);
+          localStorage.setItem("boba_device_id", id);
+        }
+        return id;
+      } catch {
+        return "dev_client";
+      }
+    }
+
+    // Server-verified Staff PIN Login with per-device rate-limiting & lockout
     async function cloudStaffLogin(pin, role = "staff") {
       const r = (role || "staff").toLowerCase();
       if (!sb) {
@@ -571,7 +584,11 @@
         throw new Error("invalid_pin");
       }
       try {
-        const { data, error } = await sb.rpc("boba_staff_login", { p_pin: String(pin).trim(), p_role: r });
+        const { data, error } = await sb.rpc("boba_staff_login", {
+          p_pin: String(pin).trim(),
+          p_role: r,
+          p_device_id: getOrCreateDeviceId()
+        });
         if (error) throw error;
         if (data && data.token) {
           setStaffSessionToken(data.token, data.role || r);
@@ -580,7 +597,7 @@
         }
       } catch (err) {
         const msg = (err && err.message) || String(err || "");
-        if (/locked/i.test(msg)) throw new Error("locked: Too many attempts. Locked for 5 minutes.");
+        if (/locked/i.test(msg)) throw new Error("locked: Too many attempts on this device. Locked for 5 minutes.");
         if (/rate_limited/i.test(msg)) throw new Error("rate_limited: Too many attempts. Please slow down.");
         if (/invalid_pin/i.test(msg)) throw new Error("invalid_pin");
         // Fallback to local hash if RPC not deployed yet
@@ -619,11 +636,7 @@
         const { data, error } = await sb.rpc("boba_resolve_qr_token", { p_token: t });
         if (!error && data && data.valid) return data;
       } catch (e) {
-        // Fallback: check boba_table_qr_tokens table directly
-        try {
-          const { data } = await sb.from("boba_table_qr_tokens").select("*").eq("qr_token", t).maybeSingle();
-          if (data && data.table_no) return { valid: true, table_no: data.table_no, qr_token: data.qr_token };
-        } catch {}
+        console.warn("boba_resolve_qr_token error:", e);
       }
       return null;
     }
@@ -649,10 +662,6 @@
           if (!error && Array.isArray(data)) return data;
         } catch {}
       }
-      try {
-        const { data } = await sb.from("boba_table_qr_tokens").select("*");
-        if (Array.isArray(data)) return data;
-      } catch {}
       return [];
     }
 
@@ -798,24 +807,35 @@
       if (!phone || phone.replace(/\D/g, "").length < 10) {
         throw new Error("Enter a valid mobile number to order");
       }
-      const open = await cloudGetOpenSession(tableKey);
-      if (!open) return { claimed: false, joinCode: null };
-      const owner = open.guest_phone || "";
-      if (!owner) {
-        return { claimed: true, session: open, takeover: true, joinCode: open.join_code || null };
+      if (!sb) return { status: "local", joinCode: joinCode || null };
+      try {
+        const { data, error } = await sb.rpc("boba_assert_table_claim", {
+          p_table_no: String(tableKey).trim(),
+          p_phone: phone,
+          p_name: (guest && guest.name) || "Guest",
+          p_join_code: joinCode ? String(joinCode).trim() : null
+        });
+        if (error) {
+          const msg = (error && error.message) || "";
+          if (/BAD_OTP/i.test(msg)) throw new Error("BAD_OTP");
+          if (/rate_limited/i.test(msg)) throw new Error("rate_limited: Too many wrong OTP attempts. Ask host or staff.");
+          throw error;
+        }
+        return data;
+      } catch (err) {
+        const msg = (err && err.message) || "";
+        if (/BAD_OTP/i.test(msg)) throw new Error("BAD_OTP");
+        if (/rate_limited/i.test(msg)) throw err;
+        const open = await cloudGetOpenSession(tableKey);
+        if (!open) return { status: "created", isOwner: true, joinCode: null };
+        const owner = open.guest_phone || "";
+        if (!owner || phonesMatch(owner, phone)) return { status: "owner", isOwner: true, joinCode: open.join_code || null };
+        const code = String(joinCode || "").replace(/\D/g, "");
+        const sessionCode = String(open.join_code || "").replace(/\D/g, "");
+        if (code && sessionCode && code === sessionCode) return { status: "joined", isOwner: false, joinCode: sessionCode };
+        if (code && sessionCode && code !== sessionCode) throw new Error("BAD_OTP");
+        throw new Error("TABLE_IN_USE");
       }
-      if (phonesMatch(owner, phone)) {
-        return { claimed: true, session: open, mine: true, joinCode: open.join_code || null };
-      }
-      const code = String(joinCode || "").replace(/\D/g, "");
-      const sessionCode = String(open.join_code || "").replace(/\D/g, "");
-      if (code && sessionCode && code === sessionCode) {
-        return { claimed: true, session: open, joined: true, joinCode: sessionCode };
-      }
-      if (code && sessionCode && code !== sessionCode) {
-        throw new Error("BAD_OTP");
-      }
-      throw new Error("TABLE_IN_USE");
     }
 
     function mapCloudToLiveOrders(sessions, rounds) {
@@ -850,12 +870,21 @@
 
     async function cloudFetchLiveOrders() {
       if (!sb) return null;
+      const token = getStaffSessionToken();
+      if (token) {
+        try {
+          const { data, error } = await sb.rpc("boba_staff_get_live_orders", { p_staff_token: token });
+          if (!error && Array.isArray(data)) return data;
+        } catch (e) {
+          console.warn("boba_staff_get_live_orders fallback:", e);
+        }
+      }
       const { data: sessions, error: e1 } = await sb
         .from("boba_table_sessions")
-        .select("*")
+        .select("id, table_no, status, guest_name, created_at")
         .eq("status", "open")
         .order("created_at", { ascending: false });
-      if (e1) throw e1;
+      if (e1) return [];
       if (!sessions || !sessions.length) return [];
       const ids = sessions.map(s => s.id);
       const { data: rounds, error: e2 } = await sb
@@ -863,17 +892,22 @@
         .select("*")
         .in("session_id", ids)
         .order("created_at", { ascending: false });
-      if (e2) throw e2;
+      if (e2) return [];
       return mapCloudToLiveOrders(sessions, rounds || []);
     }
 
     async function cloudFetchPins() {
-      if (!sb) return null;
-      const { data, error } = await sb.from("boba_table_pins").select("table_no, pin");
-      if (error) throw error;
-      const map = { ...DEFAULT_TABLE_PINS };
-      (data || []).forEach(r => { map[String(r.table_no)] = String(r.pin); });
-      return map;
+      if (!sb) return { ...DEFAULT_TABLE_PINS };
+      const token = getStaffSessionToken();
+      if (token) {
+        try {
+          const { data, error } = await sb.rpc("boba_staff_get_table_pins", { p_staff_token: token });
+          if (!error && data && typeof data === "object") {
+            return { ...DEFAULT_TABLE_PINS, ...data };
+          }
+        } catch (e) {}
+      }
+      return { ...DEFAULT_TABLE_PINS };
     }
 
     // Shared menu (photos, visibility, prices) so phone staff edits show on desktop guests
@@ -1489,10 +1523,25 @@
             p_pins: { [String(tableNo)]: String(pin) }
           });
           if (!error) return;
-        } catch (e) {}
+        } catch (e) {
+          console.error("cloudUpsertPin error:", e);
+        }
       }
-      const { error } = await sb.from("boba_table_pins").upsert({ table_no: String(tableNo), pin: String(pin) });
-      if (error) console.error(error);
+    }
+
+    async function cloudDeleteTablePin(tableNo) {
+      if (!sb || !tableNo) return;
+      const token = getStaffSessionToken();
+      if (token) {
+        try {
+          await sb.rpc("boba_staff_delete_table_pin", {
+            p_staff_token: token,
+            p_table_no: String(tableNo)
+          });
+        } catch (e) {
+          console.error("cloudDeleteTablePin error:", e);
+        }
+      }
     }
 
     const CUSTOMER_VISIBLE_TAGS = ["Trending", "Chef Special", "Most Ordered", "Peak Feature", "Test Copy"];
@@ -2940,7 +2989,7 @@
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Table OTP *</label>
                     <input type="tel" inputMode="numeric" maxLength={6} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="6-digit OTP" font-mono autoFocus />
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="6-digit table OTP" autoFocus />
                     <p className="text-mist text-xs mt-1">Ask the first guest for the 6-digit code, or ask staff to free the table.</p>
                   </div>
                   )}
@@ -2968,25 +3017,8 @@
                         claimInfo = await cloudAssertTableClaim(tKey, g, needJoinOtp ? gateJoinCode : "");
                       }
                       let jcFinal = (claimInfo && claimInfo.joinCode) || (needJoinOtp ? gateJoinCode : "") || "";
-                      // Ensure session + join code exist when first claim
-                      if (tKey && tKey !== "any" && sb) {
-                        const open = await cloudGetOpenSession(tKey);
-                        if (!open) {
-                          jcFinal = makeJoinCode();
-                          await sb.from("boba_table_sessions").insert({
-                            table_no: tKey,
-                            guest_name: g.name,
-                            guest_phone: g.phone,
-                            join_code: jcFinal,
-                            status: "open",
-                          });
-                        } else {
-                          jcFinal = open.join_code || jcFinal;
-                          if (!open.join_code && claimInfo && (claimInfo.mine || claimInfo.takeover || !claimInfo.joined)) {
-                            jcFinal = makeJoinCode();
-                            await sb.from("boba_table_sessions").update({ join_code: jcFinal, guest_name: g.name, guest_phone: g.phone }).eq("id", open.id);
-                          }
-                        }
+                      if (!jcFinal && tKey && tKey !== "any" && (!sb || (claimInfo && claimInfo.status === "local"))) {
+                        jcFinal = makeJoinCode();
                       }
                       if (jcFinal) {
                         setShownTableOtp(jcFinal);
@@ -3508,15 +3540,10 @@
                                     </div>
                                   ) : null}
                                   {session.joinCode ? (
-                                    <div className="inline-flex items-center gap-1.5 mt-1.5 px-2 py-0.5 rounded-lg bg-pink-soft border border-pink/30 text-pink-deep text-[11px] font-semibold">
-                                      <span>Table Code: <strong>{session.joinCode}</strong></span>
-                                      <button type="button" onClick={() => {
-                                        navigator.clipboard.writeText(session.joinCode).then(() => showToast("Copied table code " + session.joinCode)).catch(() => showToast(session.joinCode));
-                                      }} className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-pink/30 hover:bg-pink/10" title="Copy code">
-                                        Copy
-                                      </button>
-                                    </div>
-                                  ) : null}
+                                     <div className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg bg-pink-soft border border-pink/30 text-pink-deep text-xs font-semibold">
+                                       <span>Table OTP: <strong className="font-mono tracking-wider text-sm">{session.joinCode}</strong></span>
+                                     </div>
+                                   ) : null}
                                 </div>
                               )}
                               <p className="text-mist/60 text-[10px] mt-0.5">{rounds.length} order round{rounds.length !== 1 ? "s" : ""}</p>
@@ -3642,7 +3669,7 @@
                               delete copy[String(n)];
                               return copy;
                             });
-                            if (sb) sb.from("boba_table_pins").delete().eq("table_no", String(n)).then(() => {});
+                            cloudDeleteTablePin(n);
                             showToast("Table " + n + " removed");
                           }} className="px-2 py-2 rounded-lg text-mist hover:text-red-500 border border-pink/10">Remove</button>
                         </div>
