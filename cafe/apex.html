@@ -584,34 +584,44 @@
         throw new Error("invalid_pin");
       }
       try {
-        const { data, error } = await sb.rpc("boba_staff_login", {
+        // First try 3-argument version (with deviceId)
+        let res = await sb.rpc("boba_staff_login", {
           p_pin: String(pin).trim(),
           p_role: r,
           p_device_id: getOrCreateDeviceId()
         });
-        if (error) throw error;
-        if (data && data.token) {
-          setStaffSessionToken(data.token, data.role || r);
+        // If 404/could not find function (database still has 2-argument version), try 2-argument call
+        if (res.error && /could not find|PGRST202|404|p_device_id/i.test(res.error.message || "")) {
+          res = await sb.rpc("boba_staff_login", {
+            p_pin: String(pin).trim(),
+            p_role: r
+          });
+        }
+        if (res.error) throw res.error;
+        if (res.data && res.data.token) {
+          setStaffSessionToken(res.data.token, res.data.role || r);
           touchStaffActivity();
-          return { success: true, token: data.token, role: data.role || r, expiresAt: data.expires_at };
+          return { success: true, token: res.data.token, role: res.data.role || r, expiresAt: res.data.expires_at };
         }
       } catch (err) {
         const msg = (err && err.message) || String(err || "");
+        // If 3-argument call threw 404, retry 2-argument call
+        if (/could not find|PGRST202|404/i.test(msg)) {
+          try {
+            const { data, error } = await sb.rpc("boba_staff_login", {
+              p_pin: String(pin).trim(),
+              p_role: r
+            });
+            if (!error && data && data.token) {
+              setStaffSessionToken(data.token, data.role || r);
+              touchStaffActivity();
+              return { success: true, token: data.token, role: data.role || r, expiresAt: data.expires_at };
+            }
+          } catch (e2) {}
+        }
         if (/locked/i.test(msg)) throw new Error("locked: Too many attempts on this device. Locked for 5 minutes.");
         if (/rate_limited/i.test(msg)) throw new Error("rate_limited: Too many attempts. Please slow down.");
         if (/invalid_pin/i.test(msg)) throw new Error("invalid_pin");
-        // Fallback to local hash if RPC not deployed yet
-        if (/could not find|PGRST202|404|function.*boba_staff_login/i.test(msg)) {
-          const h = r === "manager" ? await hashMgrPin(pin) : await hashStaffPin(pin);
-          const exp = r === "manager" ? MGR_PIN_HASH : STAFF_PIN_HASH;
-          if (h === exp) {
-            console.warn("Using local PIN fallback; run boba-supabase-setup.sql in Supabase for full server auth.");
-            setStaffSessionToken("local_session_" + Date.now(), r);
-            touchStaffActivity();
-            return { success: true, localOnly: true, role: r };
-          }
-          throw new Error("invalid_pin");
-        }
         throw err;
       }
       throw new Error("invalid_pin");
@@ -630,13 +640,21 @@
 
     // Opaque Table QR Token Resolution
     async function cloudResolveQrToken(token) {
-      if (!sb || !token) return null;
+      if (!token) return null;
       const t = String(token).trim();
-      try {
-        const { data, error } = await sb.rpc("boba_resolve_qr_token", { p_token: t });
-        if (!error && data && data.valid) return data;
-      } catch (e) {
-        console.warn("boba_resolve_qr_token error:", e);
+      if (!t) return null;
+      if (sb) {
+        try {
+          const { data, error } = await sb.rpc("boba_resolve_qr_token", { p_token: t });
+          if (!error && data && data.valid) return data;
+        } catch (e) {
+          console.warn("boba_resolve_qr_token error:", e);
+        }
+      }
+      // Resilient fallback for t<number>_... or t<number> or <number> (e.g. t1_1, t1, 1)
+      const m = t.match(/^t?0*(\d+)(?:_.*)?$/i);
+      if (m && m[1]) {
+        return { valid: true, table_no: m[1], qr_token: t, has_open_session: false };
       }
       return null;
     }
@@ -656,12 +674,19 @@
     async function cloudGetTableQrTokens() {
       if (!sb) return [];
       const token = getStaffSessionToken();
-      if (token) {
+      if (token && !token.startsWith("local_session_")) {
         try {
           const { data, error } = await sb.rpc("boba_get_table_qr_tokens", { p_staff_token: token });
-          if (!error && Array.isArray(data)) return data;
-        } catch {}
+          if (!error && Array.isArray(data) && data.length > 0) return data;
+        } catch (e) {
+          console.warn("boba_get_table_qr_tokens error:", e);
+        }
       }
+      // Direct select fallback
+      try {
+        const { data, error } = await sb.from("boba_table_qr_tokens").select("table_no, qr_token");
+        if (!error && Array.isArray(data) && data.length > 0) return data;
+      } catch {}
       return [];
     }
 
@@ -719,6 +744,18 @@
         return origin + "/cafe/?t=" + encodeURIComponent(token);
       }
       return origin + "/?t=" + encodeURIComponent(token);
+    }
+
+    function generateTableToken(tableNo) {
+      let randHex = "";
+      try {
+        const bytes = new Uint8Array(8);
+        crypto.getRandomValues(bytes);
+        randHex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+      } catch {
+        randHex = Math.random().toString(16).substring(2, 10) + Math.random().toString(16).substring(2, 10);
+      }
+      return "t" + tableNo + "_" + randHex;
     }
 
     const DEFAULT_TABLE_PINS = Object.fromEntries(
@@ -3230,13 +3267,71 @@
       const [insightsLoading, setInsightsLoading] = useState(false);
       const [insightsError, setInsightsError] = useState("");
       const [revealedPhones, setRevealedPhones] = useState({});
-      const [tableQrTokens, setTableQrTokens] = useState({});
+      const QR_CACHE_KEY = "boba_table_qr_tokens_map";
+      const [tableQrTokens, setTableQrTokens] = useState(() => {
+        try {
+          const raw = localStorage.getItem(QR_CACHE_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch { return {}; }
+      });
       const [activeQrModal, setActiveQrModal] = useState(null);
+
+      const fetchQrTokens = useCallback(async () => {
+        try {
+          const list = await cloudGetTableQrTokens();
+          if (Array.isArray(list) && list.length > 0) {
+            const map = {};
+            list.forEach(r => { if (r.table_no) map[String(r.table_no)] = r.qr_token; });
+            setTableQrTokens(prev => {
+              const updated = { ...prev, ...map };
+              try { localStorage.setItem(QR_CACHE_KEY, JSON.stringify(updated)); } catch {}
+              return updated;
+            });
+          }
+        } catch (e) {
+          console.warn("fetchQrTokens error:", e);
+        }
+      }, []);
+
+      useEffect(() => {
+        fetchQrTokens();
+      }, [fetchQrTokens]);
+
+      useEffect(() => {
+        if (staffTab === "tables") {
+          fetchQrTokens();
+        }
+      }, [staffTab, fetchQrTokens]);
+
+      const getOrMakeTableToken = useCallback((n) => {
+        const k = String(n);
+        if (tableQrTokens && tableQrTokens[k]) return tableQrTokens[k];
+        try {
+          const cached = JSON.parse(localStorage.getItem(QR_CACHE_KEY) || "{}");
+          if (cached[k]) return cached[k];
+        } catch {}
+        const fresh = generateTableToken(n);
+        setTableQrTokens(prev => {
+          const u = { ...(prev || {}), [k]: fresh };
+          try { localStorage.setItem(QR_CACHE_KEY, JSON.stringify(u)); } catch {}
+          return u;
+        });
+        cloudRotateQrToken(n).then(res => {
+          if (res && res.qr_token) {
+            setTableQrTokens(prev => {
+              const u = { ...(prev || {}), [k]: res.qr_token };
+              try { localStorage.setItem(QR_CACHE_KEY, JSON.stringify(u)); } catch {}
+              return u;
+            });
+          }
+        }).catch(() => {});
+        return fresh;
+      }, [tableQrTokens]);
 
       const downloadQrImage = async (tableNo, url) => {
         const qrImgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=" + encodeURIComponent(url);
         try {
-          showToast("Downloading Table " + tableNo + " QRâ€¦");
+          showToast("Downloading Table " + tableNo + " QR…");
           const res = await fetch(qrImgUrl);
           const blob = await res.blob();
           const blobUrl = URL.createObjectURL(blob);
@@ -3259,16 +3354,6 @@
           showToast("Opened high-res QR for Table " + tableNo);
         }
       };
-
-      useEffect(() => {
-        cloudGetTableQrTokens().then(list => {
-          if (Array.isArray(list)) {
-            const map = {};
-            list.forEach(r => { if (r.table_no) map[String(r.table_no)] = r.qr_token; });
-            setTableQrTokens(map);
-          }
-        }).catch(() => {});
-      }, []);
 
       const dishesRef = useRef(dishes);
       dishesRef.current = dishes;
@@ -3623,6 +3708,7 @@
                     const pin = String(1000 + next);
                     setTablePins(prev => ({ ...prev, [String(next)]: pin }));
                     cloudUpsertPin(next, pin);
+                    getOrMakeTableToken(next);
                     showToast("Table " + next + " added");
                   }} className="px-4 py-2.5 rounded-xl bg-pink text-white text-sm font-semibold">+ Add table</button>
                 </div>
@@ -3631,8 +3717,8 @@
                     {Object.keys(tablePins || {}).length === 0 ? (
                       <p className="text-mist text-sm py-8 text-center">No tables yet. Tap + Add table.</p>
                     ) : Object.keys(tablePins || {}).sort((a, b) => Number(a) - Number(b)).map(n => {
-                      // Guest menu only — points to /boba/?t=... (never exposing staff portal)
-                      const opaqueToken = tableQrTokens[String(n)] || ("t" + n + "_" + String(n));
+                      // Guest menu only — points to /cafe/?t=... (never exposing staff portal)
+                      const opaqueToken = getOrMakeTableToken(n);
                       const secureUrl = getGuestTableUrl(opaqueToken);
                       return (
                         <div key={n} className="flex flex-wrap items-center gap-2 text-xs p-2.5 rounded-xl bg-blush border border-pink/10">
@@ -4144,6 +4230,12 @@
         const q = new URLSearchParams(window.location.search);
         const tableParam = (q.get("table") || "").trim();
         if (tableParam && /^\d+$/.test(tableParam)) return tableParam;
+        // Synchronously extract table number from ?t= or ?token= so UI is instant
+        const t = (q.get("t") || q.get("token") || "").trim();
+        if (t) {
+          const m = t.match(/^t?0*(\d+)(?:_.*)?$/i);
+          if (m && m[1]) return m[1];
+        }
         return "";
       } catch { return ""; }
     }
@@ -4166,6 +4258,13 @@
           cloudResolveQrToken(rawToken).then(res => {
             if (res && res.valid && res.table_no) {
               setTableFromQr(String(res.table_no));
+              if (res.qr_token && rawToken !== res.qr_token) {
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("t", res.qr_token);
+                  window.history.replaceState({}, "", url.toString());
+                } catch {}
+              }
             }
           }).catch(() => {});
         }
