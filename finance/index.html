@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
   <title>Finance</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -10,144 +11,622 @@
     :root {
       --bg: #000;
       --card: #0a0a0a;
+      --card-elevated: #111;
       --border: #1a1a1a;
+      --border-hover: #2a2a2a;
       --text: #fff;
       --muted: #888;
       --dim: #555;
+      --accent: #fff;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --header-h: 56px;
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: Inter, system-ui, sans-serif;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
       min-height: 100vh;
+      min-height: 100dvh;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
     }
+
+    /* ── Header ── */
     header {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(0,0,0,.9);
-      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(0,0,0,.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
     }
     .header-inner {
-      max-width: 1100px; margin: 0 auto;
-      padding: 14px 20px;
-      display: flex; align-items: center; justify-content: space-between;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: var(--header-h);
     }
-    .logo { font-size: 13px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
-    .logo span { opacity: .45; }
+    .logo {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .logo span { opacity: .4; }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
     .live {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
-      color: var(--muted); border: 1px solid var(--border);
-      padding: 5px 12px; border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 999px;
     }
     .dot {
-      width: 6px; height: 6px; background: #22c55e;
-      border-radius: 50%; animation: pulse 1.5s infinite;
+      width: 6px; height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 1.6s ease-in-out infinite;
     }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .35; transform: scale(.85); }
+    }
+
+    /* ── Buttons ── */
     .btn {
-      font-size: 11px; font-weight: 500; letter-spacing: .05em;
-      text-transform: uppercase; border: 1px solid var(--border);
-      padding: 6px 14px; border-radius: 999px; background: transparent;
-      color: var(--text); cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .btn:hover { border-color: #444; }
-    main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+    .btn:hover, .btn:active { border-color: #444; background: #111; }
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 24px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      cursor: pointer;
+      min-height: 48px;
+      width: 100%;
+      transition: opacity .2s, transform .15s;
+    }
+    .btn-primary:hover { opacity: .9; }
+    .btn-primary:active { transform: scale(.98); }
+
+    /* ── Layout ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 16px calc(100px + var(--safe-bottom));
+    }
+
     .label {
-      font-size: 11px; font-weight: 500; letter-spacing: .12em;
-      text-transform: uppercase; color: var(--dim); margin-bottom: 14px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 10px;
     }
+
     .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 12px; padding: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
     }
+
+    /* ── Monthly Summary Banner (mobile-first) ── */
+    .month-banner {
+      display: none;
+      background: linear-gradient(135deg, #0f0f0f 0%, #151515 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 20px;
+      gap: 12px;
+    }
+    .month-banner .banner-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .month-banner .banner-title {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    .month-banner .banner-value {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -.02em;
+    }
+    .month-banner .banner-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .month-banner .banner-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .month-banner .mini-stat .val {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .month-banner .mini-stat .lbl {
+      font-size: 10px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    /* ── Grids ── */
     .grid-4 {
-      display: grid; grid-template-columns: repeat(4,1fr); gap: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
-    .grid-2 { display: grid; grid-template-columns: 1.7fr 1fr; gap: 20px; }
-    @media (max-width: 800px) {
-      .grid-4 { grid-template-columns: 1fr 1fr; }
-      .grid-2 { grid-template-columns: 1fr; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
     }
-    @media (max-width: 500px) { .grid-4 { grid-template-columns: 1fr; } }
+
+    /* ── Form ── */
     label {
-      display: block; font-size: 11px; font-weight: 500;
-      letter-spacing: .05em; text-transform: uppercase;
-      color: var(--dim); margin-bottom: 6px;
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 6px;
     }
     input, select {
-      width: 100%; background: #111; border: 1px solid var(--border);
-      border-radius: 8px; color: #fff; padding: 9px 12px;
-      font-size: 14px; font-family: inherit;
+      width: 100%;
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: #fff;
+      padding: 12px 14px;
+      font-size: 16px; /* prevents iOS zoom */
+      font-family: inherit;
+      min-height: 48px;
+      transition: border-color .2s;
+      -webkit-appearance: none;
+      appearance: none;
     }
-    input:focus, select:focus { outline: none; border-color: #444; }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #555;
+    }
+    input::placeholder { color: #444; }
+
     .form-row {
-      display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
-      gap: 14px; margin-bottom: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
     }
-    .btn-primary {
-      background: #fff; color: #000; border: none; border-radius: 999px;
-      padding: 11px 22px; font-size: 12px; font-weight: 600;
-      letter-spacing: .04em; text-transform: uppercase; cursor: pointer;
+
+    /* ── Metrics ── */
+    .metric {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -.02em;
+      margin: 4px 0 2px;
+      word-break: break-all;
     }
-    .btn-primary:hover { opacity: .85; }
-    .metric { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 6px 0 2px; }
-    .sub { font-size: 12px; color: var(--muted); }
-    .progress { height: 3px; background: #1a1a1a; border-radius: 2px; margin-top: 10px; overflow: hidden; }
-    .progress > div { height: 100%; background: #fff; transition: width .3s; }
-    .progress.red > div { background: #ef4444; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th {
-      text-align: left; padding: 8px 10px 8px 0; font-size: 11px;
-      font-weight: 500; letter-spacing: .06em; text-transform: uppercase;
-      color: var(--dim); border-bottom: 1px solid var(--border);
+    .sub {
+      font-size: 12px;
+      color: var(--muted);
     }
-    td { padding: 12px 10px 12px 0; border-bottom: 1px solid var(--border); }
+
+    .progress {
+      height: 3px;
+      background: #1a1a1a;
+      border-radius: 2px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .progress > div {
+      height: 100%;
+      background: #fff;
+      transition: width .4s cubic-bezier(.4,0,.2,1);
+    }
+    .progress.red > div { background: var(--danger); }
+
+    /* ── Badges & Tags ── */
     .badge {
-      display: inline-block; font-size: 10px; font-weight: 500;
-      letter-spacing: .04em; text-transform: uppercase;
-      padding: 2px 7px; border-radius: 5px; border: 1px solid var(--border);
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
       color: var(--muted);
     }
     .tag {
-      display: inline-block; font-size: 10px; padding: 1px 5px;
-      border-radius: 4px; background: #111; border: 1px solid var(--border);
-      color: var(--dim); margin-right: 3px;
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #111;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      margin-right: 3px;
     }
-    .chart-box { height: 200px; }
+
+    /* ── Expense Log: Desktop table / Mobile cards ── */
+    .log-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .log-controls input,
+    .log-controls select {
+      min-height: 40px;
+      padding: 8px 12px;
+      font-size: 14px;
+      width: auto;
+      flex: 1 1 120px;
+      max-width: 100%;
+    }
+    .log-header {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    /* Table (desktop) */
+    .table-wrap {
+      display: none;
+      overflow: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+      background: #0a0a0a;
+      position: sticky;
+      top: 0;
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* Card list (mobile) */
+    .expense-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .exp-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeSlideIn .35s cubic-bezier(.22,1,.36,1) both;
+      transition: opacity .25s, transform .25s, border-color .2s;
+    }
+    .exp-card.removing {
+      opacity: 0;
+      transform: translateX(-12px) scale(.98);
+    }
+    .exp-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .exp-amount {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+    }
+    .exp-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .exp-note {
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.35;
+    }
+    .exp-del {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      padding: 4px 8px;
+      min-width: 36px;
+      min-height: 36px;
+      border-radius: 8px;
+      transition: color .2s, background .2s;
+    }
+    .exp-del:hover, .exp-del:active {
+      color: var(--danger);
+      background: rgba(239,68,68,.1);
+    }
+    .empty-state {
+      text-align: center;
+      color: #555;
+      padding: 40px 16px;
+      font-size: 14px;
+    }
+
+    /* Charts */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .chart-box {
+      height: 220px;
+      position: relative;
+    }
+
+    /* Opportunity + Budgets */
+    .opp-input { margin-bottom: 12px; }
+    .budget-item { margin-bottom: 14px; }
+    .budget-item:last-child { margin-bottom: 0; }
+    .budget-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+      gap: 8px;
+    }
+    .budget-row input {
+      width: 78px;
+      padding: 6px 8px;
+      font-size: 13px;
+      min-height: 36px;
+      text-align: right;
+    }
+
+    /* FAB */
+    .fab {
+      position: fixed;
+      bottom: calc(20px + var(--safe-bottom));
+      right: 16px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #fff;
+      color: #000;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08);
+      cursor: pointer;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .2s cubic-bezier(.22,1,.36,1), box-shadow .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fab:active { transform: scale(.92); }
+    .fab svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      fill: none;
+    }
+    .fab-label {
+      position: absolute;
+      right: 64px;
+      background: #fff;
+      color: #000;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(8px);
+      transition: opacity .2s, transform .2s;
+    }
+    .fab:hover .fab-label,
+    .fab:focus .fab-label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* Animations */
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .fade-in {
+      animation: fadeSlideIn .4s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    /* ── Desktop / larger screens ── */
+    @media (min-width: 600px) {
+      .month-banner { display: none !important; }
+      main { padding: 28px 20px 60px; }
+      .card { padding: 20px; }
+      .grid-4 { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+      .metric { font-size: 26px; }
+      .form-row {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 14px;
+      }
+      input, select {
+        font-size: 14px;
+        padding: 10px 12px;
+        min-height: 42px;
+      }
+      .btn-primary { width: auto; min-height: 44px; }
+      .log-header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .expense-cards { display: none; }
+      .table-wrap { display: block; }
+      .charts-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+      .fab { display: none; }
+    }
+
+    @media (min-width: 900px) {
+      .grid-2 { grid-template-columns: 1.7fr 1fr; gap: 24px; }
+    }
+
+    /* Show mobile banner only on small screens */
+    @media (max-width: 599px) {
+      .month-banner { display: block; }
+      .header-inner { padding: 10px 14px; }
+      .logo { font-size: 11px; }
+      .live { padding: 4px 8px; font-size: 9px; }
+      .btn { padding: 6px 10px; font-size: 10px; min-height: 32px; }
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="header-inner">
       <div class="logo">JORDANWORLD<span>.CO</span> / FINANCE</div>
-      <div style="display:flex;gap:10px;align-items:center">
-        <button class="btn" onclick="resetAll()">Reset</button>
+      <div class="header-actions">
+        <button class="btn" onclick="resetAll()" aria-label="Reset all data">Reset</button>
         <div class="live"><span class="dot"></span> Live</div>
       </div>
     </div>
   </header>
 
   <main>
+    <!-- Mobile Monthly Summary Banner -->
+    <div class="month-banner" id="monthBanner">
+      <div class="banner-row">
+        <div>
+          <div class="banner-title">This Month</div>
+          <div class="banner-value" id="bannerSpend">₹0</div>
+          <div class="banner-sub" id="bannerPct">0% of income</div>
+        </div>
+        <div style="text-align:right">
+          <div class="banner-title">Left</div>
+          <div class="banner-value" id="bannerLeft">₹0</div>
+          <div class="banner-sub">remaining</div>
+        </div>
+      </div>
+      <div class="banner-grid">
+        <div class="mini-stat">
+          <div class="val" id="bannerSurplus">+₹0</div>
+          <div class="lbl">Today surplus</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val" id="bannerBurn">0%</div>
+          <div class="lbl">Burn rate</div>
+        </div>
+      </div>
+    </div>
+
     <div class="label">Income Engine</div>
-    <div class="card" style="margin-bottom:28px">
+    <div class="card" style="margin-bottom:24px">
       <div class="form-row">
         <div>
-          <label>Monthly Income</label>
-          <input type="number" id="monthly" value="100000" min="0" step="1000" oninput="calc()">
+          <label for="monthly">Monthly Income</label>
+          <input type="number" id="monthly" value="100000" min="0" step="1000" inputmode="numeric">
         </div>
         <div>
-          <label>Work Days / Week</label>
-          <input type="number" id="days" value="5" min="1" max="7" oninput="calc()">
+          <label for="days">Work Days / Week</label>
+          <input type="number" id="days" value="5" min="1" max="7" inputmode="numeric">
         </div>
         <div>
-          <label>Hours / Day</label>
-          <input type="number" id="hours" value="8" min="1" max="24" step="0.5" oninput="calc()">
+          <label for="hours">Hours / Day</label>
+          <input type="number" id="hours" value="8" min="1" max="24" step="0.5" inputmode="decimal">
         </div>
         <div>
-          <label>Currency</label>
-          <select id="curr" onchange="calc()">
+          <label for="curr">Currency</label>
+          <select id="curr">
             <option value="₹">₹ INR</option>
             <option value="$">$ USD</option>
             <option value="€">€ EUR</option>
@@ -158,7 +637,7 @@
     </div>
 
     <div class="label">Earnings</div>
-    <div class="grid-4" style="margin-bottom:28px">
+    <div class="grid-4" style="margin-bottom:24px">
       <div class="card">
         <div class="label" style="margin:0">Earnings Clock</div>
         <div class="metric" id="live">₹0</div>
@@ -182,7 +661,7 @@
     </div>
 
     <div class="label">Overview</div>
-    <div class="grid-4" style="margin-bottom:28px">
+    <div class="grid-4" style="margin-bottom:24px">
       <div class="card">
         <div class="label" style="margin:0">Net Daily Surplus</div>
         <div class="metric" id="surplus">+₹0</div>
@@ -208,15 +687,15 @@
 
     <div class="grid-2">
       <div>
-        <div class="label">Log Expense</div>
-        <div class="card" style="margin-bottom:20px">
+        <div class="label" id="logExpenseLabel">Log Expense</div>
+        <div class="card" style="margin-bottom:20px" id="expenseFormCard">
           <div class="form-row">
             <div>
-              <label>Amount</label>
-              <input type="number" id="amt" placeholder="0" step="0.01" min="0">
+              <label for="amt">Amount</label>
+              <input type="number" id="amt" placeholder="0" step="0.01" min="0" inputmode="decimal">
             </div>
             <div>
-              <label>Category</label>
+              <label for="cat">Category</label>
               <select id="cat">
                 <option>Subscriptions</option>
                 <option selected>Dining</option>
@@ -229,11 +708,11 @@
               </select>
             </div>
             <div>
-              <label>Date</label>
+              <label for="date">Date</label>
               <input type="date" id="date">
             </div>
             <div>
-              <label>Payment</label>
+              <label for="pay">Payment</label>
               <select id="pay">
                 <option>Cash</option>
                 <option>Card</option>
@@ -243,31 +722,43 @@
               </select>
             </div>
             <div>
-              <label>Tags</label>
+              <label for="tags">Tags</label>
               <input type="text" id="tags" placeholder="coffee, weekend">
             </div>
             <div>
-              <label>Note</label>
+              <label for="note">Note</label>
               <input type="text" id="note" placeholder="Optional">
             </div>
           </div>
           <button class="btn-primary" onclick="addExpense()">Add Expense</button>
         </div>
 
-        <div class="label" style="display:flex;justify-content:space-between;align-items:center">
-          <span>Expense Log <span id="count" style="color:#888;font-weight:400">(0)</span></span>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="search" placeholder="Search" style="width:120px;padding:6px 10px;font-size:12px" oninput="renderList()">
-            <select id="filter" style="width:auto;padding:6px 10px;font-size:12px" onchange="renderList()">
+        <div class="log-header">
+          <div class="label" style="margin:0">
+            Expense Log <span id="count" style="color:#888;font-weight:400">(0)</span>
+          </div>
+          <div class="log-controls">
+            <input type="text" id="search" placeholder="Search…" oninput="renderList()">
+            <select id="filter" onchange="renderList()">
               <option value="All">All</option>
-              <option>Subscriptions</option><option>Dining</option><option>Utilities</option>
-              <option>Gear</option><option>Transport</option><option>Health</option>
-              <option>Entertainment</option><option>Other</option>
+              <option>Subscriptions</option>
+              <option>Dining</option>
+              <option>Utilities</option>
+              <option>Gear</option>
+              <option>Transport</option>
+              <option>Health</option>
+              <option>Entertainment</option>
+              <option>Other</option>
             </select>
             <button class="btn" onclick="exportCSV()">CSV</button>
           </div>
         </div>
-        <div class="card" style="padding:0;overflow:auto">
+
+        <!-- Mobile card list -->
+        <div class="expense-cards" id="cardList"></div>
+
+        <!-- Desktop table -->
+        <div class="table-wrap card" style="padding:0">
           <table>
             <thead>
               <tr>
@@ -289,10 +780,10 @@
         <div class="label">Opportunity Cost</div>
         <div class="card" style="margin-bottom:20px">
           <p class="sub" style="margin-bottom:12px">Hours of work this expense costs you</p>
-          <label>Expense Amount</label>
-          <input type="number" id="oppAmt" value="2500" min="0" step="100" oninput="calc()" style="margin-bottom:12px">
-          <div class="card" style="background:#111;padding:14px">
-            <div class="metric" id="oppHrs" style="font-size:22px">0h</div>
+          <label for="oppAmt">Expense Amount</label>
+          <input type="number" id="oppAmt" value="2500" min="0" step="100" class="opp-input" inputmode="numeric">
+          <div class="card" style="background:var(--card-elevated);padding:14px;border-radius:var(--radius-sm)">
+            <div class="metric" id="oppHrs" style="font-size:20px;margin:0">0h</div>
             <div class="sub">of work required</div>
           </div>
           <p class="sub" style="margin-top:8px;font-size:11px" id="oppLabel">Based on hourly rate</p>
@@ -305,17 +796,23 @@
       </div>
     </div>
 
-    <div class="label" style="margin-top:32px">Expense Visualizer</div>
+    <div class="label" style="margin-top:28px">Expense Visualizer</div>
     <div class="card">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div class="charts-grid">
         <div class="chart-box"><canvas id="pie"></canvas></div>
         <div class="chart-box"><canvas id="bar"></canvas></div>
       </div>
     </div>
   </main>
 
+  <!-- Floating Action Button (mobile) -->
+  <button class="fab" id="fab" onclick="scrollToForm()" aria-label="Quick add expense">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    <span class="fab-label">Add expense</span>
+  </button>
+
   <script>
-    // Safe storage that works even when localStorage is blocked
+    // ── Bulletproof storage ──
     const memory = {};
     const store = {
       get(key, fallback) {
@@ -352,8 +849,10 @@
       Transport:3000, Health:2000, Entertainment:4000, Other:5000
     });
     let pieC, barC;
+    let saveTimer = null;
 
     function $(id) { return document.getElementById(id); }
+
     function money(n) {
       const c = $('curr').value || '₹';
       return c + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
@@ -372,6 +871,30 @@
         perMin: monthly / (hoursMonth * 60),
         perSec: monthly / (hoursMonth * 3600)
       };
+    }
+
+    // Persist form values with debounce
+    function persistSettings() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        store.set('jw_settings', {
+          monthly: $('monthly').value,
+          days: $('days').value,
+          hours: $('hours').value,
+          curr: $('curr').value,
+          oppAmt: $('oppAmt').value
+        });
+      }, 300);
+    }
+
+    function loadSettings() {
+      const s = store.get('jw_settings', null);
+      if (!s) return;
+      if (s.monthly != null) $('monthly').value = s.monthly;
+      if (s.days != null) $('days').value = s.days;
+      if (s.hours != null) $('hours').value = s.hours;
+      if (s.curr) $('curr').value = s.curr;
+      if (s.oppAmt != null) $('oppAmt').value = s.oppAmt;
     }
 
     function calc() {
@@ -406,7 +929,7 @@
 
       const net = r.daily - todaySpend;
       $('surplus').textContent = (net >= 0 ? '+' : '') + money(net);
-      $('surplus').style.color = net >= 0 ? '#fff' : '#ef4444';
+      $('surplus').style.color = net >= 0 ? '#fff' : 'var(--danger)';
       $('surplusSub').textContent = 'Income ' + money(r.daily) + ' − Spend ' + money(todaySpend);
 
       const burnPct = r.daily > 0 ? (todaySpend / r.daily) * 100 : 0;
@@ -420,6 +943,14 @@
       $('mBurn').textContent = mPct.toFixed(1) + '% of monthly income';
       $('mLeft').textContent = money(Math.max(0, r.monthly - monthSpend));
 
+      // Mobile banner
+      $('bannerSpend').textContent = money(monthSpend);
+      $('bannerPct').textContent = mPct.toFixed(1) + '% of income';
+      $('bannerLeft').textContent = money(Math.max(0, r.monthly - monthSpend));
+      $('bannerSurplus').textContent = (net >= 0 ? '+' : '') + money(net);
+      $('bannerSurplus').style.color = net >= 0 ? '#fff' : 'var(--danger)';
+      $('bannerBurn').textContent = burnPct.toFixed(1) + '%';
+
       renderBudgets();
       renderList();
       renderCharts();
@@ -427,54 +958,102 @@
 
     function addExpense() {
       const amount = Number($('amt').value);
-      if (!amount || amount <= 0) return;
-      expenses.unshift({
-        id: Date.now().toString(36),
+      if (!amount || amount <= 0) {
+        $('amt').focus();
+        return;
+      }
+      const entry = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
         amount,
         category: $('cat').value,
         tags: $('tags').value.split(',').map(t => t.trim()).filter(Boolean),
         date: $('date').value || new Date().toISOString().slice(0,10),
         method: $('pay').value,
         note: $('note').value.trim()
-      });
+      };
+      expenses.unshift(entry);
       store.set('jw_exp', expenses);
       $('amt').value = '';
       $('tags').value = '';
       $('note').value = '';
       calc();
+      // subtle haptic-like feedback via visual
+      const btn = document.querySelector('.btn-primary');
+      if (btn) {
+        btn.style.transform = 'scale(0.97)';
+        setTimeout(() => btn.style.transform = '', 120);
+      }
     }
 
     function del(id) {
-      expenses = expenses.filter(e => e.id !== id);
-      store.set('jw_exp', expenses);
-      calc();
+      const card = document.querySelector(`[data-id="${id}"]`);
+      if (card) {
+        card.classList.add('removing');
+        setTimeout(() => {
+          expenses = expenses.filter(e => e.id !== id);
+          store.set('jw_exp', expenses);
+          calc();
+        }, 260);
+      } else {
+        expenses = expenses.filter(e => e.id !== id);
+        store.set('jw_exp', expenses);
+        calc();
+      }
     }
 
     function renderList() {
       const f = $('filter').value;
-      const q = $('search').value.toLowerCase();
+      const q = $('search').value.toLowerCase().trim();
       let list = [...expenses].sort((a,b) => b.date.localeCompare(a.date));
       if (f !== 'All') list = list.filter(e => e.category === f);
       if (q) list = list.filter(e =>
         (e.note||'').toLowerCase().includes(q) ||
         (e.tags||[]).some(t => t.toLowerCase().includes(q)) ||
-        e.category.toLowerCase().includes(q)
+        e.category.toLowerCase().includes(q) ||
+        e.method.toLowerCase().includes(q)
       );
-      $('count').textContent = '(' + list.length + ') · ' + money(list.reduce((s,e) => s + e.amount, 0));
+
+      const total = list.reduce((s,e) => s + e.amount, 0);
+      $('count').textContent = '(' + list.length + ') · ' + money(total);
+
+      // Mobile cards
+      const cardList = $('cardList');
       if (!list.length) {
-        $('tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#555;padding:36px">No expenses yet</td></tr>';
+        cardList.innerHTML = '<div class="empty-state">No expenses yet</div>';
+        $('tbody').innerHTML = '<tr><td colspan="7" class="empty-state">No expenses yet</td></tr>';
         return;
       }
+
+      cardList.innerHTML = list.map((e, i) => `
+        <div class="exp-card" data-id="${e.id}" style="animation-delay:${Math.min(i*30,180)}ms">
+          <div class="exp-card-top">
+            <div>
+              <div class="exp-amount">${money(e.amount)}</div>
+              <div class="exp-meta" style="margin-top:4px">
+                <span class="badge">${e.category}</span>
+                <span>${e.date}</span>
+                <span>· ${e.method}</span>
+              </div>
+            </div>
+            <button class="exp-del" onclick="del('${e.id}')" aria-label="Delete">×</button>
+          </div>
+          ${(e.tags && e.tags.length) ? `<div>${e.tags.map(t => '<span class="tag">'+t+'</span>').join('')}</div>` : ''}
+          ${e.note ? `<div class="exp-note">${e.note}</div>` : ''}
+        </div>
+      `).join('');
+
+      // Desktop table
       $('tbody').innerHTML = list.map(e => `
         <tr>
           <td style="padding-left:16px;color:#888;font-size:12px">${e.date}</td>
           <td style="font-weight:500">${money(e.amount)}</td>
           <td><span class="badge">${e.category}</span></td>
-          <td>${(e.tags||[]).map(t => '<span class="tag">'+t+'</span>').join('')}</td>
+          <td>${(e.tags||[]).map(t => '<span class="tag">'+t+'</span>').join('') || '—'}</td>
           <td style="color:#888;font-size:12px">${e.method}</td>
-          <td style="color:#888;font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.note||'—'}</td>
-          <td><button onclick="del('${e.id}')" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px">×</button></td>
-        </tr>`).join('');
+          <td style="color:#888;font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.note||'—'}</td>
+          <td><button class="exp-del" onclick="del('${e.id}')" aria-label="Delete">×</button></td>
+        </tr>
+      `).join('');
     }
 
     function renderBudgets() {
@@ -492,15 +1071,14 @@
         const pct = lim > 0 ? Math.min(s / lim * 100, 100) : 0;
         const over = s > lim;
         return `
-          <div style="margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="budget-item">
+            <div class="budget-row">
               <span class="badge">${c}</span>
               <div style="display:flex;align-items:center;gap:6px">
                 <span style="font-size:12px;color:#888">${money(s)} /</span>
                 <input type="number" value="${lim}" min="0" step="500" data-c="${c}"
-                  style="width:70px;padding:3px 6px;font-size:12px;text-align:right"
-                  onchange="updateBudget(this)">
-                ${over ? '<span style="font-size:10px;color:#ef4444;font-weight:600">OVER</span>' : ''}
+                  onchange="updateBudget(this)" inputmode="numeric">
+                ${over ? '<span style="font-size:10px;color:var(--danger);font-weight:600">OVER</span>' : ''}
               </div>
             </div>
             <div class="progress${over ? ' red' : ''}"><div style="width:${pct}%"></div></div>
@@ -527,26 +1105,49 @@
       const data = labels.map(c => spent[c]);
       if (pieC) pieC.destroy();
       if (barC) barC.destroy();
-      if (!labels.length) return;
-
+      if (!labels.length) {
+        $('pie').parentElement.innerHTML = '<div class="empty-state" style="height:100%;display:flex;align-items:center;justify-content:center">No data yet</div>';
+        $('bar').parentElement.innerHTML = '<div class="empty-state" style="height:100%;display:flex;align-items:center;justify-content:center">No data yet</div>';
+        return;
+      }
+      // restore canvases if previously replaced
+      if (!$('pie')) {
+        document.querySelector('.charts-grid').innerHTML = `
+          <div class="chart-box"><canvas id="pie"></canvas></div>
+          <div class="chart-box"><canvas id="bar"></canvas></div>`;
+      }
       const greys = ['#fff','#ccc','#999','#777','#555','#444','#333','#222'];
       pieC = new Chart($('pie'), {
         type: 'doughnut',
         data: { labels, datasets: [{ data, backgroundColor: greys, borderColor: '#0a0a0a', borderWidth: 2 }] },
         options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { color: '#888', font: { size: 11 }, boxWidth: 10 } } }
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#888', font: { size: 11 }, boxWidth: 10, padding: 12 }
+            }
+          }
         }
       });
       barC = new Chart($('bar'), {
         type: 'bar',
-        data: { labels: labels.map(l => l.slice(0,8)), datasets: [{ data, backgroundColor: '#fff' }] },
+        data: { labels: labels.map(l => l.slice(0,8)), datasets: [{ data, backgroundColor: '#fff', borderRadius: 4 }] },
         options: {
-          responsive: true, maintainAspectRatio: false,
+          responsive: true,
+          maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
             x: { ticks: { color: '#666', font: { size: 10 } }, grid: { color: '#1a1a1a' } },
-            y: { ticks: { color: '#666', font: { size: 10 }, callback: v => $('curr').value + (v>=1000?(v/1000)+'k':v) }, grid: { color: '#1a1a1a' } }
+            y: {
+              ticks: {
+                color: '#666',
+                font: { size: 10 },
+                callback: v => $('curr').value + (v >= 1000 ? (v/1000)+'k' : v)
+              },
+              grid: { color: '#1a1a1a' }
+            }
           }
         }
       });
@@ -558,26 +1159,50 @@
       const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
-      a.download = 'expenses.csv';
+      a.download = 'expenses-' + new Date().toISOString().slice(0,10) + '.csv';
       a.click();
     }
 
     function resetAll() {
-      if (!confirm('Clear everything?')) return;
+      if (!confirm('Clear all expenses, budgets and settings?')) return;
       store.remove('jw_exp');
       store.remove('jw_bud');
+      store.remove('jw_settings');
       expenses = [];
       budgets = {
         Subscriptions:3000, Dining:8000, Utilities:4000, Gear:10000,
         Transport:3000, Health:2000, Entertainment:4000, Other:5000
       };
+      $('monthly').value = 100000;
+      $('days').value = 5;
+      $('hours').value = 8;
+      $('curr').value = '₹';
+      $('oppAmt').value = 2500;
       calc();
     }
 
-    // init
+    function scrollToForm() {
+      const el = $('expenseFormCard');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => $('amt').focus(), 400);
+      }
+    }
+
+    // Bind live inputs
+    ['monthly','days','hours','oppAmt'].forEach(id => {
+      $(id).addEventListener('input', () => { calc(); persistSettings(); });
+    });
+    $('curr').addEventListener('change', () => { calc(); persistSettings(); });
+
+    // Init
+    loadSettings();
     $('date').value = new Date().toISOString().slice(0,10);
     calc();
     setInterval(calc, 1000);
+
+    // Prevent double-tap zoom on FAB
+    $('fab').addEventListener('touchend', e => e.preventDefault());
   </script>
 </body>
 </html>
