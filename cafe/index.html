@@ -651,7 +651,7 @@
       }
     }
 
-    // Opaque Table QR Token Resolution
+    // Opaque Table QR Token Resolution (STRICT EXACT MATCH ONLY)
     async function cloudResolveQrToken(token) {
       if (!token) return null;
       const t = String(token).trim();
@@ -659,17 +659,14 @@
       if (sb) {
         try {
           const { data, error } = await sb.rpc("boba_resolve_qr_token", { p_token: t });
-          if (!error && data && data.valid) return data;
+          if (!error && data && data.valid === true) return data;
+          return { valid: false, reason: "not_found" };
         } catch (e) {
           console.warn("boba_resolve_qr_token error:", e);
+          return { valid: false, reason: "error", error: e?.message };
         }
       }
-      // Resilient fallback for t<number>_... or t<number> or <number> (e.g. t1_1, t1, 1)
-      const m = t.match(/^t?0*(\d+)(?:_.*)?$/i);
-      if (m && m[1]) {
-        return { valid: true, table_no: m[1], qr_token: t, has_open_session: false };
-      }
-      return null;
+      return { valid: false, reason: "no_db" };
     }
 
     async function cloudRotateQrToken(tableNo) {
@@ -1488,102 +1485,89 @@
     async function cloudUpdateRoundStatus(roundId, status) {
       if (!sb) throw new Error("Supabase not loaded");
       const token = getStaffSessionToken();
-      if (token) {
-        try {
-          const { error } = await sb.rpc("boba_staff_update_round_status", {
-            p_staff_token: token,
-            p_round_id: roundId,
-            p_status: status,
-          });
-          if (!error) return;
-        } catch (e) {
-          console.warn("RPC update round failed, using fallback", e);
+      if (!token) throw new Error("Staff session expired or PIN required. Please re-enter staff PIN.");
+      const { data, error } = await sb.rpc("boba_staff_update_round_status", {
+        p_staff_token: token,
+        p_round_id: roundId,
+        p_status: status,
+      });
+      if (error) {
+        if (/unauthorized|session expired/i.test(error.message || "")) {
+          setStaffSessionToken(null, null);
+          throw new Error("Staff session expired. Please re-enter staff PIN.");
         }
+        if (/PGRST202|could not find.*boba_staff_update_round_status/i.test(error.message || "")) {
+          throw new Error("RPC boba_staff_update_round_status missing in database. Please run quick-grants-fix.sql.");
+        }
+        throw new Error(error.message || "Failed to update round status");
       }
-      const { error } = await sb
-        .from("boba_order_rounds")
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq("id", roundId);
-      if (error) throw error;
+      return data;
     }
 
     async function cloudUpdateRoundItems(roundId, items, total) {
       if (!sb) throw new Error("Supabase not loaded");
       const token = getStaffSessionToken();
-      if (token) {
-        try {
-          const { error } = await sb.rpc("boba_staff_update_round_items", {
-            p_staff_token: token,
-            p_round_id: roundId,
-            p_items: items,
-            p_total: Number(total) || 0,
-          });
-          if (!error) return;
-        } catch (e) {
-          console.warn("RPC update round items failed, using fallback", e);
+      if (!token) throw new Error("Staff session expired or PIN required. Please re-enter staff PIN.");
+      const { data, error } = await sb.rpc("boba_staff_update_round_items", {
+        p_staff_token: token,
+        p_round_id: roundId,
+        p_items: items,
+        p_total: Number(total) || 0,
+      });
+      if (error) {
+        if (/unauthorized|session expired/i.test(error.message || "")) {
+          setStaffSessionToken(null, null);
+          throw new Error("Staff session expired. Please re-enter staff PIN.");
         }
+        if (/PGRST202|could not find.*boba_staff_update_round_items/i.test(error.message || "")) {
+          throw new Error("RPC boba_staff_update_round_items not found in database. Please run quick-grants-fix.sql in Supabase SQL Editor.");
+        }
+        throw new Error(error.message || "Failed to update round items");
       }
-      const { error } = await sb
-        .from("boba_order_rounds")
-        .update({ items, total: Number(total) || 0, updated_at: new Date().toISOString() })
-        .eq("id", roundId);
-      if (error) throw error;
+      return data;
     }
 
     async function cloudCancelRound(roundId) {
       if (!sb) throw new Error("Supabase not loaded");
       const token = getStaffSessionToken();
-      if (token) {
-        try {
-          const { error } = await sb.rpc("boba_staff_cancel_round", {
-            p_staff_token: token,
-            p_round_id: roundId,
-          });
-          if (!error) return;
-        } catch (e) {
-          console.warn("RPC cancel round failed, using fallback", e);
+      if (!token) throw new Error("Staff session expired or PIN required. Please re-enter staff PIN.");
+      const { data, error } = await sb.rpc("boba_staff_cancel_round", {
+        p_staff_token: token,
+        p_round_id: roundId,
+      });
+      if (error) {
+        if (/unauthorized|session expired/i.test(error.message || "")) {
+          setStaffSessionToken(null, null);
+          throw new Error("Staff session expired. Please re-enter staff PIN.");
         }
+        if (/PGRST202|could not find.*boba_staff_cancel_round/i.test(error.message || "")) {
+          throw new Error("RPC boba_staff_cancel_round missing in database. Please run quick-grants-fix.sql.");
+        }
+        throw new Error(error.message || "Failed to cancel round");
       }
-      const { error } = await sb.from("boba_order_rounds").delete().eq("id", roundId);
-      if (error) throw error;
+      return data;
     }
 
     async function cloudClearTable(sessionId, tableNo) {
       if (!sb) throw new Error("Supabase not loaded");
       const token = getStaffSessionToken();
-      if (token) {
-        try {
-          const { error } = await sb.rpc("boba_staff_clear_table", {
-            p_staff_token: token,
-            p_session_id: sessionId || null,
-            p_table_no: tableNo ? String(tableNo) : null,
-          });
-          if (!error) return;
-        } catch (e) {
-          console.warn("RPC clear table failed, using fallback", e);
+      if (!token) throw new Error("Staff session expired or PIN required. Please re-enter staff PIN.");
+      const { data, error } = await sb.rpc("boba_staff_clear_table", {
+        p_staff_token: token,
+        p_session_id: sessionId || null,
+        p_table_no: tableNo ? String(tableNo) : null,
+      });
+      if (error) {
+        if (/unauthorized|session expired/i.test(error.message || "")) {
+          setStaffSessionToken(null, null);
+          throw new Error("Staff session expired. Please re-enter staff PIN.");
         }
+        if (/PGRST202|could not find.*boba_staff_clear_table/i.test(error.message || "")) {
+          throw new Error("RPC boba_staff_clear_table missing in database. Please run quick-grants-fix.sql.");
+        }
+        throw new Error(error.message || "Failed to clear table");
       }
-      let sid = sessionId;
-      if (!sid && tableNo) {
-        const open = await cloudGetOpenSession(tableNo);
-        sid = open && open.id;
-      }
-      if (sid) {
-        // Drop unconfirmed rounds so insights don't keep counting them as pending
-        await sb.from("boba_order_rounds").delete().eq("session_id", sid).eq("status", "new");
-        const { error } = await sb
-          .from("boba_table_sessions")
-          .update({ status: "paid", cleared_at: new Date().toISOString() })
-          .eq("id", sid);
-        if (error) throw error;
-      } else if (tableNo) {
-        const { error } = await sb
-          .from("boba_table_sessions")
-          .update({ status: "paid", cleared_at: new Date().toISOString() })
-          .eq("table_no", String(tableNo))
-          .eq("status", "open");
-        if (error) throw error;
-      }
+      return data;
     }
 
     async function cloudUpsertPin(tableNo, pin) {
@@ -2551,7 +2535,7 @@
       );
     };
 
-    const BrokenLinkView = ({ linkError, onBrowseMenu, onStaffAccess }) => {
+    const BrokenLinkView = ({ linkError, onBrowseMenu }) => {
       const [showStaffGuide, setShowStaffGuide] = useState(false);
       return (
         <div className="min-h-screen bg-blush flex flex-col justify-between p-4 sm:p-6 text-center select-none animate-fade-up">
@@ -2616,13 +2600,8 @@
             )}
           </div>
 
-          <div className="pb-4 text-center">
-            <button
-              type="button"
-              onClick={onStaffAccess}
-              className="text-xs text-mist/80 hover:text-pink transition underline">
-              Staff or Manager access? Log in here
-            </button>
+          <div className="pb-6 text-center text-xs text-mist/60 font-medium">
+            BOBA Café · Authentic Artisanal Boba & Teas
           </div>
         </div>
       );
@@ -3390,37 +3369,165 @@
       const [selectedVariantToAdd, setSelectedVariantToAdd] = useState(null);
       const [addItemQty, setAddItemQty] = useState(1);
       const [addItemNote, setAddItemNote] = useState("");
+      const [confirmOrderModal, setConfirmOrderModal] = useState(null);
 
-      const handleItemQtyChange = (sessionTable, round, itemIndex, delta) => {
+      const requestItemQtyChange = (sessionTable, round, itemIndex, delta) => {
         const items = [...(round.items || [])];
         const item = items[itemIndex];
         if (!item) return;
-        const newQty = (Number(item.qty) || 1) + delta;
+        const currentQty = Number(item.qty) || 1;
+        const newQty = currentQty + delta;
+        const unitPrice = Number(item.price) || 0;
+
         if (newQty <= 0) {
-          handleRemoveItem(sessionTable, round, itemIndex);
+          requestRemoveItem(sessionTable, round, itemIndex);
           return;
         }
-        items[itemIndex] = { ...item, qty: newQty };
-        if (typeof updateRoundItems === "function") {
-          updateRoundItems(sessionTable, round.id, items);
-        }
+
+        const newItems = [...items];
+        newItems[itemIndex] = { ...item, qty: newQty };
+        const newTotal = (newItems || []).reduce((s, it) => s + (Number(it.price) * (Number(it.qty) || 1)), 0);
+        const deltaPrice = (newQty - currentQty) * unitPrice;
+
+        setConfirmOrderModal({
+          title: delta > 0 ? "Increase Quantity" : "Decrease Quantity",
+          type: "edit_qty",
+          tableNo: sessionTable,
+          roundId: round.id,
+          itemName: item.name,
+          variantLabel: item.variantLabel,
+          oldQty: currentQty,
+          newQty: newQty,
+          priceChangeText: (deltaPrice > 0 ? "+" : "") + formatPrice(deltaPrice),
+          newTotalText: formatPrice(newTotal),
+          confirmLabel: `Update to ${newQty}× (${formatPrice(newTotal)})`,
+          isDestructive: false,
+          onConfirm: () => {
+            if (typeof updateRoundItems === "function") {
+              updateRoundItems(sessionTable, round.id, newItems);
+              showToast(`Updated ${item.name} to ${newQty}× on Table ${sessionTable}`);
+            }
+            setConfirmOrderModal(null);
+          }
+        });
       };
 
-      const handleRemoveItem = (sessionTable, round, itemIndex) => {
+      const requestRemoveItem = (sessionTable, round, itemIndex) => {
         const items = [...(round.items || [])];
-        const removed = items[itemIndex];
+        const item = items[itemIndex];
+        if (!item) return;
         const newItems = items.filter((_, i) => i !== itemIndex);
-        if (newItems.length === 0) {
-          if (window.confirm("All items removed from round. Cancel this round?")) {
-            cancelRound(sessionTable, round.id);
-            showToast("Round cancelled");
+        const isLastItem = newItems.length === 0;
+        const unitPrice = Number(item.price) || 0;
+        const qty = Number(item.qty) || 1;
+        const itemTotal = unitPrice * qty;
+        const newTotal = (newItems || []).reduce((s, it) => s + (Number(it.price) * (Number(it.qty) || 1)), 0);
+
+        setConfirmOrderModal({
+          title: isLastItem ? "Remove Item & Cancel Round" : "Remove Item from Order",
+          type: "remove",
+          tableNo: sessionTable,
+          roundId: round.id,
+          itemName: item.name,
+          variantLabel: item.variantLabel,
+          oldQty: qty,
+          newQty: 0,
+          priceChangeText: `-${formatPrice(itemTotal)}`,
+          newTotalText: isLastItem ? "₹0 (Round will be cancelled)" : formatPrice(newTotal),
+          confirmLabel: isLastItem ? "Yes, Cancel Round" : "Yes, Remove Item",
+          isDestructive: true,
+          onConfirm: () => {
+            if (isLastItem) {
+              cancelRound(sessionTable, round.id);
+              showToast("Round cancelled as all items were removed");
+            } else if (typeof updateRoundItems === "function") {
+              updateRoundItems(sessionTable, round.id, newItems);
+              showToast(`Removed ${item.name} from Table ${sessionTable}`);
+            }
+            setConfirmOrderModal(null);
           }
-          return;
-        }
-        if (typeof updateRoundItems === "function") {
-          updateRoundItems(sessionTable, round.id, newItems);
-          showToast("Removed " + (removed?.name || "item") + " from Table " + sessionTable);
-        }
+        });
+      };
+
+      const requestAddItem = (sessionTable, roundId, dish, variant, qty, note) => {
+        const session = (liveOrders || []).find(s => String(s.table) === String(sessionTable));
+        const targetRound = session?.rounds?.find(r => String(r.id) === String(roundId));
+        if (!targetRound) return;
+        const unitPrice = variant ? variant.price : dish.price;
+        const itemTotal = unitPrice * qty;
+        const newItem = {
+          id: dish.id,
+          name: dish.name,
+          price: unitPrice,
+          variantLabel: variant ? variant.label : undefined,
+          qty: qty,
+          note: note.trim() || undefined,
+        };
+        const updatedItems = [...(targetRound.items || []), newItem];
+        const newTotal = (updatedItems || []).reduce((s, it) => s + (Number(it.price) * (Number(it.qty) || 1)), 0);
+
+        setConfirmOrderModal({
+          title: "Confirm Adding Item",
+          type: "add_item",
+          tableNo: sessionTable,
+          roundId: roundId,
+          itemName: dish.name,
+          variantLabel: variant ? variant.label : undefined,
+          oldQty: 0,
+          newQty: qty,
+          notes: note.trim() || undefined,
+          priceChangeText: `+${formatPrice(itemTotal)}`,
+          newTotalText: formatPrice(newTotal),
+          confirmLabel: `Add to Table ${sessionTable} (+${formatPrice(itemTotal)})`,
+          isDestructive: false,
+          onConfirm: () => {
+            if (typeof updateRoundItems === "function") {
+              updateRoundItems(sessionTable, roundId, updatedItems);
+              showToast(`Added ${qty}× ${dish.name} to Table ${sessionTable}`);
+            }
+            setAddItemModal(null);
+            setSelectedDishToAdd(null);
+            setConfirmOrderModal(null);
+          }
+        });
+      };
+
+      const requestCancelRound = (sessionTable, round) => {
+        const roundTotal = (round.items || []).reduce((s, it) => s + (Number(it.price) * (Number(it.qty) || 1)), 0);
+        setConfirmOrderModal({
+          title: "Cancel Order Round",
+          type: "cancel_round",
+          tableNo: sessionTable,
+          roundId: round.id,
+          itemName: `${(round.items || []).length} item(s) in round`,
+          priceChangeText: `-${formatPrice(roundTotal)}`,
+          newTotalText: "Round will be cancelled",
+          confirmLabel: "Yes, Cancel Entire Round",
+          isDestructive: true,
+          onConfirm: () => {
+            cancelRound(sessionTable, round.id);
+            showToast(`Round cancelled for Table ${sessionTable}`);
+            setConfirmOrderModal(null);
+          }
+        });
+      };
+
+      const requestClearTable = (sessionTable, grandTotal) => {
+        setConfirmOrderModal({
+          title: "Settle Bill & Clear Table",
+          type: "clear_table",
+          tableNo: sessionTable,
+          itemName: `Table ${sessionTable} Session`,
+          priceChangeText: formatPrice(grandTotal),
+          newTotalText: "Session marked paid & table freed",
+          confirmLabel: `Clear Table (Paid ${formatPrice(grandTotal)})`,
+          isDestructive: false,
+          onConfirm: () => {
+            clearTable(sessionTable);
+            showToast(`Table ${sessionTable} paid & cleared`);
+            setConfirmOrderModal(null);
+          }
+        });
       };
 
       const handleRotateClick = (tableNo) => {
@@ -3870,18 +3977,18 @@
                                           </div>
                                           <span className="text-mist text-xs whitespace-nowrap font-medium">{formatPrice(it.price * it.qty)}</span>
                                           <div className="inline-flex items-center gap-1 shrink-0 ml-1">
-                                            <button type="button" onClick={() => handleItemQtyChange(session.table, round, idx, -1)}
+                                            <button type="button" onClick={() => requestItemQtyChange(session.table, round, idx, -1)}
                                               title="Decrease quantity or remove"
                                               className="w-5 h-5 rounded bg-blush border border-pink/20 hover:border-pink/50 text-ink text-xs flex items-center justify-center font-bold">
                                               -
                                             </button>
                                             <span className="text-xs font-semibold px-1 min-w-[14px] text-center">{it.qty}</span>
-                                            <button type="button" onClick={() => handleItemQtyChange(session.table, round, idx, 1)}
+                                            <button type="button" onClick={() => requestItemQtyChange(session.table, round, idx, 1)}
                                               title="Increase quantity"
                                               className="w-5 h-5 rounded bg-blush border border-pink/20 hover:border-pink/50 text-ink text-xs flex items-center justify-center font-bold">
                                               +
                                             </button>
-                                            <button type="button" onClick={() => handleRemoveItem(session.table, round, idx)}
+                                            <button type="button" onClick={() => requestRemoveItem(session.table, round, idx)}
                                               title="Remove item from order"
                                               className="w-5 h-5 rounded text-mist/60 hover:text-red-500 hover:bg-red-50 text-xs flex items-center justify-center ml-0.5">
                                               ✕
@@ -3909,7 +4016,7 @@
                                       </button>
                                     )}
                                     {round.status === "new" && (
-                                      <button type="button" onClick={() => { if (window.confirm("Cancel this round?")) { cancelRound(session.table, round.id); showToast("Round cancelled"); } }}
+                                      <button type="button" onClick={() => requestCancelRound(session.table, round)}
                                         className="px-3 py-1.5 rounded-lg text-mist text-xs hover:text-red-500 transition">Cancel</button>
                                     )}
                                   </div>
@@ -3923,7 +4030,7 @@
                             <span className="font-semibold text-pink text-lg">{formatPrice(grandTotal)}</span>
                           </div>
                           <button type="button"
-                            onClick={() => { if (window.confirm(`Clear Table ${session.table}? Mark bill paid (₹${grandTotal}) and remove from live board.`)) { clearTable(session.table); showToast(`Table ${session.table} paid & cleared`); } }}
+                            onClick={() => requestClearTable(session.table, grandTotal)}
                             className="w-full py-2.5 rounded-xl border border-pink/40 text-pink text-sm font-semibold hover:bg-pink/10 transition">
                             Paid, clear table
                           </button>
@@ -4582,24 +4689,7 @@
                       <button
                         type="button"
                         onClick={() => {
-                          const session = (liveOrders || []).find(s => String(s.table) === String(addItemModal.table));
-                          const targetRound = session?.rounds?.find(r => String(r.id) === String(addItemModal.roundId));
-                          if (!targetRound) return;
-                          const newItem = {
-                            id: selectedDishToAdd.id,
-                            name: selectedDishToAdd.name,
-                            price: selectedVariantToAdd ? selectedVariantToAdd.price : selectedDishToAdd.price,
-                            variantLabel: selectedVariantToAdd ? selectedVariantToAdd.label : undefined,
-                            qty: Number(addItemQty) || 1,
-                            note: addItemNote.trim() || undefined,
-                          };
-                          const updatedItems = [...(targetRound.items || []), newItem];
-                          if (typeof updateRoundItems === "function") {
-                            updateRoundItems(addItemModal.table, addItemModal.roundId, updatedItems);
-                            showToast("Added " + (Number(addItemQty) || 1) + "× " + selectedDishToAdd.name + " to Table " + addItemModal.table);
-                          }
-                          setAddItemModal(null);
-                          setSelectedDishToAdd(null);
+                          requestAddItem(addItemModal.table, addItemModal.roundId, selectedDishToAdd, selectedVariantToAdd, Number(addItemQty) || 1, addItemNote);
                         }}
                         className="px-5 py-2.5 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep transition shadow-sm">
                         Add to Round
@@ -4659,23 +4749,102 @@
               </div>
             </div>
           )}
+
+          {confirmOrderModal && (
+            <div className="fixed inset-0 z-[260] flex items-center justify-center p-4 bg-ink/65 backdrop-blur-sm"
+              onClick={() => setConfirmOrderModal(null)}>
+              <div className="glass-strong rounded-3xl p-6 max-w-sm sm:max-w-md w-full border border-pink/30 shadow-float"
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-pink/15">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center text-base ${confirmOrderModal.isDestructive ? 'bg-red-500/15 text-red-600' : 'bg-pink/15 text-pink'}`}>
+                      {confirmOrderModal.isDestructive ? '⚠️' : '✏️'}
+                    </div>
+                    <div>
+                      <h3 className="font-display text-lg text-ink leading-tight">{confirmOrderModal.title}</h3>
+                      <p className="text-xs text-mist font-medium">Table {confirmOrderModal.tableNo}</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setConfirmOrderModal(null)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-mist hover:text-ink hover:bg-pink-soft/50 transition">
+                    ✕
+                  </button>
+                </div>
+
+                <div className="rounded-2xl bg-surface/80 border border-pink/20 p-4 mb-5 space-y-2.5 text-sm">
+                  {confirmOrderModal.itemName && (
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-mist font-medium">Item</span>
+                      <span className="text-ink font-semibold text-right">
+                        {confirmOrderModal.itemName}
+                        {confirmOrderModal.variantLabel ? ` (${confirmOrderModal.variantLabel})` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {confirmOrderModal.oldQty !== undefined && confirmOrderModal.newQty !== undefined && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-mist font-medium">Quantity</span>
+                      <span className="font-semibold text-ink">
+                        {confirmOrderModal.type === "remove" ? (
+                          <span className="text-red-600">{confirmOrderModal.oldQty}× → Removed</span>
+                        ) : confirmOrderModal.type === "add_item" ? (
+                          <span className="text-pink font-bold">+{confirmOrderModal.newQty}×</span>
+                        ) : (
+                          <span>{confirmOrderModal.oldQty}× → <span className="text-pink font-bold">{confirmOrderModal.newQty}×</span></span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {confirmOrderModal.notes && (
+                    <div className="flex items-start justify-between gap-3 pt-1 border-t border-pink/10">
+                      <span className="text-mist font-medium">Notes</span>
+                      <span className="text-ink italic text-xs text-right bg-pink-soft/40 px-2 py-0.5 rounded-lg max-w-[200px]">
+                        &quot;{confirmOrderModal.notes}&quot;
+                      </span>
+                    </div>
+                  )}
+                  {confirmOrderModal.priceChangeText && (
+                    <div className="flex items-center justify-between pt-1 border-t border-pink/10">
+                      <span className="text-mist font-medium">Price Impact</span>
+                      <span className={`font-bold ${confirmOrderModal.isDestructive ? 'text-red-600' : 'text-pink'}`}>
+                        {confirmOrderModal.priceChangeText}
+                      </span>
+                    </div>
+                  )}
+                  {confirmOrderModal.newTotalText && (
+                    <div className="flex items-center justify-between pt-1 border-t border-pink/10">
+                      <span className="text-mist font-medium">Updated Total</span>
+                      <span className="font-bold text-ink text-base">
+                        {confirmOrderModal.newTotalText}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setConfirmOrderModal(null)}
+                    className="py-2.5 px-4 rounded-xl border border-pink/30 text-mist hover:text-ink hover:bg-pink-soft/30 font-semibold text-sm transition">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={confirmOrderModal.onConfirm}
+                    className={`py-2.5 px-4 rounded-xl font-semibold text-sm transition shadow-sm ${
+                      confirmOrderModal.isDestructive
+                        ? 'bg-red-600 text-white hover:bg-red-700'
+                        : 'bg-pink text-white hover:bg-pink-deep'
+                    }`}>
+                    {confirmOrderModal.confirmLabel}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     };
 
     function getTableFromUrl() {
-      try {
-        const q = new URLSearchParams(window.location.search);
-        const tableParam = (q.get("table") || "").trim();
-        if (tableParam && /^\d+$/.test(tableParam)) return tableParam;
-        // Synchronously extract table number from ?t= or ?token= so UI is instant
-        const t = (q.get("t") || q.get("token") || "").trim();
-        if (t) {
-          const m = t.match(/^t?0*(\d+)(?:_.*)?$/i);
-          if (m && m[1]) return m[1];
-        }
-        return "";
-      } catch { return ""; }
+      // Strictly opaque: never guess or extract table number client-side.
+      return "";
     }
     function getPinFromUrl() {
       try {
@@ -4690,49 +4859,52 @@
       const [linkError, setLinkError] = useState(null);
       const [dismissedBrokenLink, setDismissedBrokenLink] = useState(false);
 
-      // If token in URL is an opaque string (?t=t3_... or ?token=...), resolve it
+      // If token in URL is an opaque string (?t=... or ?token=...), resolve it strictly
       React.useEffect(() => {
         const q = new URLSearchParams(window.location.search);
         const rawToken = (q.get("t") || q.get("token") || "").trim();
         const tableParam = (q.get("table") || "").trim();
         if (rawToken) {
           cloudResolveQrToken(rawToken).then(res => {
-            if (res && res.valid && res.table_no) {
+            if (res && res.valid === true && res.table_no) {
               const tNo = String(res.table_no);
               if (isRegisteredTable(tNo, tablePins)) {
                 setTableFromQr(tNo);
                 setLinkError(null);
-                if (res.qr_token && rawToken !== res.qr_token) {
-                  try {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set("t", res.qr_token);
-                    window.history.replaceState({}, "", url.toString());
-                  } catch {}
-                }
               } else {
+                setTableFromQr("");
                 setLinkError({ rawToken, reason: "unregistered", tableNo: tNo });
               }
             } else {
+              setTableFromQr("");
               setLinkError({ rawToken, reason: "not_found" });
             }
           }).catch(err => {
+            setTableFromQr("");
             setLinkError({ rawToken, reason: "error", error: err?.message });
           });
         } else if (tableParam) {
-          if (!isRegisteredTable(tableParam, tablePins)) {
-            setLinkError({ rawToken: tableParam, reason: "unregistered", tableNo: tableParam });
-          }
+          // If a user types ?table=X without an active token, treat as unregistered/broken unless preview mode
+          setTableFromQr("");
+          setLinkError({ rawToken: tableParam, reason: "not_found" });
         }
       }, [tablePins]);
 
       // Verify server staff session on boot
       React.useEffect(() => {
         const token = getStaffSessionToken();
-        if (token) {
+        const staffFlag = sessionStorage.getItem("boba_staff") === "1";
+        if (staffFlag && !token) {
+          // Stale legacy session without crypto token: clear and require PIN
+          setStaffSessionToken(null, null);
+          setStaffAuth(false);
+          if (IS_APEX) setShowPin(true);
+        } else if (token) {
           cloudStaffVerify(token).then(valid => {
             if (!valid && !token.startsWith("local_session_")) {
               setStaffSessionToken(null, null);
               setStaffAuth(false);
+              if (IS_APEX) setShowPin(true);
             }
           }).catch(() => {});
         }
@@ -4740,23 +4912,25 @@
 
       const [view, setView] = useState(() => {
         try {
-          if (IS_APEX) return sessionStorage.getItem("boba_staff") === "1" && !staffSessionExpired() ? "owner" : "apex-gate";
-          return sessionStorage.getItem("boba_staff") === "1" && !staffSessionExpired() ? "owner" : "customer";
+          const hasValidSession = sessionStorage.getItem("boba_staff") === "1" && !staffSessionExpired() && !!getStaffSessionToken();
+          if (IS_APEX) return hasValidSession ? "owner" : "apex-gate";
+          return hasValidSession ? "owner" : "customer";
         } catch { return IS_APEX ? "apex-gate" : "customer"; }
       });
       const [staffAuth, setStaffAuth] = useState(() => {
         try {
           if (sessionStorage.getItem("boba_staff") !== "1") return false;
-          if (staffSessionExpired()) {
+          if (staffSessionExpired() || !getStaffSessionToken()) {
             sessionStorage.removeItem("boba_staff");
             sessionStorage.removeItem("boba_mgr");
+            setStaffSessionToken(null, null);
             return false;
           }
           touchStaffActivity();
           return true;
         } catch { return false; }
       });
-      const [showPin, setShowPin] = useState(() => IS_APEX && !(typeof sessionStorage !== "undefined" && sessionStorage.getItem("boba_staff") === "1" && !staffSessionExpired()));
+      const [showPin, setShowPin] = useState(() => IS_APEX && !(typeof sessionStorage !== "undefined" && sessionStorage.getItem("boba_staff") === "1" && !staffSessionExpired() && !!getStaffSessionToken()));
       const [dishes, setDishes] = useState(() => {
         const loaded = loadState("boba_dishes", null);
         if (!loaded) return mergeMenuList(INITIAL_DISHES);
@@ -4964,9 +5138,13 @@
         }));
         try {
           await cloudUpdateRoundItems(roundId, newItems, newTotal);
+          showToast("Order round updated");
         } catch (e) {
           console.error(e);
           showToast("Failed to update round items: " + (e.message || ""));
+          if (/session expired|enter staff PIN|token missing/i.test(e.message || "")) {
+            setShowPin(true);
+          }
           try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
         }
       }, [showToast]);
@@ -4985,6 +5163,7 @@
       };
       const handleLogout = () => {
         setStaffAuth(false);
+        setStaffSessionToken(null, null);
         try {
           sessionStorage.removeItem("boba_staff");
           sessionStorage.removeItem("boba_mgr");
@@ -5051,7 +5230,6 @@
                 <BrokenLinkView
                   linkError={linkError}
                   onBrowseMenu={() => setDismissedBrokenLink(true)}
-                  onStaffAccess={handleStaffAccess}
                 />
               ) : (
                 <CustomerView
