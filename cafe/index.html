@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#FFF8FA" />
+  <meta name="theme-color" content="#FBF8F2" />
   <meta name="description" content="BOBA Café — scan your table QR to order bubble tea, fruit tea, and snacks." />
   <meta property="og:title" content="BOBA Café" />
   <meta property="og:description" content="Order from your table at jordanworld.co/cafe. Fresh boba, milk tea, and snacks." />
@@ -27,25 +27,31 @@
       theme: {
         extend: {
           colors: {
-            blush: '#FFF8FA',
-            surface: '#FFFFFF',
-            pink: '#C2185B',
-            'pink-deep': '#AD1457',
-            'pink-soft': '#FCE4EC',
-            ink: '#1A1A1A',
-            mist: '#8A7A82',
-            petal: '#F8BBD0',
-            cream: '#FFF5F7',
+            blush: '#FBF8F2',           // Warm Cream background
+            surface: '#FFFFFF',         // Crisp Off-White surface
+            pink: '#BA6B25',            // Warm Caramel primary brand color
+            'pink-deep': '#7A3E12',     // Dark Brown Sugar / Rich Mocha
+            'pink-soft': '#F5E9DC',     // Milk Tea / Warm Cream soft tint
+            ink: '#24140E',             // Dark Brown Sugar primary text
+            mist: '#7F695C',            // Rich Mocha muted text
+            petal: '#DDA15E',           // Golden Amber Boba Pearl
+            cream: '#F4EFE6',           // Silky Vanilla Cream
+            caramel: '#BA6B25',
+            'caramel-dark': '#8C4718',
+            'brown-sugar': '#24140E',
+            mocha: '#6B4731',
+            'warm-cream': '#FBF8F2',
+            'off-white': '#FFFFFF',
           },
           fontFamily: {
             display: ['Playfair Display', 'serif'],
             sans: ['Inter', 'system-ui', 'sans-serif'],
           },
           boxShadow: {
-            'glow': '0 8px 32px rgba(194, 24, 91, 0.12)',
-            'glow-sm': '0 4px 16px rgba(194, 24, 91, 0.08)',
-            'card': '0 4px 24px rgba(0,0,0,0.04)',
-            'float': '0 16px 48px rgba(0,0,0,0.1), 0 0 0 1px rgba(194,24,91,0.1)',
+            'glow': '0 8px 32px rgba(186, 107, 37, 0.16)',
+            'glow-sm': '0 4px 16px rgba(186, 107, 37, 0.10)',
+            'card': '0 4px 24px rgba(36, 20, 14, 0.05)',
+            'float': '0 16px 48px rgba(36, 20, 14, 0.12), 0 0 0 1px rgba(186, 107, 37, 0.14)',
           },
           keyframes: {
             'fade-up': {
@@ -95,8 +101,8 @@
     }
     body {
       margin: 0;
-      background: #FFF8FA;
-      color: #1A1A1A;
+      background: #FBF8F2;
+      color: #24140E;
       font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-variant-ligatures: none;
       overflow-x: clip;
@@ -165,35 +171,35 @@
       padding-top: max(0.5rem, env(safe-area-inset-top, 0px)) !important;
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #FFF8FA; }
-    ::-webkit-scrollbar-thumb { background: #F8BBD0; border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: #FBF8F2; }
+    ::-webkit-scrollbar-thumb { background: #DDA15E; border-radius: 3px; }
 
     .glass {
-      background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,248,250,0.9));
+      background: linear-gradient(145deg, rgba(255,255,255,0.94), rgba(251,248,242,0.92));
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(194, 24, 91, 0.1);
+      border: 1px solid rgba(186, 107, 37, 0.12);
     }
     .glass-strong {
-      background: linear-gradient(160deg, rgba(255,255,255,0.98), rgba(255,248,250,0.96));
+      background: linear-gradient(160deg, rgba(255,255,255,0.98), rgba(251,248,242,0.96));
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(194, 24, 91, 0.14);
+      border: 1px solid rgba(186, 107, 37, 0.16);
     }
     .ambient-bg {
       background:
-        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(194,24,91,0.06), transparent),
-        radial-gradient(ellipse 60% 40% at 90% 20%, rgba(252,228,236,0.6), transparent),
-        #FFF8FA;
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(186,107,37,0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 20%, rgba(245,233,220,0.7), transparent),
+        #FBF8F2;
     }
-    .tag-high { background: #FCE4EC; color: #AD1457 !important; }
-    .tag-trending { background: linear-gradient(135deg, #C2185B, #AD1457); color: #fff !important; }
-    .tag-chef { background: #FFF0F5; border: 1px solid rgba(194,24,91,0.2); color: #C2185B !important; }
+    .tag-high { background: #F5E9DC; color: #7A3E12 !important; }
+    .tag-trending { background: linear-gradient(135deg, #BA6B25, #7A3E12); color: #fff !important; }
+    .tag-chef { background: #FAF3EC; border: 1px solid rgba(186,107,37,0.25); color: #BA6B25 !important; }
     .tag-diet { display: none !important; }
 
     .menu-card {
       transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease;
-      border: 1px solid rgba(194,24,91,0.1);
+      border: 1px solid rgba(186,107,37,0.12);
       border-radius: 18px;
       background: #FFFFFF;
       opacity: 0;
@@ -209,8 +215,8 @@
     }
     .menu-card:hover {
       transform: translateY(-2px);
-      border-color: rgba(194,24,91,0.2);
-      box-shadow: 0 10px 28px rgba(194,24,91,0.07);
+      border-color: rgba(186,107,37,0.3);
+      box-shadow: 0 10px 28px rgba(186,107,37,0.09);
     }
     @media (hover: none) {
       .menu-card:hover { transform: none; }
@@ -219,7 +225,7 @@
     .menu-card-media {
       width: 100%;
       aspect-ratio: 4 / 3;
-      background: linear-gradient(145deg, #FCE4EC 0%, #FFF5F7 100%);
+      background: linear-gradient(145deg, #F5E9DC 0%, #FAF6EE 100%);
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -248,7 +254,7 @@
 
     .toast-progress {
       height: 3px;
-      background: linear-gradient(90deg, #C2185B, #AD1457);
+      background: linear-gradient(90deg, #BA6B25, #7A3E12);
       animation: toast-shrink 2.4s linear forwards;
       transform-origin: left;
     }
@@ -261,17 +267,17 @@
 
     .sticky-search.scrolled {
       box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-      border-bottom-color: rgba(194,24,91,0.12) !important;
+      border-bottom-color: rgba(186,107,37,0.15) !important;
     }
 
     .pin-dot {
       width: 14px; height: 14px; border-radius: 50%;
-      border: 2px solid rgba(194,24,91,0.3);
+      border: 2px solid rgba(186,107,37,0.35);
       transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), background 0.2s ease, border-color 0.2s ease;
     }
     .pin-dot.filled {
-      background: #C2185B;
-      border-color: #C2185B;
+      background: #BA6B25;
+      border-color: #BA6B25;
       transform: scale(1.1);
     }
     @keyframes shake {
@@ -284,7 +290,7 @@
     .cart-overlay { transition: opacity 0.3s ease; }
 
     button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
-      outline: 2px solid #EC4899;
+      outline: 2px solid #BA6B25;
       outline-offset: 3px;
     }
     .hit-target { min-height: 44px; min-width: 44px; }
@@ -301,12 +307,12 @@
       box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
     }
     .switch-toggle.is-on {
-      background: #C2185B !important;
-      border-color: #AD1457;
+      background: #BA6B25 !important;
+      border-color: #7A3E12;
     }
     .switch-toggle.is-off {
-      background: #E5DDE1 !important;
-      border-color: #9A8A92;
+      background: #EAE1D8 !important;
+      border-color: #A38F82;
     }
     .switch-toggle:disabled,
     .switch-toggle.is-disabled {
@@ -327,25 +333,33 @@
     }
     .switch-toggle.is-on .switch-knob { left: calc(100% - 18px); }
     .switch-toggle.is-off .switch-knob { left: 2px; }
-    .text-mist { color: #8A7A82 !important; }
+    .text-mist { color: #7F695C !important; }
 
+    /* Floating Boba Bubbles & Golden Amber Pearls */
     .petal-stage {
       position: fixed; inset: 0; z-index: 200; pointer-events: none; overflow: hidden;
       opacity: 1; transition: opacity 1.2s ease;
     }
     .petal-stage.is-done { opacity: 0; }
     .petal {
-      position: absolute; top: -12%; width: 14px; height: 18px; border-radius: 70% 0 70% 0;
-      background: linear-gradient(135deg, #F8BBD0 0%, #EC407A 55%, #C2185B 100%);
-      opacity: 0.85; animation-name: petal-fall; animation-timing-function: linear; animation-fill-mode: forwards;
+      position: absolute; top: -12%; width: 14px; height: 14px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(255, 248, 240, 0.9), rgba(186, 107, 37, 0.75) 45%, rgba(36, 20, 14, 0.9) 100%);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.7), 0 3px 6px rgba(36,20,14,0.16);
+      opacity: 0.8; animation-name: petal-fall; animation-timing-function: linear; animation-fill-mode: forwards;
     }
-    .petal:nth-child(3n) { background: linear-gradient(135deg, #FCE4EC 0%, #F48FB1 50%, #AD1457 100%); width: 11px; height: 15px; }
-    .petal:nth-child(4n) { background: linear-gradient(145deg, #FFFFFF 0%, #F8BBD0 40%, #E91E63 100%); width: 16px; height: 20px; opacity: 0.75; }
-    .petal:nth-child(5n) { border-radius: 0 70% 0 70%; width: 12px; height: 16px; }
+    .petal:nth-child(3n) {
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), rgba(221, 161, 94, 0.8) 50%, rgba(122, 62, 18, 0.9) 100%);
+      width: 10px; height: 10px;
+    }
+    .petal:nth-child(4n) {
+      background: radial-gradient(circle at 38% 35%, rgba(255, 250, 245, 0.75), rgba(107, 71, 49, 0.75) 60%, rgba(26, 13, 8, 0.95) 100%);
+      width: 16px; height: 16px; opacity: 0.7;
+    }
+    .petal:nth-child(5n) { width: 12px; height: 12px; border-radius: 50%; }
     @keyframes petal-fall {
-      0% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0; }
-      8% { opacity: 0.9; }
-      100% { transform: translate3d(var(--drift,40px),115vh,0) rotate(var(--spin,360deg)); opacity: 0.15; }
+      0% { transform: translate3d(0,0,0) scale(0.6); opacity: 0; }
+      8% { opacity: 0.85; }
+      100% { transform: translate3d(var(--drift,30px),115vh,0) scale(1); opacity: 0.12; }
     }
     .order-burst { position: fixed; inset: 0; z-index: 190; pointer-events: none; overflow: hidden; }
     .order-burst-piece {
@@ -353,8 +367,8 @@
       animation: order-pop 1.35s cubic-bezier(0.15,0.85,0.35,1) forwards;
     }
     .order-burst-piece.is-petal {
-      width: 12px; height: 16px; border-radius: 70% 0 70% 0;
-      background: linear-gradient(135deg, #F8BBD0, #C2185B);
+      width: 12px; height: 12px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #F5E9DC, #BA6B25);
     }
     .order-burst-piece.is-confetti { width: 8px; height: 12px; border-radius: 2px; }
     @keyframes order-pop {
@@ -377,7 +391,7 @@
   </style>
 </head>
 <body>
-  <div id="root"><div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#FFF8FA;color:#C2185B;font-family:system-ui;font-size:14px">Loading BOBA…</div></div>
+  <div id="root"><div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#FBF8F2;color:#BA6B25;font-family:system-ui;font-size:14px;font-weight:500">Loading BOBA…</div></div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo, useCallback } = React;
@@ -1493,6 +1507,29 @@
       if (error) throw error;
     }
 
+    async function cloudUpdateRoundItems(roundId, items, total) {
+      if (!sb) throw new Error("Supabase not loaded");
+      const token = getStaffSessionToken();
+      if (token) {
+        try {
+          const { error } = await sb.rpc("boba_staff_update_round_items", {
+            p_staff_token: token,
+            p_round_id: roundId,
+            p_items: items,
+            p_total: Number(total) || 0,
+          });
+          if (!error) return;
+        } catch (e) {
+          console.warn("RPC update round items failed, using fallback", e);
+        }
+      }
+      const { error } = await sb
+        .from("boba_order_rounds")
+        .update({ items, total: Number(total) || 0, updated_at: new Date().toISOString() })
+        .eq("id", roundId);
+      if (error) throw error;
+    }
+
     async function cloudCancelRound(roundId) {
       if (!sb) throw new Error("Supabase not loaded");
       const token = getStaffSessionToken();
@@ -1694,7 +1731,7 @@
     const OrderBurst = ({ active, onDone }) => {
       const pieces = useMemo(() => {
         if (!active) return [];
-        const colors = ["#C2185B", "#EC407A", "#F48FB1", "#AD1457", "#FFD6E7", "#FFFFFF", "#E91E63"];
+        const colors = ["#BA6B25", "#DDA15E", "#7A3E12", "#F5E9DC", "#FFFFFF", "#3D2014", "#E09F3E"];
         return Array.from({ length: 36 }, (_, i) => {
           const angle = (-90 + (i / 36) * 360 + (i % 5) * 7) * (Math.PI / 180);
           const dist = 140 + (i % 8) * 28;
@@ -2045,9 +2082,9 @@
       const drawFrame = (ctx, st) => {
         if (!ctx || !st) return;
         // crisp board
-        ctx.fillStyle = "#FFF8FA";
+        ctx.fillStyle = "#FBF8F2";
         ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = "rgba(194,24,91,0.08)";
+        ctx.strokeStyle = "rgba(186,107,37,0.10)";
         ctx.lineWidth = 1;
         for (let i = 0; i <= COLS; i++) {
           ctx.beginPath(); ctx.moveTo(i * CELL + 0.5, 0); ctx.lineTo(i * CELL + 0.5, H); ctx.stroke();
@@ -2061,7 +2098,7 @@
         const pr = CELL * 0.34;
         ctx.beginPath();
         ctx.arc(fx, fy, pr, 0, Math.PI * 2);
-        ctx.fillStyle = "#C2185B";
+        ctx.fillStyle = "#BA6B25";
         ctx.fill();
         ctx.beginPath();
         ctx.arc(fx - pr * 0.28, fy - pr * 0.28, pr * 0.2, 0, Math.PI * 2);
@@ -2076,7 +2113,7 @@
           const y = s.y * CELL + pad;
           const size = CELL - pad * 2;
           const r = 5;
-          ctx.fillStyle = i === 0 ? "#AD1457" : "#C2185B";
+          ctx.fillStyle = i === 0 ? "#7A3E12" : "#BA6B25";
           ctx.beginPath();
           if (ctx.roundRect) ctx.roundRect(x, y, size, size, r);
           else ctx.rect(x, y, size, size);
@@ -2514,7 +2551,84 @@
       );
     };
 
-    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount }) => {
+    const BrokenLinkView = ({ linkError, onBrowseMenu, onStaffAccess }) => {
+      const [showStaffGuide, setShowStaffGuide] = useState(false);
+      return (
+        <div className="min-h-screen bg-blush flex flex-col justify-between p-4 sm:p-6 text-center select-none animate-fade-up">
+          <div className="pt-6 sm:pt-10 max-w-md mx-auto w-full">
+            <p className="text-pink tracking-[0.3em] uppercase text-xs font-semibold mb-2">BOBA Café</p>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              Invalid or Expired Table Link
+            </span>
+          </div>
+
+          <div className="max-w-md mx-auto w-full glass-strong rounded-3xl p-6 sm:p-8 border border-pink/15 shadow-float my-6">
+            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-pink-soft flex items-center justify-center border border-pink/20 shadow-sm text-pink">
+              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                <line x1="2" y1="2" x2="22" y2="22"/>
+              </svg>
+            </div>
+
+            <h1 className="font-display text-2xl sm:text-3xl text-ink font-bold mb-2">
+              We Couldn't Connect Your Table
+            </h1>
+            <p className="text-mist text-sm leading-relaxed mb-6">
+              The table link you opened is invalid, expired, or was rotated by staff.
+              {linkError?.tableNo ? (
+                <span className="block mt-2 text-xs text-ink/90 font-mono bg-pink-soft/80 py-1.5 px-3 rounded-lg border border-pink/15">
+                  Table {linkError.tableNo} is not active in the café system.
+                </span>
+              ) : linkError?.rawToken ? (
+                <span className="block mt-2 text-xs text-mist font-mono truncate bg-pink-soft/80 py-1.5 px-3 rounded-lg border border-pink/15">
+                  Code: {linkError.rawToken}
+                </span>
+              ) : null}
+            </p>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={onBrowseMenu}
+                className="w-full py-3.5 px-4 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep transition shadow-sm flex items-center justify-center gap-2">
+                <Icon name="book-open" size={16} />
+                Browse Menu (Preview Mode)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowStaffGuide(prev => !prev)}
+                className="w-full py-3 px-4 rounded-xl bg-white border border-pink/20 text-ink text-sm font-medium hover:bg-pink-soft/50 transition flex items-center justify-center gap-1.5">
+                <Icon name="help-circle" size={16} className="text-pink" />
+                {showStaffGuide ? "Hide Ordering Guide" : "How to Order at Your Table"}
+              </button>
+            </div>
+
+            {showStaffGuide && (
+              <div className="mt-5 p-4 rounded-2xl bg-pink-soft/50 border border-pink/15 text-left text-xs text-mist space-y-2 animate-fade-up">
+                <p className="font-semibold text-ink text-xs mb-1">Simple steps to order:</p>
+                <p>1. Check the acrylic table stand on your table for the BOBA Café QR code sticker.</p>
+                <p>2. Open your smartphone camera or scanner and point at the QR code.</p>
+                <p>3. If your table has no sticker or the link still fails, please ask any staff member at the counter — they can generate a fresh QR code in seconds.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="pb-4 text-center">
+            <button
+              type="button"
+              onClick={onStaffAccess}
+              className="text-xs text-mist/80 hover:text-pink transition underline">
+              Staff or Manager access? Log in here
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount, isPreviewMode }) => {
       const [filter, setFilter] = useState("All");
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
       const loadDiningGuest = (tableHint) => {
@@ -2826,7 +2940,7 @@
       return (
         <div className="min-h-screen ambient-bg pb-10" style={{ paddingBottom: "max(2.5rem, calc(env(safe-area-inset-bottom) + 1.5rem))" }}>
           <header className="relative pt-10 pb-10 px-4 overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(194,24,91,0.07)_0%,_transparent_55%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(186,107,37,0.08)_0%,_transparent_55%)]" />
             <div className="relative max-w-5xl mx-auto text-center">
               <p className="text-pink tracking-[0.3em] uppercase text-xs font-medium mb-3">Boba Café</p>
               <h1 className="font-display text-5xl md:text-7xl text-ink tracking-tight">BOBA</h1>
@@ -2850,9 +2964,16 @@
                 </div>
               ) : (
                 <div className="mt-5 max-w-sm mx-auto px-3">
-                  <p className="text-mist text-sm leading-relaxed">
-                    Scan the <span className="text-pink font-medium">QR code on your table</span> to order.
-                  </p>
+                  {isPreviewMode ? (
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                      Menu Preview Mode · Scan your table QR to place orders
+                    </div>
+                  ) : (
+                    <p className="text-mist text-sm leading-relaxed">
+                      Scan the <span className="text-pink font-medium">QR code on your table</span> to order.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -3135,7 +3256,7 @@
             datasets: [{
               label: title || "Qty",
               data: vals,
-              backgroundColor: vals.map((_, i) => i === 0 ? "rgba(194,24,91,0.95)" : i < 3 ? "rgba(194,24,91,0.55)" : "rgba(252,228,236,0.85)"),
+              backgroundColor: vals.map((_, i) => i === 0 ? "rgba(186,107,37,0.95)" : i < 3 ? "rgba(186,107,37,0.65)" : "rgba(245,233,220,0.85)"),
               borderRadius: 6,
               borderSkipped: false,
             }],
@@ -3146,11 +3267,11 @@
             animation: false,
             plugins: {
               legend: { display: false },
-              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#1F2937", bodyColor: "#C2185B", borderColor: "rgba(194,24,91,0.3)", borderWidth: 1 },
+              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#24140E", bodyColor: "#BA6B25", borderColor: "rgba(186,107,37,0.3)", borderWidth: 1 },
             },
             scales: {
-              x: { ticks: { color: "rgba(138,122,130,0.9)", font: { size: 10 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
-              y: { beginAtZero: true, ticks: { color: "rgba(138,122,130,0.7)", precision: 0 }, grid: { color: "rgba(194,24,91,0.06)" } },
+              x: { ticks: { color: "rgba(127,105,92,0.9)", font: { size: 10 }, maxRotation: 45, minRotation: 0 }, grid: { display: false } },
+              y: { beginAtZero: true, ticks: { color: "rgba(127,105,92,0.7)", precision: 0 }, grid: { color: "rgba(186,107,37,0.08)" } },
             },
           },
         });
@@ -3167,9 +3288,9 @@
         if (!canvasRef.current) return;
         if (chartRef.current) chartRef.current.destroy();
         const colors = [
-          "rgba(194,24,91,0.9)", "rgba(173,20,87,0.85)", "rgba(252,228,236,0.95)",
-          "rgba(244,114,182,0.8)", "rgba(194,24,91,0.5)", "rgba(136,14,79,0.7)",
-          "rgba(251,113,133,0.65)", "rgba(244,63,94,0.6)",
+          "rgba(186,107,37,0.92)", "rgba(122,62,18,0.88)", "rgba(221,161,94,0.92)",
+          "rgba(245,233,220,0.95)", "rgba(107,71,49,0.75)", "rgba(61,32,20,0.85)",
+          "rgba(198,125,52,0.65)", "rgba(217,119,6,0.6)",
         ];
         chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
           type: "doughnut",
@@ -3186,8 +3307,8 @@
             maintainAspectRatio: false,
             animation: false,
             plugins: {
-              legend: { position: "bottom", labels: { color: "rgba(107,114,128,0.9)", padding: 10, font: { size: 11 }, boxWidth: 12 } },
-              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#1F2937", bodyColor: "#C2185B" },
+              legend: { position: "bottom", labels: { color: "rgba(127,105,92,0.9)", padding: 10, font: { size: 11 }, boxWidth: 12 } },
+              tooltip: { backgroundColor: "#FFFFFF", titleColor: "#24140E", bodyColor: "#BA6B25" },
             },
             cutout: "58%",
           },
@@ -3238,7 +3359,7 @@
       } catch {}
     }
 
-    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
+    const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, updateRoundItems, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
       const [editingDish, setEditingDish] = useState(null);
       React.useEffect(() => { _editingMenuLock = !!editingDish; }, [editingDish]);
       const [staffTab, setStaffTab] = useState("live");
@@ -3261,6 +3382,96 @@
       });
       const [mgrPin, setMgrPin] = useState("");
       const [mgrError, setMgrError] = useState(false);
+      const [mgrAuthModal, setMgrAuthModal] = useState(null); // { tableNo: number, error: string }
+      const [mgrAuthPin, setMgrAuthPin] = useState("");
+      const [addItemModal, setAddItemModal] = useState(null); // { table: string, roundId: string }
+      const [addItemSearch, setAddItemSearch] = useState("");
+      const [selectedDishToAdd, setSelectedDishToAdd] = useState(null);
+      const [selectedVariantToAdd, setSelectedVariantToAdd] = useState(null);
+      const [addItemQty, setAddItemQty] = useState(1);
+      const [addItemNote, setAddItemNote] = useState("");
+
+      const handleItemQtyChange = (sessionTable, round, itemIndex, delta) => {
+        const items = [...(round.items || [])];
+        const item = items[itemIndex];
+        if (!item) return;
+        const newQty = (Number(item.qty) || 1) + delta;
+        if (newQty <= 0) {
+          handleRemoveItem(sessionTable, round, itemIndex);
+          return;
+        }
+        items[itemIndex] = { ...item, qty: newQty };
+        if (typeof updateRoundItems === "function") {
+          updateRoundItems(sessionTable, round.id, items);
+        }
+      };
+
+      const handleRemoveItem = (sessionTable, round, itemIndex) => {
+        const items = [...(round.items || [])];
+        const removed = items[itemIndex];
+        const newItems = items.filter((_, i) => i !== itemIndex);
+        if (newItems.length === 0) {
+          if (window.confirm("All items removed from round. Cancel this round?")) {
+            cancelRound(sessionTable, round.id);
+            showToast("Round cancelled");
+          }
+          return;
+        }
+        if (typeof updateRoundItems === "function") {
+          updateRoundItems(sessionTable, round.id, newItems);
+          showToast("Removed " + (removed?.name || "item") + " from Table " + sessionTable);
+        }
+      };
+
+      const handleRotateClick = (tableNo) => {
+        if (!mgrUnlocked) {
+          setMgrAuthPin("");
+          setMgrAuthModal({ tableNo, error: "" });
+          return;
+        }
+        performRotate(tableNo);
+      };
+
+      const performRotate = async (tableNo) => {
+        const confirmed = window.confirm(
+          "Are you sure you want to rotate Table " + tableNo + "'s QR code?\n\nWARNING: The old QR code will stop working immediately. You will need to print and replace the physical QR sticker on Table " + tableNo + "."
+        );
+        if (!confirmed) return;
+        try {
+          const res = await cloudRotateQrToken(tableNo);
+          if (res && res.qr_token) {
+            setTableQrTokens(prev => ({ ...prev, [String(tableNo)]: res.qr_token }));
+            showToast("Table " + tableNo + " QR token rotated by Manager! Old links invalidated.");
+          }
+        } catch (e) {
+          showToast("Rotate failed: " + (e.message || ""));
+        }
+      };
+
+      const handleVerifyManagerForRotate = async () => {
+        const pin = String(mgrAuthPin || "").trim();
+        if (pin.length < MGR_PIN_LEN) {
+          setMgrAuthModal(prev => prev ? ({ ...prev, error: "Enter 6-digit manager PIN" }) : null);
+          return;
+        }
+        try {
+          const res = await cloudStaffLogin(pin, "manager");
+          if (res && res.success) {
+            setMgrUnlocked(true);
+            const targetTable = mgrAuthModal?.tableNo;
+            setMgrAuthModal(null);
+            setMgrAuthPin("");
+            showToast("Manager verified");
+            if (targetTable != null) {
+              performRotate(targetTable);
+            }
+          } else {
+            setMgrAuthModal(prev => prev ? ({ ...prev, error: "Incorrect manager PIN" }) : null);
+          }
+        } catch (e) {
+          setMgrAuthModal(prev => prev ? ({ ...prev, error: (e.message || "Manager verification failed") }) : null);
+        }
+      };
       const [insightPeriod, setInsightPeriod] = useState("day");
       const [insights, setInsights] = useState(null);
       const [insightsLoading, setInsightsLoading] = useState(false);
@@ -3649,21 +3860,51 @@
                                     <span className="text-xs text-mist">Round {rounds.length - ri}, {new Date(round.createdAt).toLocaleTimeString()}{round.orderedBy ? " · " + round.orderedBy : ""}</span>
                                     <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusColor(round.status)}`}>{meta.label}</span>
                                   </div>
-                                  <ul className="space-y-1 mb-2">
+                                  <ul className="space-y-1.5 mb-2.5">
                                     {(round.items || []).map((it, idx) => (
-                                      <li key={idx} className="text-sm">
-                                        <div className="flex justify-between gap-2">
-                                          <span className="text-ink">{it.qty}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
-                                          <span className="text-mist whitespace-nowrap">{formatPrice(it.price * it.qty)}</span>
+                                      <li key={idx} className="text-sm bg-white/70 p-2 rounded-lg border border-pink/10">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="min-w-0 flex-1">
+                                            <span className="font-semibold text-pink mr-1">{it.qty}×</span>
+                                            <span className="text-ink font-medium">{it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                                          </div>
+                                          <span className="text-mist text-xs whitespace-nowrap font-medium">{formatPrice(it.price * it.qty)}</span>
+                                          <div className="inline-flex items-center gap-1 shrink-0 ml-1">
+                                            <button type="button" onClick={() => handleItemQtyChange(session.table, round, idx, -1)}
+                                              title="Decrease quantity or remove"
+                                              className="w-5 h-5 rounded bg-blush border border-pink/20 hover:border-pink/50 text-ink text-xs flex items-center justify-center font-bold">
+                                              -
+                                            </button>
+                                            <span className="text-xs font-semibold px-1 min-w-[14px] text-center">{it.qty}</span>
+                                            <button type="button" onClick={() => handleItemQtyChange(session.table, round, idx, 1)}
+                                              title="Increase quantity"
+                                              className="w-5 h-5 rounded bg-blush border border-pink/20 hover:border-pink/50 text-ink text-xs flex items-center justify-center font-bold">
+                                              +
+                                            </button>
+                                            <button type="button" onClick={() => handleRemoveItem(session.table, round, idx)}
+                                              title="Remove item from order"
+                                              className="w-5 h-5 rounded text-mist/60 hover:text-red-500 hover:bg-red-50 text-xs flex items-center justify-center ml-0.5">
+                                              ✕
+                                            </button>
+                                          </div>
                                         </div>
-                                        {it.note && <p className="text-sm text-pink-deep mt-1 font-medium">Note: {it.note}</p>}
+                                        {it.note && <p className="text-xs text-pink-deep mt-1 font-medium bg-pink-soft/60 px-2 py-0.5 rounded">Note: {it.note}</p>}
                                       </li>
                                     ))}
                                   </ul>
+                                  <div className="flex items-center justify-between mb-3 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => setAddItemModal({ table: session.table, roundId: round.id })}
+                                      className="inline-flex items-center gap-1 text-xs text-pink hover:text-pink-deep font-semibold py-1 px-2.5 rounded-lg bg-white border border-pink/20 hover:border-pink/40 shadow-xs transition">
+                                      <Icon name="plus" size={12} /> Add item to round
+                                    </button>
+                                    <span className="text-xs text-mist font-medium">Round: <strong className="text-ink">{formatPrice(round.total || 0)}</strong></span>
+                                  </div>
                                   <div className="flex flex-wrap gap-2">
                                     {meta.next && (
                                       <button type="button" onClick={() => { updateRoundStatus(session.table, round.id, meta.next); showToast(`Table ${session.table}: ${meta.nextLabel}`); }}
-                                        className="px-3 py-1.5 rounded-lg bg-pink text-white text-xs font-semibold hover:bg-pink-deep transition">
+                                        className="px-3 py-1.5 rounded-lg bg-pink text-white text-xs font-semibold hover:bg-pink-deep transition shadow-xs">
                                         {meta.nextLabel}
                                       </button>
                                     )}
@@ -3730,21 +3971,12 @@
                             className="px-2.5 py-2 rounded-lg bg-white border border-pink/20 text-ink hover:border-pink/40 font-medium">
                             Show QR
                           </button>
-                          <button type="button" onClick={async () => {
-                            const confirmed = window.confirm(
-                              "Are you sure you want to rotate Table " + n + "'s QR code?\n\nWARNING: The old QR code will stop working immediately. You will need to print and replace the physical QR sticker on Table " + n + "."
-                            );
-                            if (!confirmed) return;
-                            try {
-                              const res = await cloudRotateQrToken(n);
-                              if (res && res.qr_token) {
-                                setTableQrTokens(prev => ({ ...prev, [String(n)]: res.qr_token }));
-                                showToast("T" + n + " QR token rotated! Old links invalidated.");
-                              }
-                            } catch (e) {
-                              showToast("Rotate failed: " + (e.message || ""));
-                            }
-                          }} className="px-2.5 py-2 rounded-lg text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 font-medium" title="Rotate token if link leaked">
+                          <button
+                            type="button"
+                            onClick={() => handleRotateClick(n)}
+                            className="px-2.5 py-2 rounded-lg text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 font-medium flex items-center gap-1"
+                            title={mgrUnlocked ? "Rotate token (Manager)" : "Rotate token (Requires Manager PIN)"}>
+                            {!mgrUnlocked && <Icon name="lock" size={11} className="text-amber-700" />}
                             Rotate
                           </button>
                           <button type="button" onClick={() => {
@@ -4172,6 +4404,213 @@
             </div>
           )}
 
+          {/* Manager Authorization Modal for Rotating Table QR */}
+          {mgrAuthModal && (
+            <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm"
+              onClick={() => setMgrAuthModal(null)}>
+              <div className="glass-strong rounded-3xl p-6 max-w-sm w-full text-center border border-pink/25 shadow-float"
+                onClick={e => e.stopPropagation()}>
+                <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center mb-3">
+                  <Icon name="lock" size={24} />
+                </div>
+                <h3 className="font-display text-xl text-ink font-bold mb-1">Manager Access Required</h3>
+                <p className="text-mist text-xs mb-4">
+                  Rotating Table {mgrAuthModal.tableNo}&apos;s QR code invalidates active physical stickers. Enter the 6-digit Manager PIN:
+                </p>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={mgrAuthPin}
+                  onChange={e => {
+                    setMgrAuthPin(e.target.value.replace(/\D/g, "").slice(0, MGR_PIN_LEN));
+                    setMgrAuthModal(prev => prev ? ({ ...prev, error: "" }) : null);
+                  }}
+                  placeholder="••••••"
+                  className="w-40 mx-auto min-h-[44px] bg-white border border-pink/30 rounded-xl px-4 text-center text-xl tracking-[0.35em] text-ink focus:outline-none focus:border-pink mb-2"
+                  autoFocus
+                />
+                {mgrAuthModal.error && (
+                  <p className="text-red-500 text-xs mb-3 font-medium">{mgrAuthModal.error}</p>
+                )}
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={handleVerifyManagerForRotate}
+                    className="flex-1 py-2.5 rounded-xl bg-pink text-white text-xs font-semibold hover:bg-pink-deep transition shadow-sm">
+                    Verify & Rotate QR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMgrAuthModal(null)}
+                    className="py-2.5 px-3 rounded-xl border border-pink/20 text-mist text-xs font-medium hover:bg-white transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add Item to Order Round Modal */}
+          {addItemModal && (
+            <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm"
+              onClick={() => { setAddItemModal(null); setSelectedDishToAdd(null); }}>
+              <div className="glass-strong rounded-3xl p-6 max-w-lg w-full border border-pink/25 shadow-float max-h-[90vh] overflow-y-auto"
+                onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between pb-3 border-b border-pink/15 mb-4">
+                  <div>
+                    <h3 className="font-display text-xl text-ink font-bold">Add Item to Order</h3>
+                    <p className="text-mist text-xs">Table {addItemModal.table} · Round #{String(addItemModal.roundId).slice(-4)}</p>
+                  </div>
+                  <button type="button" onClick={() => { setAddItemModal(null); setSelectedDishToAdd(null); }}
+                    className="w-8 h-8 rounded-full bg-blush text-mist hover:text-ink flex items-center justify-center text-sm">
+                    ✕
+                  </button>
+                </div>
+
+                {!selectedDishToAdd ? (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={addItemSearch}
+                        onChange={e => setAddItemSearch(e.target.value)}
+                        placeholder="Search drinks, snacks, boba..."
+                        className="w-full py-2.5 pl-9 pr-4 rounded-xl bg-white border border-pink/20 text-ink text-sm focus:outline-none focus:border-pink"
+                        autoFocus
+                      />
+                      <span className="absolute left-3 top-3 text-mist/60">
+                        <Icon name="search" size={16} />
+                      </span>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
+                      {(dishes || [])
+                        .filter(d => !addItemSearch || d.name.toLowerCase().includes(addItemSearch.toLowerCase()) || (d.category || "").toLowerCase().includes(addItemSearch.toLowerCase()))
+                        .map(dish => (
+                          <div
+                            key={dish.id}
+                            onClick={() => {
+                              setSelectedDishToAdd(dish);
+                              setSelectedVariantToAdd(dish.variants && dish.variants[0] ? dish.variants[0] : null);
+                              setAddItemQty(1);
+                              setAddItemNote("");
+                            }}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-pink/10 hover:border-pink/40 hover:bg-pink-soft/30 cursor-pointer transition">
+                            <div className="min-w-0 pr-2">
+                              <p className="font-medium text-ink text-sm truncate">{dish.name}</p>
+                              <p className="text-mist text-xs">{dish.category || "Beverage"}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-semibold text-pink text-sm">{formatPrice(dish.price)}</span>
+                              {dish.variants && dish.variants.length > 0 && (
+                                <span className="block text-[10px] text-mist">Sizes available</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-pink/10">
+                      <button type="button" onClick={() => setSelectedDishToAdd(null)} className="text-xs text-pink underline flex items-center gap-1 font-medium">
+                        ← Back to menu list
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="font-display text-lg text-ink font-bold">{selectedDishToAdd.name}</h4>
+                      <p className="text-mist text-xs mt-0.5">{selectedDishToAdd.description || selectedDishToAdd.category}</p>
+                    </div>
+
+                    {selectedDishToAdd.variants && selectedDishToAdd.variants.length > 0 && (
+                      <div>
+                        <label className="text-xs font-semibold text-mist uppercase tracking-wider block mb-1.5">Choose Size</label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedDishToAdd.variants.map((v, i) => {
+                            const isChosen = selectedVariantToAdd && selectedVariantToAdd.label === v.label;
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => setSelectedVariantToAdd(v)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition ${
+                                  isChosen ? "bg-pink text-white border-pink shadow-sm" : "bg-white text-ink border-pink/20 hover:border-pink/40"
+                                }`}>
+                                {v.label} · {formatPrice(v.price)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-xs font-semibold text-mist uppercase tracking-wider block mb-1.5">Quantity</label>
+                      <div className="inline-flex items-center gap-3 bg-white border border-pink/20 rounded-xl p-1">
+                        <button
+                          type="button"
+                          onClick={() => setAddItemQty(q => Math.max(1, q - 1))}
+                          className="w-8 h-8 rounded-lg bg-blush text-ink font-bold text-sm hover:bg-pink-soft flex items-center justify-center">
+                          -
+                        </button>
+                        <span className="font-semibold text-sm px-2">{addItemQty}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAddItemQty(q => q + 1)}
+                          className="w-8 h-8 rounded-lg bg-blush text-ink font-bold text-sm hover:bg-pink-soft flex items-center justify-center">
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-mist uppercase tracking-wider block mb-1.5">Special Instructions (Optional)</label>
+                      <input
+                        type="text"
+                        value={addItemNote}
+                        onChange={e => setAddItemNote(e.target.value)}
+                        placeholder="e.g. Less sugar, extra pearls, no ice"
+                        className="w-full py-2.5 px-3.5 rounded-xl bg-white border border-pink/20 text-ink text-sm focus:outline-none focus:border-pink"
+                      />
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-ink">
+                        Total: <span className="text-pink text-base">{formatPrice((selectedVariantToAdd ? selectedVariantToAdd.price : selectedDishToAdd.price) * addItemQty)}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const session = (liveOrders || []).find(s => String(s.table) === String(addItemModal.table));
+                          const targetRound = session?.rounds?.find(r => String(r.id) === String(addItemModal.roundId));
+                          if (!targetRound) return;
+                          const newItem = {
+                            id: selectedDishToAdd.id,
+                            name: selectedDishToAdd.name,
+                            price: selectedVariantToAdd ? selectedVariantToAdd.price : selectedDishToAdd.price,
+                            variantLabel: selectedVariantToAdd ? selectedVariantToAdd.label : undefined,
+                            qty: Number(addItemQty) || 1,
+                            note: addItemNote.trim() || undefined,
+                          };
+                          const updatedItems = [...(targetRound.items || []), newItem];
+                          if (typeof updateRoundItems === "function") {
+                            updateRoundItems(addItemModal.table, addItemModal.roundId, updatedItems);
+                            showToast("Added " + (Number(addItemQty) || 1) + "× " + selectedDishToAdd.name + " to Table " + addItemModal.table);
+                          }
+                          setAddItemModal(null);
+                          setSelectedDishToAdd(null);
+                        }}
+                        className="px-5 py-2.5 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep transition shadow-sm">
+                        Add to Round
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeQrModal && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-ink/60 backdrop-blur-sm"
               onClick={() => setActiveQrModal(null)}>
@@ -4248,26 +4687,43 @@
     function App() {
       const [tableFromQr, setTableFromQr] = useState(() => getTableFromUrl());
       const [pinFromQr] = useState(() => getPinFromUrl());
+      const [linkError, setLinkError] = useState(null);
+      const [dismissedBrokenLink, setDismissedBrokenLink] = useState(false);
 
       // If token in URL is an opaque string (?t=t3_... or ?token=...), resolve it
       React.useEffect(() => {
         const q = new URLSearchParams(window.location.search);
-        const rawToken = q.get("t") || q.get("token") || "";
+        const rawToken = (q.get("t") || q.get("token") || "").trim();
+        const tableParam = (q.get("table") || "").trim();
         if (rawToken) {
           cloudResolveQrToken(rawToken).then(res => {
             if (res && res.valid && res.table_no) {
-              setTableFromQr(String(res.table_no));
-              if (res.qr_token && rawToken !== res.qr_token) {
-                try {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("t", res.qr_token);
-                  window.history.replaceState({}, "", url.toString());
-                } catch {}
+              const tNo = String(res.table_no);
+              if (isRegisteredTable(tNo, tablePins)) {
+                setTableFromQr(tNo);
+                setLinkError(null);
+                if (res.qr_token && rawToken !== res.qr_token) {
+                  try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("t", res.qr_token);
+                    window.history.replaceState({}, "", url.toString());
+                  } catch {}
+                }
+              } else {
+                setLinkError({ rawToken, reason: "unregistered", tableNo: tNo });
               }
+            } else {
+              setLinkError({ rawToken, reason: "not_found" });
             }
-          }).catch(() => {});
+          }).catch(err => {
+            setLinkError({ rawToken, reason: "error", error: err?.message });
+          });
+        } else if (tableParam) {
+          if (!isRegisteredTable(tableParam, tablePins)) {
+            setLinkError({ rawToken: tableParam, reason: "unregistered", tableNo: tableParam });
+          }
         }
-      }, []);
+      }, [tablePins]);
 
       // Verify server staff session on boot
       React.useEffect(() => {
@@ -4497,6 +4953,24 @@
         }
       }, [showToast]);
 
+      const updateRoundItems = useCallback(async (tableKey, roundId, newItems) => {
+        const newTotal = (newItems || []).reduce((s, it) => s + (Number(it.price) * Number(it.qty || 1)), 0);
+        setLiveOrders(prev => prev.map(session => {
+          if (String(session.table) !== String(tableKey)) return session;
+          return {
+            ...session,
+            rounds: (session.rounds || []).map(r => String(r.id) === String(roundId) ? { ...r, items: newItems, total: newTotal } : r)
+          };
+        }));
+        try {
+          await cloudUpdateRoundItems(roundId, newItems, newTotal);
+        } catch (e) {
+          console.error(e);
+          showToast("Failed to update round items: " + (e.message || ""));
+          try { setLiveOrders(await cloudFetchLiveOrders() || []); } catch {}
+        }
+      }, [showToast]);
+
       const handleStaffAccess = () => {
         if (staffAuth) setView("owner");
         else setShowPin(true);
@@ -4561,7 +5035,7 @@
           {IS_APEX ? (
             staffAuth && view === "owner" ? (
               <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
-                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} updateRoundItems={updateRoundItems} clearTable={clearTable} cancelRound={cancelRound}
                 tablePins={tablePins} setTablePins={setTablePins}
                 snakeDiscount={snakeDiscount} setSnakeDiscount={setSnakeDiscount}
                 onLogout={handleLogout} showToast={showToast} onRefreshOrders={refreshOrders} />
@@ -4573,10 +5047,30 @@
             )
           ) : (
             (view === "customer" || !staffAuth) ? (
-              <CustomerView dishes={dishes} sessionItems={sessionItems} setSessionItems={setSessionItems} showToast={showToast} onStaffAccess={handleStaffAccess} onPlaceOrder={placeOrder} tableFromQr={tableFromQr} pinFromQr={pinFromQr} tablePins={tablePins} snakeDiscount={snakeDiscount} />
+              linkError && !dismissedBrokenLink ? (
+                <BrokenLinkView
+                  linkError={linkError}
+                  onBrowseMenu={() => setDismissedBrokenLink(true)}
+                  onStaffAccess={handleStaffAccess}
+                />
+              ) : (
+                <CustomerView
+                  dishes={dishes}
+                  sessionItems={sessionItems}
+                  setSessionItems={setSessionItems}
+                  showToast={showToast}
+                  onStaffAccess={handleStaffAccess}
+                  onPlaceOrder={placeOrder}
+                  tableFromQr={tableFromQr}
+                  pinFromQr={pinFromQr}
+                  tablePins={tablePins}
+                  snakeDiscount={snakeDiscount}
+                  isPreviewMode={!tableFromQr || dismissedBrokenLink}
+                />
+              )
             ) : (
               <OwnerView dishes={dishes} setDishes={setDishes} recommendations={recommendations} setRecommendations={setRecommendations}
-                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} clearTable={clearTable} cancelRound={cancelRound}
+                liveOrders={liveOrders} updateRoundStatus={updateRoundStatus} updateRoundItems={updateRoundItems} clearTable={clearTable} cancelRound={cancelRound}
                 tablePins={tablePins} setTablePins={setTablePins}
                 snakeDiscount={snakeDiscount} setSnakeDiscount={setSnakeDiscount}
                 onLogout={handleLogout} showToast={showToast} onRefreshOrders={refreshOrders} />
