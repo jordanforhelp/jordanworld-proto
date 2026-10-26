@@ -2295,12 +2295,13 @@
       );
     };
 
-    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate, onNeedJoin }) => {
+    const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate, onNeedJoin, snakeDiscount }) => {
       const [placing, setPlacing] = useState(false);
       const placingRef = useRef(false);
       const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-      const reward = loadSnakeReward();
-      const discountPct = reward && reward.percent ? Math.min(5, Math.max(1, Number(reward.percent))) : 0;
+      const isSnakeEnabled = Boolean(snakeDiscount && snakeDiscount.enabled);
+      const reward = isSnakeEnabled ? loadSnakeReward() : null;
+      const discountPct = isSnakeEnabled && reward && reward.percent ? Math.min(5, Math.max(1, Number(reward.percent))) : 0;
       const discountAmt = discountPct ? Math.round(subtotal * (discountPct / 100)) : 0;
       const total = Math.max(0, subtotal - discountAmt);
       const count = items.reduce((s, i) => s + i.qty, 0);
@@ -2415,7 +2416,7 @@
                   </div>
                 ) : (
                   <>
-                    {typeof onPlaySnake === "function" && (
+                    {isSnakeEnabled && typeof onPlaySnake === "function" && (
                       <button type="button" onClick={() => onPlaySnake()}
                         className="w-full mb-2 py-3 rounded-xl border border-pink/20 bg-pink-soft/50 text-pink text-sm font-semibold hover:bg-pink-soft">
                         Play Boba Snake while you wait
@@ -2517,7 +2518,7 @@
                     No table linked. Scan the QR on your table to order.
                   </p>
                 )}
-                {typeof onPlaySnake === "function" && !discountPct && (
+                {isSnakeEnabled && typeof onPlaySnake === "function" && !discountPct && (
                   <button type="button" onClick={() => onPlaySnake()}
                     className="w-full py-2.5 rounded-xl border border-pink/20 text-pink text-sm font-semibold">
                     Play Boba Snake for a discount on your order
@@ -3046,12 +3047,13 @@
           </main>
           <CartDrawer open={cartOpen} onClose={() => { setCartOpen(false); setCartTab("cart"); }} items={sessionItems} setItems={setSessionItems}
             orderHistory={orderHistory} cartTab={cartTab} setCartTab={setCartTab}
+            snakeDiscount={snakeDiscount}
             onOrderPlaced={(items, tableLabel, res) => pushHistory(items, tableLabel, {
               orderedBy: (res && res.orderedBy) || (guest && guest.name) || null,
               roundId: res && res.roundId,
               status: "new",
             })}
-            onPlaySnake={() => { setCartOpen(false); setCartTab("cart"); setShowSnake(true); }}
+            onPlaySnake={Boolean(snakeDiscount && snakeDiscount.enabled) ? () => { setCartOpen(false); setCartTab("cart"); setShowSnake(true); } : null}
             onOrderCelebrate={() => { setOrderBurst(true); }}
             onNeedJoin={() => {
               setNeedJoinOtp(true);
@@ -3124,13 +3126,15 @@
               </div>
             );
           })()}
-          <SnakeGame
-            open={showSnake}
-            onClose={() => setShowSnake(false)}
-            snakeDiscount={snakeDiscount}
-            showToast={showToast}
-            onRewardUnlocked={() => {}}
-          />
+          {Boolean(snakeDiscount && snakeDiscount.enabled) && (
+            <SnakeGame
+              open={showSnake}
+              onClose={() => setShowSnake(false)}
+              snakeDiscount={snakeDiscount}
+              showToast={showToast}
+              onRewardUnlocked={() => {}}
+            />
+          )}
 
           {showGuestGate && (
             <div className="fixed inset-0 z-[170] flex items-end sm:items-center justify-center p-4 bg-ink/50 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -5052,8 +5056,8 @@
                 // First time: seed cloud from current local menu
                 await cloudSaveMenu(dishes);
               }
-              if (remote && remote.snakeDiscount) {
-                const s = saveSnakeDiscountSettings(remote.snakeDiscount);
+              if (remote && remote.snakeDiscount !== undefined) {
+                const s = saveSnakeDiscountSettings(remote.snakeDiscount || DEFAULT_SNAKE_DISCOUNT);
                 setSnakeDiscount(s);
               }
             } catch (menuErr) {
@@ -5072,8 +5076,8 @@
                 try {
                   const remote = await cloudFetchMenu();
                   if (remote && remote.dishes) applyRemoteMenu(remote.dishes, remote.updatedAt);
-                  if (remote && remote.snakeDiscount) {
-                    const s = saveSnakeDiscountSettings(remote.snakeDiscount);
+                  if (remote && remote.snakeDiscount !== undefined) {
+                    const s = saveSnakeDiscountSettings(remote.snakeDiscount || DEFAULT_SNAKE_DISCOUNT);
                     setSnakeDiscount(s);
                   }
                 } catch (e) { console.error(e); }
