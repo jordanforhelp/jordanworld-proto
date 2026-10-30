@@ -3041,7 +3041,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       const [callWaiterOpen, setCallWaiterOpen] = useState(false);
       const [callWaiterMsg, setCallWaiterMsg] = useState("");
       const [callingWaiter, setCallingWaiter] = useState(false);
-      const waiterCooldownMs = 120000; // 2 min client lock (server also rate-limits)
+      const waiterCooldownMs = 45000; // 45s client lock (server also rate-limits)
       const waiterCallStorageKey = (tk) => "boba_waiter_called_at_" + String(tk || "").replace(/^0+/, "");
       const readWaiterCalledAt = (tk) => {
         if (!tk) return 0;
@@ -3353,7 +3353,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                         }`}
                       >
                         <Icon name="bell" size={16} className={onCooldown ? "text-mist" : "text-pink"} />
-                        {onCooldown ? (secs > 60 ? `Called (${Math.ceil(secs / 60)}m)` : `Called (${secs}s)`) : "Call Waiter"}
+                        {onCooldown ? "Called" : "Call Waiter"}
                       </button>
                     );
                   })()}
@@ -3850,18 +3850,50 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
         }
       } catch {}
     }
+    function getNotifPermission() {
+      try {
+        if (typeof Notification === "undefined") return "unsupported";
+        return Notification.permission; // "granted" | "denied" | "default"
+      } catch { return "unsupported"; }
+    }
+
+    /** Must be called from a user gesture (button tap) or browsers block it. */
+    async function ensureStaffNotificationPermission() {
+      try {
+        if (typeof Notification === "undefined") return "unsupported";
+        if (Notification.permission === "granted") return "granted";
+        if (Notification.permission === "denied") return "denied";
+        const p = await Notification.requestPermission();
+        return p;
+      } catch {
+        return "unsupported";
+      }
+    }
+
     function notifyStaff(title, body, tag) {
       if (isStaffMuted()) return;
       try {
         if (typeof Notification === "undefined") return;
-        if (Notification.permission === "granted") {
-          new Notification(title, { body, tag: tag || "boba-staff", silent: true });
-        } else if (Notification.permission === "default") {
-          Notification.requestPermission().then(p => {
-            if (p === "granted") new Notification(title, { body, tag: tag || "boba-staff", silent: true });
-          }).catch(() => {});
-        }
-      } catch {}
+        if (Notification.permission !== "granted") return;
+        const n = new Notification(title, {
+          body: body || "",
+          tag: tag || "boba-staff",
+          // silent:false so OS can also ding; we already play our own chime
+          silent: false,
+          requireInteraction: true,
+          renotify: true,
+          icon: "https://jordanworld.co/cafe/favicon.png",
+          badge: "https://jordanworld.co/cafe/favicon.png",
+        });
+        n.onclick = () => {
+          try { window.focus(); } catch {}
+          try { n.close(); } catch {}
+        };
+        // Auto-close after 20s so they don't stack forever
+        setTimeout(() => { try { n.close(); } catch {} }, 20000);
+      } catch (e) {
+        console.warn("notifyStaff failed", e);
+      }
     }
 
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, updateRoundItems, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
@@ -3871,8 +3903,17 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       const [waiterCalls, setWaiterCalls] = useState([]);
       const [ackingCallId, setAckingCallId] = useState(null);
       const [staffMuted, setStaffMutedState] = useState(() => isStaffMuted());
+      const [notifPerm, setNotifPerm] = useState(() => getNotifPermission());
       const prevPendingCallsRef = useRef(null);
       const titleFlashRef = useRef(null);
+
+      // Keep permission label in sync (e.g. user changed it in browser settings)
+      useEffect(() => {
+        setNotifPerm(getNotifPermission());
+        const onVis = () => setNotifPerm(getNotifPermission());
+        document.addEventListener("visibilitychange", onVis);
+        return () => document.removeEventListener("visibilitychange", onVis);
+      }, []);
       const prevNewRoundsRef = useRef(null);
 
       const refreshWaiterCalls = useCallback(async () => {
@@ -4520,18 +4561,36 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                   <h2 className="font-display text-2xl text-ink">Live Tables</h2>
                   <div className="flex items-center gap-3">
                     <p className="text-mist text-sm">{liveOrders.length} table{liveOrders.length !== 1 ? "s" : ""}</p>
-                    <button type="button" onClick={() => {
-                        const next = !staffMuted;
-                        setStaffMuted(next);
-                        setStaffMutedState(next);
-                        if (!next) playStaffChime("order");
+                    <button type="button" onClick={async () => {
+                        if (staffMuted) {
+                          // Turning alerts ON — request OS notification permission from this tap
+                          setStaffMuted(false);
+                          setStaffMutedState(false);
+                          const perm = await ensureStaffNotificationPermission();
+                          setNotifPerm(perm);
+                          playStaffChime("order");
+                          if (perm === "granted") {
+                            notifyStaff("BOBA alerts on", "You will get a notification for new orders and waiter calls.", "boba-test");
+                            if (showToast) showToast("Notifications enabled");
+                          } else if (perm === "denied") {
+                            if (showToast) showToast("Notifications blocked. Allow them in browser settings for this site.");
+                          } else if (perm === "default") {
+                            if (showToast) showToast("Please allow notifications when the browser asks");
+                          } else {
+                            if (showToast) showToast("Sound on. This browser does not support notifications.");
+                          }
+                        } else {
+                          setStaffMuted(true);
+                          setStaffMutedState(true);
+                          if (showToast) showToast("Alerts muted");
+                        }
                       }}
                       className={`px-3 py-2 rounded-xl border text-xs font-semibold transition flex items-center gap-1.5 ${
                         staffMuted ? "border-mist/30 text-mist bg-blush" : "border-pink/30 text-pink hover:bg-pink/10"
                       }`}
-                      title={staffMuted ? "Unmute alerts" : "Mute alerts"}>
+                      title={staffMuted ? "Enable sound + notifications" : "Mute alerts"}>
                       <Icon name="bell" size={14} />
-                      {staffMuted ? "Muted" : "Sound on"}
+                      {staffMuted ? "Muted" : (notifPerm === "granted" ? "Alerts on" : "Enable alerts")}
                     </button>
                     <button type="button" onClick={() => { if (onRefreshOrders) onRefreshOrders(); refreshWaiterCalls(); }}
                       className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold hover:bg-pink/10 transition flex items-center gap-1.5">
@@ -4539,6 +4598,29 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                     </button>
                   </div>
                 </div>
+                {!staffMuted && notifPerm !== "granted" && notifPerm !== "unsupported" && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const perm = await ensureStaffNotificationPermission();
+                      setNotifPerm(perm);
+                      if (perm === "granted") {
+                        notifyStaff("BOBA alerts on", "New orders and waiter calls will pop up here.", "boba-test");
+                        if (showToast) showToast("Notifications enabled");
+                      } else if (perm === "denied") {
+                        if (showToast) showToast("Blocked by browser. Site settings → Notifications → Allow");
+                      }
+                    }}
+                    className="w-full mb-4 text-left px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50 text-amber-950 text-sm hover:bg-amber-100/80 transition"
+                  >
+                    <span className="font-semibold block">Turn on order notifications</span>
+                    <span className="text-xs opacity-80">
+                      {notifPerm === "denied"
+                        ? "Currently blocked. Open the lock icon in the address bar → Notifications → Allow, then tap here."
+                        : "Tap to allow pop-up alerts like WhatsApp Web (needed once on this device)."}
+                    </span>
+                  </button>
+                )}
                 {(() => {
                   const pending = (waiterCalls || []).filter(c => c.status === "pending");
                   if (!pending.length) return null;
