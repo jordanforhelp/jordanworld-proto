@@ -67,8 +67,20 @@
               '100%': { opacity: '1', transform: 'scale(1)' },
             },
             'slide-in-right': {
-              '0%': { opacity: '0', transform: 'translateX(24px)' },
+              '0%': { opacity: '0', transform: 'translateX(100%)' },
               '100%': { opacity: '1', transform: 'translateX(0)' },
+            },
+            'slide-out-right': {
+              '0%': { opacity: '1', transform: 'translateX(0)' },
+              '100%': { opacity: '0', transform: 'translateX(100%)' },
+            },
+            'fade-in': {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            'fade-out': {
+              '0%': { opacity: '1' },
+              '100%': { opacity: '0' },
             },
             'slide-in-left': {
               '0%': { opacity: '0', transform: 'translateX(-24px)' },
@@ -86,7 +98,10 @@
           animation: {
             'fade-up': 'fade-up 0.45s cubic-bezier(0.16,1,0.3,1) forwards',
             'scale-in': 'scale-in 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
-            'slide-in-right': 'slide-in-right 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-in-right': 'slide-in-right 0.38s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-out-right': 'slide-out-right 0.32s cubic-bezier(0.4,0,0.2,1) forwards',
+            'fade-in': 'fade-in 0.28s ease forwards',
+            'fade-out': 'fade-out 0.28s ease forwards',
             'slide-in-left': 'slide-in-left 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
             'pulse-pink': 'pulse-pink 2.4s ease-in-out infinite',
             'bounce-soft': 'bounce-soft 0.35s cubic-bezier(0.16,1,0.3,1)',
@@ -290,8 +305,8 @@
       40%,80% { transform: translateX(8px); }
     }
 
-    .cart-drawer { transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); }
-    .cart-overlay { transition: opacity 0.3s ease; }
+    .cart-drawer { will-change: transform, opacity; }
+    .cart-overlay { will-change: opacity; }
 
     button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
       outline: 2px solid #BA6B25;
@@ -1186,6 +1201,9 @@
     async function cloudFetchInsights(period) {
       if (!sb) throw new Error("Cloud not connected");
       const { from, to } = periodBounds(period || "day");
+      const isCancelled = (r) => /cancel/i.test(String(r.status || ""));
+
+      // Operational stats (pending / confirmed) still use rounds created in period
       let q = sb.from("boba_order_rounds").select("id, status, items, total, created_at, session_id");
       if (from) q = q.gte("created_at", from);
       if (to) q = q.lt("created_at", to);
@@ -1195,36 +1213,73 @@
       const sids = [...new Set(list.map(r => r.session_id).filter(Boolean))];
       let sessionMap = {};
       if (sids.length) {
-        const { data: sessions, error: e2 } = await sb.from("boba_table_sessions").select("id, table_no, status, guest_name").in("id", sids);
+        const { data: sessions, error: e2 } = await sb.from("boba_table_sessions").select("id, table_no, status, guest_name, cleared_at").in("id", sids);
         if (e2) throw e2;
         (sessions || []).forEach(s => { sessionMap[s.id] = s; });
         list = list.map(r => ({ ...r, table_sessions: sessionMap[r.session_id] || null }));
       }
       const isOpenSess = (r) => r.table_sessions && r.table_sessions.status === "open";
-      const isCancelled = (r) => /cancel/i.test(String(r.status || ""));
-      // Pending = waiting confirm on a table that is still open (not old abandoned rounds)
       const pendingList = list.filter(r => r.status === "new" && isOpenSess(r) && !isCancelled(r));
-      // Confirmed flow (exclude new + cancelled)
       const confirmed = list.filter(r => {
         if (!r.status || r.status === "new" || isCancelled(r)) return false;
         return true;
       });
+
+      // Revenue = ONLY paid / cleared bills (session status paid), timed by cleared_at
+      let paidQ = sb.from("boba_table_sessions").select("id, table_no, status, cleared_at").eq("status", "paid");
+      if (from) paidQ = paidQ.gte("cleared_at", from);
+      if (to) paidQ = paidQ.lt("cleared_at", to);
+      const { data: paidSessions, error: paidErr } = await paidQ.order("cleared_at", { ascending: false }).limit(1000);
+      if (paidErr) throw paidErr;
+      const paidList = paidSessions || [];
+      const paidIds = paidList.map(s => s.id).filter(Boolean);
+
       let revenue = 0;
-      const byTable = {};
+      const bySession = {};
       const byDish = {};
-      confirmed.forEach(r => {
-        revenue += Number(r.total) || 0;
-        const tno = (r.table_sessions && r.table_sessions.table_no) || "?";
-        if (!byTable[tno]) byTable[tno] = { table: tno, rounds: 0, bill: 0 };
-        byTable[tno].rounds += 1;
-        byTable[tno].bill += Number(r.total) || 0;
-        (r.items || []).forEach(it => {
-          const name = it.name || "Item";
-          byDish[name] = (byDish[name] || 0) + (it.qty || 1);
+      if (paidIds.length) {
+        // chunk in case of many ids
+        const chunkSize = 100;
+        let paidRounds = [];
+        for (let i = 0; i < paidIds.length; i += chunkSize) {
+          const chunk = paidIds.slice(i, i + chunkSize);
+          const { data: pr, error: prErr } = await sb
+            .from("boba_order_rounds")
+            .select("id, status, items, total, session_id")
+            .in("session_id", chunk);
+          if (prErr) throw prErr;
+          paidRounds = paidRounds.concat(pr || []);
+        }
+        paidRounds.forEach(r => {
+          if (isCancelled(r)) return;
+          // skip leftover "new" if any (clear usually deletes them)
+          if (r.status === "new") return;
+          const total = Number(r.total) || 0;
+          revenue += total;
+          const sid = r.session_id || "?";
+          if (!bySession[sid]) {
+            const sess = paidList.find(s => s.id === sid);
+            bySession[sid] = {
+              sessionId: sid,
+              table: (sess && sess.table_no) || "?",
+              rounds: 0,
+              bill: 0,
+            };
+          }
+          bySession[sid].rounds += 1;
+          bySession[sid].bill += total;
+          (r.items || []).forEach(it => {
+            if (String(it.id) === "snake-discount") return;
+            const name = it.name || "Item";
+            byDish[name] = (byDish[name] || 0) + (it.qty || 1);
+          });
         });
-      });
-      const tables = Object.values(byTable);
-      const avgBill = tables.length ? Math.round(tables.reduce((s, x) => s + x.bill, 0) / tables.length) : 0;
+      }
+      const sessionsPaid = Object.values(bySession);
+      const tablesPaid = [...new Set(sessionsPaid.map(s => String(s.table)))];
+      const avgBill = sessionsPaid.length
+        ? Math.round(sessionsPaid.reduce((s, x) => s + x.bill, 0) / sessionsPaid.length)
+        : 0;
       const topDishes = Object.entries(byDish).sort((a, b) => b[1] - a[1]).slice(0, 8);
       const meaningful = list.filter(r => !isCancelled(r));
       return {
@@ -1234,8 +1289,9 @@
         totalRounds: pendingList.length + confirmed.length,
         revenue,
         avgBill,
-        tablesActive: tables.length,
-        tables,
+        tablesActive: tablesPaid.length,
+        tables: sessionsPaid,
+        paidSessions: paidList.length,
         topDishes,
         rawRounds: meaningful,
       };
@@ -2096,28 +2152,37 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       settingsRef.current = snakeDiscount || DEFAULT_SNAKE_DISCOUNT;
 
       useEffect(() => {
-        if (!open) {
+        if (open) {
+          setDrawerMounted(true);
+          setDrawerClosing(false);
           setNoteEditingKey(null);
-          return;
+          const scrollY = window.scrollY || window.pageYOffset || 0;
+          const prevOverflow = document.body.style.overflow;
+          const prevPosition = document.body.style.position;
+          const prevTop = document.body.style.top;
+          const prevWidth = document.body.style.width;
+          document.body.style.overflow = "hidden";
+          document.body.style.position = "fixed";
+          document.body.style.top = `-${scrollY}px`;
+          document.body.style.width = "100%";
+          return () => {
+            document.body.style.overflow = prevOverflow;
+            document.body.style.position = prevPosition;
+            document.body.style.top = prevTop;
+            document.body.style.width = prevWidth;
+            window.scrollTo(0, scrollY);
+          };
         }
-        const scrollY = window.scrollY || window.pageYOffset || 0;
-        const prevOverflow = document.body.style.overflow;
-        const prevPosition = document.body.style.position;
-        const prevTop = document.body.style.top;
-        const prevWidth = document.body.style.width;
-
-        document.body.style.overflow = "hidden";
-        document.body.style.position = "fixed";
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.width = "100%";
-
-        return () => {
-          document.body.style.overflow = prevOverflow;
-          document.body.style.position = prevPosition;
-          document.body.style.top = prevTop;
-          document.body.style.width = prevWidth;
-          window.scrollTo(0, scrollY);
-        };
+        // Closing: play exit animation then unmount
+        if (drawerMounted) {
+          setDrawerClosing(true);
+          setNoteEditingKey(null);
+          const t = setTimeout(() => {
+            setDrawerMounted(false);
+            setDrawerClosing(false);
+          }, 320);
+          return () => clearTimeout(t);
+        }
       }, [open]);
 
       const COLS = 18;
@@ -2390,6 +2455,8 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
     const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate, onNeedJoin, snakeDiscount, tableDiscountPercent }) => {
       const [placing, setPlacing] = useState(false);
       const [noteEditingKey, setNoteEditingKey] = useState(null);
+      const [drawerMounted, setDrawerMounted] = useState(open);
+      const [drawerClosing, setDrawerClosing] = useState(false);
       const placingRef = useRef(false);
 
       useEffect(() => {
@@ -2505,18 +2572,18 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
         setItems(prev => prev.filter(i => itemKey(i) !== key));
         showToast("Item removed");
       };
-      if (!open) return null;
+      if (!drawerMounted) return null;
       return (
         <>
           <div
-            className="fixed inset-0 z-[130] bg-ink/40 backdrop-blur-sm cart-overlay"
+            className={`fixed inset-0 z-[130] bg-ink/40 backdrop-blur-sm cart-overlay ${drawerClosing ? "animate-fade-out" : "animate-fade-in"}`}
             onClick={onClose}
             aria-hidden="true"
             style={{ touchAction: "none" }}
             onTouchMove={e => e.preventDefault()}
           />
           <div
-            className="fixed top-0 right-0 bottom-0 z-[135] w-full max-w-md bg-[#FAF6EE] border-l border-pink/20 shadow-float cart-drawer animate-slide-in-right flex flex-col h-[100dvh] max-h-[100dvh]"
+            className={`fixed top-0 right-0 bottom-0 z-[135] w-full max-w-md bg-[#FAF6EE] border-l border-pink/20 shadow-float cart-drawer flex flex-col h-[100dvh] max-h-[100dvh] ${drawerClosing ? "animate-slide-out-right" : "animate-slide-in-right"}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="cart-title"
@@ -2674,28 +2741,23 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                 className="flex-shrink-0 border-t border-pink/15 px-5 py-4 space-y-3 bg-[#FAF6EE] shadow-[0_-4px_16px_rgba(36,20,14,0.04)]"
                 style={{ paddingBottom: "max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))" }}
               >
-                {/* Total Counter & Breakdown */}
+                {/* Total */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-mist">{count} item{count !== 1 ? "s" : ""}</span>
-                    <span className="font-semibold text-ink">{formatPrice(subtotal)}</span>
+                    <span className="text-mist">{count} item{count !== 1 ? "s" : ""}{lockedTable ? ` · Table ${lockedTable}` : ""}</span>
+                    {discountPct > 0 ? (
+                      <span className="text-mist line-through text-xs">{formatPrice(subtotal)}</span>
+                    ) : null}
                   </div>
                   {discountPct > 0 && (
                     <div className="flex justify-between items-center text-sm text-pink font-medium">
-                      <span>Snake reward ({discountPct}% off entire order)</span>
+                      <span>Snake reward ({discountPct}% off)</span>
                       <span>−{formatPrice(discountAmt)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center pt-2 border-t border-pink/10">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-ink text-base">Total</span>
-                      {lockedTable ? (
-                        <span className="text-xs text-mist font-normal">· Table {lockedTable}</span>
-                      ) : (
-                        <span className="text-xs text-amber-600 font-normal">· Scan table QR</span>
-                      )}
-                    </div>
-                    <span className="text-lg font-semibold text-ink">{formatPrice(total)}</span>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="font-semibold text-ink text-base">Total</span>
+                    <span className="text-lg font-bold text-ink">{formatPrice(total)}</span>
                   </div>
                 </div>
 
@@ -2827,8 +2889,6 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
 
     const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount, isPreviewMode }) => {
       const [filter, setFilter] = useState("All");
-      const [activeSection, setActiveSection] = useState("All");
-      const catStripRef = useRef(null);
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
       const loadDiningGuest = (tableHint) => {
         try {
@@ -2981,15 +3041,31 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       const [callWaiterOpen, setCallWaiterOpen] = useState(false);
       const [callWaiterMsg, setCallWaiterMsg] = useState("");
       const [callingWaiter, setCallingWaiter] = useState(false);
-      const [lastWaiterCallAt, setLastWaiterCallAt] = useState(0);
+      const waiterCooldownMs = 120000; // 2 min client lock (server also rate-limits)
+      const waiterCallStorageKey = (tk) => "boba_waiter_called_at_" + String(tk || "").replace(/^0+/, "");
+      const readWaiterCalledAt = (tk) => {
+        if (!tk) return 0;
+        try {
+          const v = Number(localStorage.getItem(waiterCallStorageKey(tk)) || 0);
+          return Number.isFinite(v) ? v : 0;
+        } catch { return 0; }
+      };
+      const writeWaiterCalledAt = (tk, ts) => {
+        if (!tk) return;
+        try { localStorage.setItem(waiterCallStorageKey(tk), String(ts)); } catch {}
+      };
+      const [lastWaiterCallAt, setLastWaiterCallAt] = useState(() => readWaiterCalledAt(tableFromQr));
       const [waiterCooldownTick, setWaiterCooldownTick] = useState(0);
       useEffect(() => {
+        setLastWaiterCallAt(readWaiterCalledAt(tableFromQr));
+      }, [tableFromQr]);
+      useEffect(() => {
         if (!lastWaiterCallAt) return;
-        const left = 45000 - (Date.now() - lastWaiterCallAt);
+        const left = waiterCooldownMs - (Date.now() - lastWaiterCallAt);
         if (left <= 0) return;
         const id = setInterval(() => {
           setWaiterCooldownTick(t => t + 1);
-          if (45000 - (Date.now() - lastWaiterCallAt) <= 0) clearInterval(id);
+          if (waiterCooldownMs - (Date.now() - lastWaiterCallAt) <= 0) clearInterval(id);
         }, 1000);
         return () => clearInterval(id);
       }, [lastWaiterCallAt]);
@@ -3003,23 +3079,6 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
         window.addEventListener("scroll", onScroll, { passive: true });
         return () => window.removeEventListener("scroll", onScroll);
       }, []);
-
-      useEffect(() => {
-        if (filter !== "All" || (search || "").trim()) return;
-        const cats = CATEGORIES.filter(c => c !== "All");
-        const els = cats.map(c => document.getElementById("menu-cat-" + c.replace(/\s+/g, "-").toLowerCase())).filter(Boolean);
-        if (!els.length) return;
-        const io = new IntersectionObserver((entries) => {
-          const visible = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-          if (visible[0]) {
-            const id = visible[0].target.id.replace(/^menu-cat-/, "");
-            const match = cats.find(c => c.replace(/\s+/g, "-").toLowerCase() === id);
-            if (match) setActiveSection(match);
-          }
-        }, { rootMargin: "-20% 0px -55% 0px", threshold: [0.1, 0.25, 0.5] });
-        els.forEach(el => io.observe(el));
-        return () => io.disconnect();
-      }, [filter, search, dishes]);
       const [orderHistory, setOrderHistory] = useState(() => {
         try {
           const t = (tableFromQr || "").toString();
@@ -3168,20 +3227,24 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
         }
         if (callingWaiter) return;
         const now = Date.now();
-        if (now - lastWaiterCallAt < 45000) {
-          showToast("Waiter already called — give them a moment");
+        const storedAt = Math.max(lastWaiterCallAt || 0, readWaiterCalledAt(tableFromQr));
+        if (storedAt && now - storedAt < waiterCooldownMs) {
+          showToast("Waiter already called. Please wait a moment.");
+          setLastWaiterCallAt(storedAt);
           return;
         }
         setCallingWaiter(true);
         try {
           const res = await cloudCallWaiter(tableFromQr, callWaiterMsg.trim() || null);
-          setLastWaiterCallAt(Date.now());
+          const ts = Date.now();
+          writeWaiterCalledAt(tableFromQr, ts);
+          setLastWaiterCallAt(ts);
           setCallWaiterOpen(false);
           setCallWaiterMsg("");
           if (res && res.alreadyPending) {
             showToast("Waiter already on the way for your table");
           } else {
-            showToast("Waiter called — someone will be with you shortly");
+            showToast("Waiter called. Someone will be with you shortly.");
           }
         } catch (e) {
           const msg = (e && e.message) || "Could not call waiter";
@@ -3274,8 +3337,10 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                     })()}
                   </div>
                   {(() => {
-                    const coolMs = Math.max(0, 45000 - (Date.now() - (lastWaiterCallAt || 0)));
-                    const onCooldown = coolMs > 0 && lastWaiterCallAt > 0;
+                    const at = Math.max(lastWaiterCallAt || 0, readWaiterCalledAt(tableFromQr));
+                    const coolMs = at ? Math.max(0, waiterCooldownMs - (Date.now() - at)) : 0;
+                    const onCooldown = coolMs > 0;
+                    const secs = Math.ceil(coolMs / 1000);
                     return (
                       <button
                         type="button"
@@ -3288,7 +3353,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                         }`}
                       >
                         <Icon name="bell" size={16} className={onCooldown ? "text-mist" : "text-pink"} />
-                        {onCooldown ? "Called · wait…" : "Call Waiter"}
+                        {onCooldown ? (secs > 60 ? `Called (${Math.ceil(secs / 60)}m)` : `Called (${secs}s)`) : "Call Waiter"}
                       </button>
                     );
                   })()}
@@ -3350,37 +3415,13 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
             </div>
           </div>
           <div className="max-w-6xl mx-auto px-4 pt-3 pb-1">
-            <div ref={catStripRef} className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
-              {CATEGORIES.map(cat => {
-                const selected = filter === "All" && !search.trim()
-                  ? (cat === "All" ? activeSection === "All" || activeSection === cat : activeSection === cat)
-                  : filter === cat;
-                return (
-                  <button key={cat} role="tab" aria-selected={!!selected}
-                    onClick={() => {
-                      if (cat === "All") {
-                        setFilter("All");
-                        setActiveSection("All");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                        return;
-                      }
-                      if (filter === "All" && !search.trim()) {
-                        setActiveSection(cat);
-                        const el = document.getElementById("menu-cat-" + cat.replace(/\s+/g, "-").toLowerCase());
-                        if (el) {
-                          const y = el.getBoundingClientRect().top + window.scrollY - 120;
-                          window.scrollTo({ top: y, behavior: "smooth" });
-                        }
-                      } else {
-                        setFilter(cat);
-                        setActiveSection(cat);
-                      }
-                    }}
-                    className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
-                      selected ? "bg-pink text-white" : "text-mist hover:text-ink hover:bg-white"
-                    }`}>{cat}</button>
-                );
-              })}
+            <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Menu categories">
+              {CATEGORIES.map(cat => (
+                <button key={cat} role="tab" aria-selected={filter === cat} onClick={() => setFilter(cat)}
+                  className={`px-5 min-h-[44px] rounded-full text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                    filter === cat ? "bg-pink text-white" : "text-mist hover:text-ink hover:bg-white"
+                  }`}>{cat}</button>
+              ))}
             </div>
           </div>
 
@@ -3391,34 +3432,11 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                 <button onClick={() => { setSearch(""); setFilter("All"); }} className="text-xs text-pink hover:underline">Clear filters</button>
               )}
             </div>
-            {filter === "All" && !(search || "").trim() ? (
-              <div className="space-y-10">
-                {CATEGORIES.filter(c => c !== "All").map(cat => {
-                  const items = filtered.filter(d => d.category === cat);
-                  if (!items.length) return null;
-                  const sid = "menu-cat-" + cat.replace(/\s+/g, "-").toLowerCase();
-                  return (
-                    <section key={cat} id={sid} className="scroll-mt-28">
-                      <h2 className="font-display text-xl text-ink mb-4 flex items-center gap-2">
-                        <span className="w-1.5 h-5 rounded-full bg-pink inline-block" />
-                        {cat}
-                      </h2>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch">
-                        {items.map((dish, i) => (
-                          <MenuCard key={dish.id} dish={dish} onAdd={handleAdd} onPair={setPairingDish} sessionItems={sessionItems} index={i} />
-                        ))}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch" key={filter + (search || "")}>
-                {filtered.map((dish, i) => (
-                  <MenuCard key={dish.id} dish={dish} onAdd={handleAdd} onPair={setPairingDish} sessionItems={sessionItems} index={i} />
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 items-stretch" key={filter}>
+              {filtered.map((dish, i) => (
+                <MenuCard key={dish.id} dish={dish} onAdd={handleAdd} onPair={setPairingDish} sessionItems={sessionItems} index={i} />
+              ))}
+            </div>
             {filtered.length === 0 && (
               <div className="text-center py-20">
                 <Icon name="search" size={36} className="text-mist/40 mx-auto mb-3" />
@@ -4877,8 +4895,8 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                     <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
                         { label: insightPeriod === "day" ? "Confirmed rounds (today)" : insightPeriod === "month" ? "Confirmed rounds (month)" : "Confirmed rounds (all)", value: insights.confirmedRounds, icon: "shopping-bag", sub: `${insights.pending} still pending, ${insights.totalRounds} total rounds` },
-                        { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.tablesActive} tables with orders` },
-                        { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "Among tables in this period" },
+                        { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.paidSessions || insights.tablesActive || 0} paid bills cleared` },
+                        { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "Paid / cleared bills only" },
                         { label: "Top category", value: (insights.categoryLabels && insights.categoryLabels[0]) || "None yet", icon: "sparkles", sub: insights.categoryValues?.[0] ? `${insights.categoryValues[0]} items` : "" },
                       ].map((kpi, i) => (
                         <div key={kpi.label} className="glass rounded-2xl p-5 border border-pink/10 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
