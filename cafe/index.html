@@ -1004,7 +1004,7 @@
           sessionId: s.id,
           guestName: s.guest_name || "",
           guestPhone: s.guest_phone || "",
-          joinCode: s.join_code || "",
+          joinCode: s.join_code || s.joinCode || "",
           discountPercent: Number(s.discount_percent || 0),
           createdAt: s.created_at,
           rounds: (bySession[s.id] || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
@@ -1019,14 +1019,22 @@
       if (token) {
         try {
           const { data, error } = await sb.rpc("boba_staff_get_live_orders", { p_staff_token: token });
-          if (!error && Array.isArray(data)) return data;
+          if (!error && Array.isArray(data)) {
+            return data.map(s => ({
+              ...s,
+              joinCode: s.joinCode || s.join_code || "",
+              guestName: s.guestName || s.guest_name || s.guestName || "",
+              guestPhone: s.guestPhone || s.guest_phone || s.guestPhone || "",
+              table: s.table || s.table_no || s.table,
+            }));
+          }
         } catch (e) {
           console.warn("boba_staff_get_live_orders fallback:", e);
         }
       }
       const { data: sessions, error: e1 } = await sb
         .from("boba_table_sessions")
-        .select("id, table_no, status, guest_name, created_at, discount_percent")
+        .select("id, table_no, status, guest_name, guest_phone, join_code, created_at, discount_percent")
         .eq("status", "open")
         .order("created_at", { ascending: false });
       if (e1) return [];
@@ -1300,62 +1308,119 @@
         return true;
       });
 
-      // Revenue = ONLY paid / cleared bills (session status paid), timed by cleared_at
-      let paidQ = sb.from("boba_table_sessions").select("id, table_no, status, cleared_at").eq("status", "paid");
+      // Paid / cleared session count (for "bills cleared")
+      let paidQ = sb.from("boba_table_sessions").select("id, table_no, status, cleared_at, guest_name").eq("status", "paid");
       if (from) paidQ = paidQ.gte("cleared_at", from);
       if (to) paidQ = paidQ.lt("cleared_at", to);
       const { data: paidSessions, error: paidErr } = await paidQ.order("cleared_at", { ascending: false }).limit(1000);
       if (paidErr) throw paidErr;
       const paidList = paidSessions || [];
-      const paidIds = paidList.map(s => s.id).filter(Boolean);
+      const paidIdSet = new Set(paidList.map(s => String(s.id)));
 
+      // Revenue: sum completed rounds in this period.
+      // Clearing a table can leave paid sessions with no readable rounds, so we
+      // use confirmed rounds (not pending "new") as the source of truth for money.
       let revenue = 0;
       const bySession = {};
       const byDish = {};
-      if (paidIds.length) {
-        // chunk in case of many ids
-        const chunkSize = 100;
-        let paidRounds = [];
-        for (let i = 0; i < paidIds.length; i += chunkSize) {
-          const chunk = paidIds.slice(i, i + chunkSize);
-          const { data: pr, error: prErr } = await sb
-            .from("boba_order_rounds")
-            .select("id, status, items, total, session_id")
-            .in("session_id", chunk);
-          if (prErr) throw prErr;
-          paidRounds = paidRounds.concat(pr || []);
+      const byCategory = {};
+      const exportRows = [];
+
+      confirmed.forEach(r => {
+        const total = Number(r.total) || 0;
+        // Fallback: sum item prices if total missing
+        let line = total;
+        if (!line && Array.isArray(r.items)) {
+          line = r.items.reduce((s, it) => {
+            if (String(it.id) === "snake-discount") return s;
+            return s + (Number(it.price) || 0) * (Number(it.qty) || 1);
+          }, 0);
         }
-        paidRounds.forEach(r => {
-          if (isCancelled(r)) return;
-          // skip leftover "new" if any (clear usually deletes them)
-          if (r.status === "new") return;
-          const total = Number(r.total) || 0;
-          revenue += total;
-          const sid = r.session_id || "?";
-          if (!bySession[sid]) {
-            const sess = paidList.find(s => s.id === sid);
+        revenue += line;
+        const sid = String(r.session_id || "?");
+        const tno = (r.table_sessions && r.table_sessions.table_no) || "?";
+        const gname = (r.table_sessions && r.table_sessions.guest_name) || "";
+        if (!bySession[sid]) {
+          bySession[sid] = { sessionId: sid, table: tno, guest: gname, rounds: 0, bill: 0, paid: paidIdSet.has(sid) };
+        }
+        bySession[sid].rounds += 1;
+        bySession[sid].bill += line;
+
+        (r.items || []).forEach(it => {
+          if (String(it.id) === "snake-discount") return;
+          const name = it.name || "Item";
+          const qty = Number(it.qty) || 1;
+          byDish[name] = (byDish[name] || 0) + qty;
+          exportRows.push({
+            period: period || "day",
+            table: tno,
+            guest: gname,
+            roundId: r.id,
+            status: r.status,
+            item: name,
+            variant: it.variantLabel || it.variant || "",
+            qty,
+            unitPrice: Number(it.price) || "",
+            roundTotal: line,
+            createdAt: r.created_at || "",
+          });
+        });
+        if (!r.items || !r.items.length) {
+          exportRows.push({
+            period: period || "day",
+            table: tno,
+            guest: gname,
+            roundId: r.id,
+            status: r.status,
+            item: "(round total)",
+            variant: "",
+            qty: 1,
+            unitPrice: line,
+            roundTotal: line,
+            createdAt: r.created_at || "",
+          });
+        }
+      });
+
+      // Also try attach totals from paid sessions that still have rounds (extra)
+      const paidIds = paidList.map(s => s.id).filter(Boolean);
+      if (paidIds.length) {
+        for (let i = 0; i < paidIds.length; i += 100) {
+          const chunk = paidIds.slice(i, i + 100);
+          const { data: pr } = await sb
+            .from("boba_order_rounds")
+            .select("id, status, items, total, session_id, created_at")
+            .in("session_id", chunk);
+          (pr || []).forEach(r => {
+            if (isCancelled(r) || r.status === "new") return;
+            const sid = String(r.session_id || "");
+            if (bySession[sid]) return; // already counted via period confirmed
+            const total = Number(r.total) || 0;
+            if (!total) return;
+            // Round outside period window but on a bill cleared in period
+            revenue += total;
+            const sess = paidList.find(s => String(s.id) === sid);
             bySession[sid] = {
               sessionId: sid,
               table: (sess && sess.table_no) || "?",
-              rounds: 0,
-              bill: 0,
+              guest: (sess && sess.guest_name) || "",
+              rounds: 1,
+              bill: total,
+              paid: true,
             };
-          }
-          bySession[sid].rounds += 1;
-          bySession[sid].bill += total;
-          (r.items || []).forEach(it => {
-            if (String(it.id) === "snake-discount") return;
-            const name = it.name || "Item";
-            byDish[name] = (byDish[name] || 0) + (it.qty || 1);
           });
-        });
+        }
       }
-      const sessionsPaid = Object.values(bySession);
-      const tablesPaid = [...new Set(sessionsPaid.map(s => String(s.table)))];
+
+      const sessionsPaid = Object.values(bySession).sort((a, b) => String(a.table).localeCompare(String(b.table), undefined, { numeric: true }));
+      const tablesActive = [...new Set(sessionsPaid.map(s => String(s.table)))].length;
       const avgBill = sessionsPaid.length
         ? Math.round(sessionsPaid.reduce((s, x) => s + x.bill, 0) / sessionsPaid.length)
         : 0;
       const topDishes = Object.entries(byDish).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      // Category breakdown for charts (from confirmed items + menu if available)
+      // kept empty here; UI may still use topDishes
       const meaningful = list.filter(r => !isCancelled(r));
       return {
         period: period || "day",
@@ -1364,12 +1429,71 @@
         totalRounds: pendingList.length + confirmed.length,
         revenue,
         avgBill,
-        tablesActive: tablesPaid.length,
+        tablesActive,
         tables: sessionsPaid,
         paidSessions: paidList.length,
         topDishes,
+        exportRows,
         rawRounds: meaningful,
       };
+    }
+
+    function downloadInsightsCsv(insights) {
+      if (!insights) return;
+      const period = insights.period || "day";
+      const rows = Array.isArray(insights.exportRows) ? insights.exportRows.slice() : [];
+      rows.sort((a, b) => {
+        const ta = String(a.table);
+        const tb = String(b.table);
+        if (ta !== tb) return ta.localeCompare(tb, undefined, { numeric: true });
+        return String(a.createdAt).localeCompare(String(b.createdAt));
+      });
+      const esc = (v) => {
+        const s = String(v == null ? "" : v);
+        if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      };
+      const lines = [];
+      lines.push("BOBA Cafe Insights Export");
+      lines.push("Period," + esc(period));
+      lines.push("Generated," + esc(new Date().toLocaleString()));
+      lines.push("");
+      lines.push("SUMMARY");
+      lines.push("Metric,Value");
+      lines.push("Revenue," + esc(insights.revenue || 0));
+      lines.push("Avg bill," + esc(insights.avgBill || 0));
+      lines.push("Confirmed rounds," + esc(insights.confirmedRounds || 0));
+      lines.push("Pending rounds," + esc(insights.pending || 0));
+      lines.push("Paid bills cleared," + esc(insights.paidSessions || 0));
+      lines.push("Tables with orders," + esc(insights.tablesActive || 0));
+      lines.push("");
+      lines.push("BY TABLE");
+      lines.push("Table,Guest,Rounds,Bill");
+      (insights.tables || []).forEach(t => {
+        lines.push([t.table, t.guest || "", t.rounds || 0, t.bill || 0].map(esc).join(","));
+      });
+      lines.push("");
+      lines.push("TOP ITEMS");
+      lines.push("Item,Qty");
+      (insights.topDishes || []).forEach(([name, qty]) => {
+        lines.push([name, qty].map(esc).join(","));
+      });
+      lines.push("");
+      lines.push("LINE ITEMS");
+      lines.push("Table,Guest,Round ID,Status,Item,Variant,Qty,Unit Price,Round Total,Created At");
+      rows.forEach(r => {
+        lines.push([
+          r.table, r.guest, r.roundId, r.status, r.item, r.variant, r.qty, r.unitPrice, r.roundTotal, r.createdAt
+        ].map(esc).join(","));
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "boba-insights-" + period + "-" + new Date().toISOString().slice(0, 10) + ".csv";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
     }
 
 
@@ -1839,6 +1963,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       "message-circle": <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
       "edit-3": <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
       copy: <><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></>,
+      download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></>,
     };
     const Icon = ({ name, size = 20, className = "" }) => (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -3870,7 +3995,8 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Your name *</label>
-                    <input value={gateName} onChange={e => setGateName(e.target.value)}
+                    <input value={gateName} onChange={e => setGateName(e.target.value.slice(0, 40))}
+                      maxLength={40}
                       className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="" autoComplete="name" />
                   </div>
                   <div>
@@ -3891,6 +4017,10 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   <button type="button" disabled={loginBusy} onClick={async () => {
                     if (!gateName.trim() || gatePhone.replace(/\D/g, "").length < 10) {
                       showToast("Enter name and valid mobile");
+                      return;
+                    }
+                    if (gateName.trim().length > 40) {
+                      showToast("Name is too long (max 40 characters)");
                       return;
                     }
                     if (needJoinOtp && gateJoinCode.replace(/\D/g, "").length < 6) {
@@ -4993,10 +5123,23 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                       </button>
                                     </div>
                                   ) : null}
-                                  {session.joinCode ? (
-                                     <div className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg bg-pink-soft border border-pink/30 text-pink-deep text-xs font-semibold">
-                                       <span>Table OTP: <strong className="font-mono tracking-wider text-sm">{session.joinCode}</strong></span>
-                                     </div>
+                                  {(session.joinCode || session.join_code) ? (
+                                     <button
+                                       type="button"
+                                       onClick={() => {
+                                         const code = String(session.joinCode || session.join_code || "");
+                                         try {
+                                           navigator.clipboard.writeText(code);
+                                           showToast("OTP " + code + " copied");
+                                         } catch (e) {
+                                           showToast("Table OTP: " + code);
+                                         }
+                                       }}
+                                       className="flex items-center gap-2 mt-2 w-full sm:w-auto px-3 py-2 rounded-xl bg-pink text-white text-sm font-bold shadow-sm active:scale-[0.98]"
+                                     >
+                                       <span className="text-[10px] font-semibold uppercase tracking-wider opacity-90">Table OTP</span>
+                                       <span className="font-mono tracking-[0.2em] text-base">{session.joinCode || session.join_code}</span>
+                                     </button>
                                    ) : null}
                                 </div>
                               )}
@@ -5244,7 +5387,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                   <div>
                     <h2 className="font-display text-2xl text-ink">Live Insights</h2>
-                    <p className="text-mist text-xs">From confirmed orders. Updates when you change period or refresh.</p>
+                    <p className="text-mist text-xs">Completed rounds (preparing / served). Clears when you change period or refresh.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     {[
@@ -5261,6 +5404,14 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                       className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold flex items-center gap-1.5">
                       <Icon name="refresh-cw" size={14} /> Refresh
                     </button>
+                    <button type="button" onClick={() => {
+                        if (!insights) { showToast("Load insights first"); return; }
+                        downloadInsightsCsv(insights);
+                        showToast("CSV downloaded");
+                      }}
+                      className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold flex items-center gap-1.5">
+                      <Icon name="download" size={14} /> Export CSV
+                    </button>
                     <button type="button" onClick={() => { setMgrUnlocked(false); try { sessionStorage.removeItem("boba_mgr"); } catch {}; }}
                       className="px-3 py-2 text-mist text-xs hover:text-ink">Lock</button>
                   </div>
@@ -5274,8 +5425,8 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
                         { label: insightPeriod === "day" ? "Confirmed rounds (today)" : insightPeriod === "month" ? "Confirmed rounds (month)" : "Confirmed rounds (all)", value: insights.confirmedRounds, icon: "shopping-bag", sub: `${insights.pending} still pending, ${insights.totalRounds} total rounds` },
-                        { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.paidSessions || insights.tablesActive || 0} paid bills cleared` },
-                        { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "Paid / cleared bills only" },
+                        { label: "Revenue", value: formatPrice(insights.revenue), icon: "dollar-sign", sub: `${insights.confirmedRounds || 0} completed rounds · ${insights.paidSessions || 0} bills cleared` },
+                        { label: "Avg bill / table", value: formatPrice(insights.avgBill), icon: "trending-up", sub: "From completed order rounds" },
                         { label: "Top category", value: (insights.categoryLabels && insights.categoryLabels[0]) || "None yet", icon: "sparkles", sub: insights.categoryValues?.[0] ? `${insights.categoryValues[0]} items` : "" },
                       ].map((kpi, i) => (
                         <div key={kpi.label} className="glass rounded-2xl p-5 border border-pink/10 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
