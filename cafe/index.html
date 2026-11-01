@@ -1438,119 +1438,6 @@
       };
     }
 
-    function downloadInsightsCsv(insights) {
-      if (!insights) return;
-      const periodLabel = ({ day: "Today", month: "This month", all: "All time" })[insights.period] || (insights.period || "day");
-      const when = new Date();
-      const whenStr = when.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-      const inr = (n) => {
-        const v = Math.round(Number(n) || 0);
-        return v.toLocaleString("en-IN");
-      };
-      const esc = (v) => {
-        const s = String(v == null ? "" : v);
-        if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-        return s;
-      };
-      const line = (cols) => cols.map(esc).join(",");
-
-      const tables = (insights.tables || []).slice().sort((a, b) =>
-        String(a.table).localeCompare(String(b.table), undefined, { numeric: true })
-      );
-      const top = (insights.topDishes || []).slice();
-      const rows = (insights.exportRows || []).slice().sort((a, b) => {
-        const c = String(a.table).localeCompare(String(b.table), undefined, { numeric: true });
-        if (c) return c;
-        return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
-      });
-
-      const out = [];
-      out.push(line(["BOBA Café — Sales Insights"]));
-      out.push(line(["Period", periodLabel]));
-      out.push(line(["Generated", whenStr]));
-      out.push("");
-      out.push(line(["SUMMARY"]));
-      out.push(line(["Metric", "Value"]));
-      out.push(line(["Total revenue (INR)", inr(insights.revenue)]));
-      out.push(line(["Average bill per table (INR)", inr(insights.avgBill)]));
-      out.push(line(["Completed order rounds", insights.confirmedRounds || 0]));
-      out.push(line(["Pending order rounds", insights.pending || 0]));
-      out.push(line(["Paid bills cleared", insights.paidSessions || 0]));
-      out.push(line(["Tables with completed orders", insights.tablesActive || 0]));
-      out.push("");
-      out.push(line(["SALES BY TABLE"]));
-      out.push(line(["Table", "Guest name", "Order rounds", "Bill total (INR)"]));
-      if (!tables.length) {
-        out.push(line(["—", "No table sales in this period", "0", "0"]));
-      } else {
-        tables.forEach(t => {
-          out.push(line([
-            t.table,
-            t.guest || "",
-            t.rounds || 0,
-            inr(t.bill),
-          ]));
-        });
-        out.push(line(["TOTAL", "", tables.reduce((s, t) => s + (t.rounds || 0), 0), inr(tables.reduce((s, t) => s + (Number(t.bill) || 0), 0))]));
-      }
-      out.push("");
-      out.push(line(["TOP SELLING ITEMS"]));
-      out.push(line(["Rank", "Item name", "Quantity sold"]));
-      if (!top.length) {
-        out.push(line(["—", "No items", "0"]));
-      } else {
-        top.forEach(([name, qty], i) => {
-          out.push(line([i + 1, name, qty]));
-        });
-      }
-      out.push("");
-      out.push(line(["DETAILED LINE ITEMS"]));
-      out.push(line([
-        "Table",
-        "Guest name",
-        "Round status",
-        "Item name",
-        "Size / variant",
-        "Qty",
-        "Unit price (INR)",
-        "Round total (INR)",
-        "Ordered at",
-      ]));
-      if (!rows.length) {
-        out.push(line(["—", "", "", "No line items", "", "", "", "", ""]));
-      } else {
-        rows.forEach(r => {
-          let orderedAt = r.createdAt || "";
-          try {
-            if (orderedAt) orderedAt = new Date(orderedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
-          } catch (e) {}
-          out.push(line([
-            r.table,
-            r.guest || "",
-            r.status || "",
-            r.item || "",
-            r.variant || "",
-            r.qty || 0,
-            r.unitPrice === "" || r.unitPrice == null ? "" : inr(r.unitPrice),
-            inr(r.roundTotal),
-            orderedAt,
-          ]));
-        });
-      }
-
-      // BOM so Excel / Sheets open UTF-8 correctly
-      const csv = "\uFEFF" + out.join("\r\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const stamp = when.toISOString().slice(0, 10);
-      a.href = url;
-      a.download = "BOBA-Insights-" + (insights.period || "day") + "-" + stamp + ".csv";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 800);
-    }
-
 
     async function cloudFetchJoinCode(tableKey) {
       if (!sb || !tableKey) return "";
@@ -4368,6 +4255,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       React.useEffect(() => { _editingMenuLock = !!editingDish; }, [editingDish]);
       const [menuSearch, setMenuSearch] = useState("");
       const [menuCatFilter, setMenuCatFilter] = useState("All");
+      const [staffAddToRound, setStaffAddToRound] = useState(null); // { table, roundId, status }
       const [staffTab, setStaffTab] = useState("live");
       const [waiterCalls, setWaiterCalls] = useState([]);
       const [ackingCallId, setAckingCallId] = useState(null);
@@ -5169,7 +5057,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     {
                       key: "new",
                       title: "New",
-                      sub: "Orders just landed",
+                      sub: "Just in",
                       accent: "border-amber-300/80",
                       badge: "bg-amber-100 text-amber-800",
                       filter: isNew,
@@ -5178,7 +5066,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     {
                       key: "cooking",
                       title: "Preparing",
-                      sub: "In the kitchen",
+                      sub: "Being made",
                       accent: "border-orange-300/80",
                       badge: "bg-orange-100 text-orange-800",
                       filter: isPrep,
@@ -5187,7 +5075,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     {
                       key: "delivered",
                       title: "Served",
-                      sub: "Done — clear when paid",
+                      sub: "Ready to clear when paid",
                       accent: "border-emerald-300/70",
                       badge: "bg-emerald-100 text-emerald-800",
                       filter: isServed,
@@ -5229,12 +5117,12 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                   const itemsList = round.items || [];
                                   const total = Number(round.total) || itemsList.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
                                   return (
-                                    <div key={String(round.id)} className="rounded-2xl bg-white border border-pink/15 shadow-sm p-3.5">
+                                    <div key={String(round.id)} className="rounded-2xl bg-white border border-pink/20 shadow-card p-3.5">
                                       <div className="flex items-start justify-between gap-2 mb-2">
                                         <div className="min-w-0">
                                           <div className="flex flex-wrap items-center gap-1.5">
                                             <span className="font-display text-base text-ink">Table {round.table}</span>
-                                            <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-blush text-mist">R{round.roundNo}</span>
+                                            <span className="text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-blush text-mist">Round {round.roundNo}</span>
                                           </div>
                                           <p className="text-mist text-[11px] mt-0.5">{timeAgo(round.createdAt)}{round.orderedBy ? ` · ${round.orderedBy}` : ""}</p>
                                         </div>
@@ -5242,27 +5130,68 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                           {statusMeta(round.status).label}
                                         </span>
                                       </div>
-                                      <ul className="space-y-1.5 mb-3">
-                                        {itemsList.map((it, ii) => (
-                                          <li key={ii} className="flex items-start justify-between gap-2 text-sm">
-                                            <div className="min-w-0">
-                                              <p className="text-ink font-medium leading-snug">
-                                                <span className="text-pink font-semibold">{it.qty || 1}×</span>{" "}
-                                                {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}
-                                              </p>
-                                              {it.note ? (
-                                                <p className="text-[11px] text-amber-700/90 mt-0.5 flex items-center gap-1">
-                                                  <Icon name="edit-3" size={11} /> {it.note}
-                                                </p>
-                                              ) : null}
-                                            </div>
-                                            <span className="text-mist text-xs shrink-0">{formatPrice((Number(it.price) || 0) * (Number(it.qty) || 1) || "")}</span>
-                                          </li>
-                                        ))}
+                                      <ul className="space-y-2 mb-2">
+                                        {itemsList.map((it, ii) => {
+                                          const line = (Number(it.price) || 0) * (Number(it.qty) || 1);
+                                          const canEdit = normalizeRoundStatus(round.status) !== "delivered";
+                                          return (
+                                            <li key={ii} className="rounded-xl bg-blush/50 border border-pink/10 px-2.5 py-2">
+                                              <div className="flex items-start justify-between gap-2">
+                                                <div className="min-w-0 flex-1">
+                                                  <p className="text-ink text-sm font-medium leading-snug">
+                                                    {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}
+                                                  </p>
+                                                  {it.note ? (
+                                                    <p className="text-[11px] text-amber-800/90 mt-0.5">{it.note}</p>
+                                                  ) : null}
+                                                </div>
+                                                <span className="text-pink text-xs font-semibold shrink-0">{formatPrice(line)}</span>
+                                              </div>
+                                              {canEdit ? (
+                                                <div className="flex items-center gap-1.5 mt-2">
+                                                  <button type="button"
+                                                    className="w-8 h-8 rounded-lg border border-pink/25 bg-white text-ink font-bold text-sm"
+                                                    onClick={() => {
+                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.max(1, (Number(x.qty) || 1) - 1) } : x);
+                                                      updateRoundItems(round.table, round.id, next);
+                                                    }}>−</button>
+                                                  <span className="w-7 text-center text-sm font-semibold text-ink">{it.qty || 1}</span>
+                                                  <button type="button"
+                                                    className="w-8 h-8 rounded-lg border border-pink/25 bg-white text-ink font-bold text-sm"
+                                                    onClick={() => {
+                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.min(50, (Number(x.qty) || 1) + 1) } : x);
+                                                      updateRoundItems(round.table, round.id, next);
+                                                    }}>+</button>
+                                                  <button type="button"
+                                                    className="ml-auto w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-500 text-sm font-bold"
+                                                    onClick={() => {
+                                                      const next = itemsList.filter((_, j) => j !== ii);
+                                                      if (!next.length) {
+                                                        showToast("Add another item or cancel the round");
+                                                        return;
+                                                      }
+                                                      updateRoundItems(round.table, round.id, next);
+                                                    }}>×</button>
+                                                </div>
+                                              ) : (
+                                                <p className="text-[11px] text-mist mt-1">{it.qty || 1}× item</p>
+                                              )}
+                                            </li>
+                                          );
+                                        })}
                                       </ul>
+                                      {normalizeRoundStatus(round.status) !== "delivered" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setStaffAddToRound({ table: round.table, roundId: round.id, status: round.status })}
+                                          className="w-full mb-2 py-2 rounded-xl border border-dashed border-pink/35 text-pink text-xs font-semibold hover:bg-pink/5 transition"
+                                        >
+                                          + Add item to round
+                                        </button>
+                                      )}
                                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-pink/10">
                                         <span className="font-semibold text-ink text-sm">{formatPrice(total)}</span>
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                           {act ? (
                                             <button
                                               type="button"
@@ -5514,14 +5443,6 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     <button type="button" onClick={() => loadInsights(insightPeriod)}
                       className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold flex items-center gap-1.5">
                       <Icon name="refresh-cw" size={14} /> Refresh
-                    </button>
-                    <button type="button" onClick={() => {
-                        if (!insights) { showToast("Load insights first"); return; }
-                        downloadInsightsCsv(insights);
-                        showToast("CSV downloaded");
-                      }}
-                      className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold flex items-center gap-1.5">
-                      <Icon name="download" size={14} /> Export CSV
                     </button>
                     <button type="button" onClick={() => { setMgrUnlocked(false); try { sessionStorage.removeItem("boba_mgr"); } catch {}; }}
                       className="px-3 py-2 text-mist text-xs hover:text-ink">Lock</button>
@@ -5844,6 +5765,104 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
             </section>
             )}
           </div>
+
+
+          {staffAddToRound && (
+            <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center p-4 bg-ink/40" onClick={() => setStaffAddToRound(null)} role="dialog" aria-modal="true">
+              <div className="glass-strong rounded-2xl max-w-md w-full max-h-[80vh] overflow-hidden border border-pink/15 shadow-float flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-pink/10 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display text-lg text-ink">Add item</h3>
+                    <p className="text-mist text-xs">Table {staffAddToRound.table}</p>
+                  </div>
+                  <button type="button" onClick={() => setStaffAddToRound(null)} className="hit-icon text-mist"><Icon name="x" size={20} /></button>
+                </div>
+                <div className="overflow-y-auto p-3 space-y-1.5 flex-1">
+                  {(dishes || []).filter(d => d.visible !== false).map(d => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2.5 rounded-xl border border-pink/15 bg-white hover:border-pink/35 hover:bg-blush transition"
+                      onClick={() => {
+                        const target = staffAddToRound;
+                        const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
+                        const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
+                        if (!round) { showToast("Round not found"); setStaffAddToRound(null); return; }
+                        const existing = round.items || [];
+                        const pickVariant = (variant) => {
+                          const price = variant ? Number(variant.price) : Number(d.price);
+                          const label = variant ? variant.label : null;
+                          const keyMatch = (it) => String(it.id) === String(d.id) && String(it.variantLabel || "") === String(label || "");
+                          let next;
+                          const found = existing.find(keyMatch);
+                          if (found) {
+                            next = existing.map(it => keyMatch(it) ? { ...it, qty: (Number(it.qty) || 1) + 1 } : it);
+                          } else {
+                            next = [...existing, {
+                              id: d.id,
+                              name: d.name,
+                              variantLabel: label,
+                              price,
+                              qty: 1,
+                              note: null,
+                            }];
+                          }
+                          updateRoundItems(target.table, target.roundId, next);
+                          setStaffAddToRound(null);
+                        };
+                        if (d.variants && d.variants.length) {
+                          // simple: use first variant prompt via nested - pick default first for speed, or show variants inline
+                          const v = d.variants[0];
+                          // Show mini variant buttons by expanding - use window prompt free: add as buttons in state
+                          setStaffAddToRound({ ...target, pickDish: d });
+                          return;
+                        }
+                        pickVariant(null);
+                      }}
+                    >
+                      <span className="font-medium text-ink text-sm">{d.name}</span>
+                      <span className="text-mist text-xs ml-2">{d.category}</span>
+                      <span className="float-right text-pink text-xs font-semibold">{formatPrice(d.price)}</span>
+                    </button>
+                  ))}
+                </div>
+                {staffAddToRound.pickDish && staffAddToRound.pickDish.variants && (
+                  <div className="p-3 border-t border-pink/10 bg-blush/40">
+                    <p className="text-xs text-mist mb-2">Choose size for {staffAddToRound.pickDish.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {staffAddToRound.pickDish.variants.map(v => (
+                        <button
+                          key={v.label}
+                          type="button"
+                          className="px-3 py-2 rounded-xl bg-pink text-white text-xs font-semibold"
+                          onClick={() => {
+                            const target = staffAddToRound;
+                            const d = target.pickDish;
+                            const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
+                            const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
+                            if (!round) { setStaffAddToRound(null); return; }
+                            const existing = round.items || [];
+                            const keyMatch = (it) => String(it.id) === String(d.id) && String(it.variantLabel || "") === String(v.label || "");
+                            let next;
+                            if (existing.find(keyMatch)) {
+                              next = existing.map(it => keyMatch(it) ? { ...it, qty: (Number(it.qty) || 1) + 1 } : it);
+                            } else {
+                              next = [...existing, { id: d.id, name: d.name, variantLabel: v.label, price: Number(v.price), qty: 1, note: null }];
+                            }
+                            updateRoundItems(target.table, target.roundId, next);
+                            setStaffAddToRound(null);
+                          }}
+                        >
+                          {v.label} · {formatPrice(v.price)}
+                        </button>
+                      ))}
+                      <button type="button" className="px-3 py-2 rounded-xl border border-pink/25 text-mist text-xs" onClick={() => setStaffAddToRound({ table: staffAddToRound.table, roundId: staffAddToRound.roundId, status: staffAddToRound.status })}>Back</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {editingDish && (
             <div className="fixed inset-0 z-[140] flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm" onClick={() => setEditingDish(null)} role="dialog" aria-modal="true">
