@@ -396,6 +396,74 @@
       100% { transform: translate(calc(-50% + var(--bx,0px)), var(--by,-80vh)) scale(1) rotate(var(--br,360deg)); opacity: 0; }
     }
 
+
+    /* OTP digit slots + orbit (table join / verify) */
+    .otp-stage {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem 0.5rem 1.5rem;
+      min-height: 5.5rem;
+    }
+    .otp-orbit {
+      position: absolute;
+      width: min(100%, 17rem);
+      height: 5.25rem;
+      border-radius: 999px;
+      pointer-events: none;
+      border: 1.5px dashed rgba(186, 107, 37, 0.35);
+      animation: otp-orbit-spin 1.1s linear infinite;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .otp-orbit.is-on { opacity: 1; }
+    @keyframes otp-orbit-spin {
+      to { transform: rotate(360deg); }
+    }
+    .otp-slots {
+      display: flex;
+      gap: 0.45rem;
+      position: relative;
+      z-index: 1;
+    }
+    .otp-slot {
+      width: 2.55rem;
+      height: 3.1rem;
+      border-radius: 0.85rem;
+      border: 1.5px solid rgba(186, 107, 37, 0.22);
+      background: #fff;
+      color: #24140E;
+      font-size: 1.35rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      caret-color: #BA6B25;
+    }
+    .otp-slot:focus {
+      border-color: #BA6B25;
+      box-shadow: 0 0 0 3px rgba(186, 107, 37, 0.18);
+    }
+    .otp-slot.is-filled {
+      border-color: rgba(186, 107, 37, 0.45);
+      background: #FBF8F2;
+    }
+    .otp-slot.is-error {
+      border-color: #dc2626;
+      animation: shake 0.4s ease;
+    }
+    .otp-slot.is-success {
+      border-color: #BA6B25;
+      background: #F5E9DC;
+      transform: scale(1.04);
+    }
+    @media (max-width: 380px) {
+      .otp-slot { width: 2.25rem; height: 2.85rem; font-size: 1.2rem; border-radius: 0.75rem; }
+      .otp-slots { gap: 0.35rem; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -548,6 +616,14 @@
     ];
 
     const CATEGORIES = ["All", "Milk Tea", "Fruit Tea", "Signature", "Slush & Smoothies", "Pure Tea", "Toppings", "Snacks", "Coffee"];
+    const WAITER_OPTIONS = [
+      { id: "water", label: "Water", emoji: "💧" },
+      { id: "napkins", label: "Napkins", emoji: "🧻" },
+      { id: "cutlery", label: "Cutlery", emoji: "🍴" },
+      { id: "clean", label: "Clean table", emoji: "✨" },
+      { id: "bill", label: "Get bill", emoji: "🧾" },
+      { id: "help", label: "Assistance", emoji: "✋" },
+    ];
     const DIET_FILTERS = ["All Diets", "Vegetarian", "Non-Veg"];
     const DRINK_TYPES = []; // not used for boba the same way
 
@@ -1754,6 +1830,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       bell: <><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
       "message-circle": <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
       "edit-3": <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
+      copy: <><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></>,
     };
     const Icon = ({ name, size = 20, className = "" }) => (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -1928,7 +2005,85 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       );
     };
 
-    const PinModal = ({ onSuccess, onClose, forced }) => {
+    
+    const OtpBoxes = ({ value = "", onChange, length = 6, disabled = false, error = false, verifying = false, success = false, autoFocus = false }) => {
+      const inputsRef = useRef([]);
+      const digits = Array.from({ length }, (_, i) => (value[i] || ""));
+
+      const setAt = (idx, char) => {
+        const clean = String(char || "").replace(/\D/g, "").slice(-1);
+        const arr = digits.slice();
+        arr[idx] = clean;
+        const next = arr.join("").slice(0, length);
+        onChange(next);
+        if (clean && idx < length - 1) {
+          const el = inputsRef.current[idx + 1];
+          if (el) el.focus();
+        }
+      };
+
+      const onKeyDown = (idx, e) => {
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          if (digits[idx]) {
+            setAt(idx, "");
+          } else if (idx > 0) {
+            const el = inputsRef.current[idx - 1];
+            if (el) el.focus();
+            const arr = digits.slice();
+            arr[idx - 1] = "";
+            onChange(arr.join(""));
+          }
+        } else if (e.key === "ArrowLeft" && idx > 0) {
+          inputsRef.current[idx - 1]?.focus();
+        } else if (e.key === "ArrowRight" && idx < length - 1) {
+          inputsRef.current[idx + 1]?.focus();
+        }
+      };
+
+      const onPaste = (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+        const nums = text.replace(/\D/g, "").slice(0, length);
+        if (!nums) return;
+        onChange(nums);
+        const focusIdx = Math.min(nums.length, length - 1);
+        setTimeout(() => inputsRef.current[focusIdx]?.focus(), 0);
+      };
+
+      useEffect(() => {
+        if (autoFocus && inputsRef.current[0]) {
+          setTimeout(() => inputsRef.current[0]?.focus(), 80);
+        }
+      }, [autoFocus]);
+
+      return (
+        <div className="otp-stage">
+          <div className={`otp-orbit ${verifying ? "is-on" : ""}`} aria-hidden="true" />
+          <div className="otp-slots" onPaste={onPaste}>
+            {digits.map((d, i) => (
+              <input
+                key={i}
+                ref={el => { inputsRef.current[i] = el; }}
+                type="text"
+                inputMode="numeric"
+                autoComplete={i === 0 ? "one-time-code" : "off"}
+                maxLength={1}
+                disabled={disabled || verifying}
+                value={d}
+                aria-label={`Digit ${i + 1}`}
+                onChange={e => setAt(i, e.target.value)}
+                onKeyDown={e => onKeyDown(i, e)}
+                onFocus={e => e.target.select()}
+                className={`otp-slot ${d ? "is-filled" : ""} ${error ? "is-error" : ""} ${success ? "is-success" : ""}`}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+const PinModal = ({ onSuccess, onClose, forced }) => {
       const [pin, setPin] = useState("");
       const [error, setError] = useState("");
       const [shake, setShake] = useState(false);
@@ -2455,23 +2610,53 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
     const CartDrawer = ({ open, onClose, items, setItems, onPlaceOrder, onOrderPlaced, showToast, tableNumber, setTableNumber, tableFromQr, orderHistory = [], cartTab = "cart", setCartTab, onPlaySnake, onOrderCelebrate, onNeedJoin, snakeDiscount, tableDiscountPercent }) => {
       const [placing, setPlacing] = useState(false);
       const [noteEditingKey, setNoteEditingKey] = useState(null);
-      const [drawerMounted, setDrawerMounted] = useState(open);
+      const [drawerMounted, setDrawerMounted] = useState(!!open);
       const [drawerClosing, setDrawerClosing] = useState(false);
       const placingRef = useRef(false);
+      const closeTimerRef = useRef(null);
 
+      // Mount / unmount with enter + exit animation (does not lock body until actually open)
       useEffect(() => {
-        if (!open) return;
+        if (open) {
+          if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+          }
+          setDrawerClosing(false);
+          setDrawerMounted(true);
+          setNoteEditingKey(null);
+          return;
+        }
+        // open → false: play exit, then unmount
+        if (drawerMounted) {
+          setDrawerClosing(true);
+          setNoteEditingKey(null);
+          closeTimerRef.current = setTimeout(() => {
+            setDrawerMounted(false);
+            setDrawerClosing(false);
+            closeTimerRef.current = null;
+          }, 300);
+          return () => {
+            if (closeTimerRef.current) {
+              clearTimeout(closeTimerRef.current);
+              closeTimerRef.current = null;
+            }
+          };
+        }
+      }, [open]);
+
+      // Body scroll lock only while drawer is visible and not mid-exit
+      useEffect(() => {
+        if (!drawerMounted || drawerClosing) return;
         const scrollY = window.scrollY || window.pageYOffset || 0;
         const prevOverflow = document.body.style.overflow;
         const prevPosition = document.body.style.position;
         const prevTop = document.body.style.top;
         const prevWidth = document.body.style.width;
-
         document.body.style.overflow = "hidden";
         document.body.style.position = "fixed";
         document.body.style.top = `-${scrollY}px`;
         document.body.style.width = "100%";
-
         return () => {
           document.body.style.overflow = prevOverflow;
           document.body.style.position = prevPosition;
@@ -2479,7 +2664,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
           document.body.style.width = prevWidth;
           window.scrollTo(0, scrollY);
         };
-      }, [open]);
+      }, [drawerMounted, drawerClosing]);
 
       const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
       const isSnakeEnabled = Boolean(snakeDiscount && snakeDiscount.enabled);
@@ -3039,7 +3224,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       const [variantDish, setVariantDish] = useState(null);
       const [cartOpen, setCartOpen] = useState(false);
       const [callWaiterOpen, setCallWaiterOpen] = useState(false);
-      const [callWaiterMsg, setCallWaiterMsg] = useState("");
+      const [callWaiterSelected, setCallWaiterSelected] = useState([]);
       const [callingWaiter, setCallingWaiter] = useState(false);
       const waiterCooldownMs = 45000; // 45s client lock (server also rate-limits)
       const waiterCallStorageKey = (tk) => "boba_waiter_called_at_" + String(tk || "").replace(/^0+/, "");
@@ -3220,31 +3405,55 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       const itemCount = sessionItems.reduce((s, i) => s + i.qty, 0);
 
       
+      const getOptionCooldownRemaining = (tableKey, optId) => {
+        try {
+          const raw = localStorage.getItem("boba_waiter_opt_" + tableKey + "_" + optId);
+          const at = Number(raw || 0);
+          if (!at) return 0;
+          return Math.max(0, waiterCooldownMs - (Date.now() - at));
+        } catch { return 0; }
+      };
+      const markOptionsCalled = (tableKey, optIds) => {
+        const ts = Date.now();
+        try {
+          optIds.forEach(id => localStorage.setItem("boba_waiter_opt_" + tableKey + "_" + id, String(ts)));
+          localStorage.setItem(waiterCallStorageKey(tableKey), String(ts));
+        } catch {}
+        setLastWaiterCallAt(ts);
+      };
+
+      const toggleWaiterOption = (optId) => {
+        const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
+        if (getOptionCooldownRemaining(tk, optId) > 0) return;
+        setCallWaiterSelected(prev =>
+          prev.includes(optId) ? prev.filter(x => x !== optId) : [...prev, optId]
+        );
+      };
+
       const handleCallWaiter = async () => {
         if (!tableFromQr) {
           showToast("Scan your table QR first");
           return;
         }
         if (callingWaiter) return;
-        const now = Date.now();
-        const storedAt = Math.max(lastWaiterCallAt || 0, readWaiterCalledAt(tableFromQr));
-        if (storedAt && now - storedAt < waiterCooldownMs) {
-          showToast("Waiter already called. Please wait a moment.");
-          setLastWaiterCallAt(storedAt);
+        const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
+        const available = callWaiterSelected.filter(id => getOptionCooldownRemaining(tk, id) <= 0);
+        if (!available.length) {
+          showToast("Pick at least one option");
           return;
         }
+        const labels = WAITER_OPTIONS.filter(o => available.includes(o.id)).map(o => o.label);
+        const message = labels.join(", ");
         setCallingWaiter(true);
         try {
-          const res = await cloudCallWaiter(tableFromQr, callWaiterMsg.trim() || null);
-          const ts = Date.now();
-          writeWaiterCalledAt(tableFromQr, ts);
-          setLastWaiterCallAt(ts);
+          const res = await cloudCallWaiter(tableFromQr, message);
+          markOptionsCalled(tk, available);
+          setCallWaiterSelected([]);
           setCallWaiterOpen(false);
-          setCallWaiterMsg("");
           if (res && res.alreadyPending) {
             showToast("Waiter already on the way for your table");
           } else {
-            showToast("Waiter called. Someone will be with you shortly.");
+            showToast("Waiter called for " + message);
           }
         } catch (e) {
           const msg = (e && e.message) || "Could not call waiter";
@@ -3255,12 +3464,7 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
         }
       };
 
-      const shownPairRef = useRef(new Set());
-      try {
-        const raw = sessionStorage.getItem("boba_shown_pairs");
-        if (raw) shownPairRef.current = new Set(JSON.parse(raw));
-      } catch {}
-
+      
       const addToSession = (item) => {
         const key = item.variantLabel ? `${item.id}::${item.variantLabel}` : String(item.id);
         setSessionItems(prev => {
@@ -3330,33 +3534,33 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                       const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
                       const otp = shownTableOtp || (typeof localStorage !== "undefined" && tk ? localStorage.getItem("boba_table_otp_" + tk) : "") || "";
                       return otp ? (
-                        <span className="ml-2 inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-pink text-white shadow-sm">
-                          Table OTP {otp}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(String(otp));
+                              showToast("OTP copied");
+                            } catch (e) {
+                              showToast("OTP: " + otp);
+                            }
+                          }}
+                          className="ml-2 inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-pink text-white shadow-sm active:scale-95 transition hover:bg-pink-deep"
+                          title="Tap to copy"
+                        >
+                          OTP {otp}
+                          <Icon name="copy" size={12} className="opacity-90" />
+                        </button>
                       ) : null;
                     })()}
                   </div>
-                  {(() => {
-                    const at = Math.max(lastWaiterCallAt || 0, readWaiterCalledAt(tableFromQr));
-                    const coolMs = at ? Math.max(0, waiterCooldownMs - (Date.now() - at)) : 0;
-                    const onCooldown = coolMs > 0;
-                    const secs = Math.ceil(coolMs / 1000);
-                    return (
-                      <button
-                        type="button"
-                        disabled={onCooldown}
-                        onClick={() => !onCooldown && setCallWaiterOpen(true)}
-                        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold shadow-sm transition border ${
-                          onCooldown
-                            ? "bg-blush border-pink/15 text-mist cursor-not-allowed"
-                            : "bg-white border-pink/30 text-ink hover:bg-pink-soft/60 hover:border-pink/45"
-                        }`}
-                      >
-                        <Icon name="bell" size={16} className={onCooldown ? "text-mist" : "text-pink"} />
-                        {onCooldown ? "Called" : "Call Waiter"}
-                      </button>
-                    );
-                  })()}
+                  <button
+                    type="button"
+                    onClick={() => { setCallWaiterSelected([]); setCallWaiterOpen(true); }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold shadow-sm transition border bg-white border-pink/30 text-ink hover:bg-pink-soft/60 hover:border-pink/45"
+                  >
+                    <Icon name="bell" size={16} className="text-pink" />
+                    Call Waiter
+                  </button>
                 </div>
               ) : (
                 <div className="mt-5 max-w-sm mx-auto px-3">
@@ -3449,35 +3653,70 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
           {callWaiterOpen && (
             <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center p-4 bg-ink/40 backdrop-blur-[2px]" onClick={() => !callingWaiter && setCallWaiterOpen(false)}>
               <div className="w-full max-w-sm glass-strong rounded-3xl border border-pink/20 shadow-float p-5 sm:p-6 animate-scale-in" onClick={e => e.stopPropagation()}>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-pink text-xs font-semibold uppercase tracking-wider mb-1">Table {tableFromQr}</p>
-                    <h2 className="font-display text-xl text-ink">Call a waiter</h2>
-                  </div>
+                <div className="flex justify-end mb-1">
                   <button type="button" onClick={() => !callingWaiter && setCallWaiterOpen(false)} className="hit-icon text-mist hover:text-ink" aria-label="Close">
                     <Icon name="x" size={20} />
                   </button>
                 </div>
-                <p className="text-mist text-sm mb-4">Staff will see your table light up on their board. Optional note below.</p>
-                <input
-                  type="text"
-                  maxLength={120}
-                  placeholder="e.g. need water, extra napkins…"
-                  value={callWaiterMsg}
-                  onChange={e => setCallWaiterMsg(e.target.value.slice(0, 120))}
-                  className="w-full min-h-[44px] rounded-xl border border-pink/20 bg-white px-3.5 text-sm text-ink placeholder:text-mist/50 focus:outline-none focus:border-pink/45 mb-4"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" disabled={callingWaiter} onClick={() => setCallWaiterOpen(false)}
-                    className="py-2.5 rounded-xl border border-pink/25 text-mist font-semibold text-sm hover:bg-pink-soft/40 transition disabled:opacity-50">
-                    Cancel
-                  </button>
-                  <button type="button" disabled={callingWaiter} onClick={handleCallWaiter}
-                    className="py-2.5 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep transition shadow-sm disabled:opacity-60 flex items-center justify-center gap-2">
-                    <Icon name="bell" size={15} />
-                    {callingWaiter ? "Calling…" : "Call Waiter"}
-                  </button>
+                <div className="text-center mb-5">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-pink flex items-center justify-center shadow-glow-sm">
+                    <Icon name="bell" size={26} className="text-white" />
+                  </div>
+                  <h2 className="font-display text-2xl text-ink">Call waiter</h2>
+                  <p className="text-mist text-sm mt-1.5 px-2">Pick what you need and we&apos;ll let your server know.</p>
+                  {tableFromQr && <p className="text-pink text-xs font-semibold mt-2">Table {tableFromQr}</p>}
                 </div>
+                <div className="grid grid-cols-3 gap-2.5 mb-5">
+                  {WAITER_OPTIONS.map(opt => {
+                    void waiterCooldownTick;
+                    const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
+                    const remain = getOptionCooldownRemaining(tk, opt.id);
+                    const onCd = remain > 0;
+                    const selected = callWaiterSelected.includes(opt.id);
+                    const secs = Math.ceil(remain / 1000);
+                    const timeLabel = secs > 60 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}` : `0:${String(secs).padStart(2, "0")}`;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={onCd || callingWaiter}
+                        onClick={() => toggleWaiterOption(opt.id)}
+                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border min-h-[96px] transition ${
+                          onCd
+                            ? "bg-pink-soft/40 border-pink/15 opacity-80 cursor-not-allowed"
+                            : selected
+                              ? "bg-pink-soft border-pink/40 shadow-sm"
+                              : "bg-white border-pink/15 hover:border-pink/35 hover:bg-blush"
+                        }`}
+                      >
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${
+                          onCd || selected ? "bg-pink text-white" : "bg-blush text-ink"
+                        }`}>
+                          {onCd || selected ? <Icon name="check" size={20} className="text-white" /> : <span>{opt.emoji}</span>}
+                        </div>
+                        <span className={`text-xs font-semibold ${onCd ? "text-mist" : "text-ink"}`}>{opt.label}</span>
+                        {onCd && <span className="text-[10px] text-mist">Again in {timeLabel}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={callingWaiter || callWaiterSelected.length === 0}
+                  onClick={handleCallWaiter}
+                  className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition shadow-sm flex items-center justify-center gap-2 ${
+                    callWaiterSelected.length === 0 || callingWaiter
+                      ? "bg-pink/25 text-white/80 cursor-not-allowed"
+                      : "bg-pink text-white hover:bg-pink-deep"
+                  }`}
+                >
+                  <Icon name="bell" size={16} />
+                  {callingWaiter
+                    ? "Calling…"
+                    : callWaiterSelected.length === 0
+                      ? "Pick an option"
+                      : `Call waiter · ${callWaiterSelected.length}`}
+                </button>
               </div>
             </div>
           )}
@@ -3542,28 +3781,6 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
             tableNumber={tableNumber} setTableNumber={setTableNumber} tableFromQr={tableFromQr} />
 
           <OrderBurst active={orderBurst} onDone={() => setOrderBurst(false)} />
-          {(() => {
-            const tk = String(tableFromQr || "").replace(/^0+/, "") || String(tableFromQr || "");
-            const otp = shownTableOtp || (typeof localStorage !== "undefined" && tk ? localStorage.getItem("boba_table_otp_" + tk) : "") || "";
-            if (!otp || !tk) return null;
-            return (
-              <div className="mx-4 mb-3 rounded-2xl border border-pink/25 bg-white px-4 py-3 flex items-center justify-between gap-3 shadow-sm">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-mist">Share with friends at this table</p>
-                  <p className="font-display text-xl text-ink">Table OTP <span className="text-pink">{otp}</span></p>
-                </div>
-                <button type="button" className="text-xs font-semibold px-3 py-2 rounded-xl bg-pink text-white"
-                  onClick={() => {
-                    try {
-                      navigator.clipboard.writeText(otp);
-                      showToast("OTP copied");
-                    } catch (e) {
-                      showToast("OTP: " + otp);
-                    }
-                  }}>Copy</button>
-              </div>
-            );
-          })()}
           {Boolean(snakeDiscount && snakeDiscount.enabled) && (
             <SnakeGame
               open={showSnake}
@@ -3608,11 +3825,23 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                       className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="10-digit mobile" autoComplete="tel" />
                   </div>
                   {needJoinOtp && (
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-mist">Table OTP *</label>
-                    <input type="tel" inputMode="numeric" maxLength={6} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="6-digit table OTP" autoFocus />
-                    <p className="text-mist text-xs mt-1">Ask the first guest for the 6-digit code, or ask staff to free the table.</p>
+                  <div className="rounded-2xl border border-pink/15 bg-blush/60 px-2 pt-3 pb-2">
+                    <p className="text-center font-display text-lg text-ink mb-0.5">Verify table code</p>
+                    <p className="text-center text-mist text-xs mb-1 px-3">
+                      Enter the 6-digit OTP from the guest who started this table.
+                    </p>
+                    <OtpBoxes
+                      value={gateJoinCode}
+                      onChange={v => { setGateJoinCode(v); setGateError(""); }}
+                      length={6}
+                      autoFocus
+                      error={!!gateError && needJoinOtp}
+                      verifying={loginBusy && needJoinOtp}
+                      success={gateOtpSuccess}
+                    />
+                    <p className="text-center text-mist text-[11px] mt-1 mb-2">
+                      Ask them or staff for the code. Paste works too.
+                    </p>
                   </div>
                   )}
                   {gateError && <p className="text-sm text-mist">{gateError}</p>}
@@ -3650,7 +3879,12 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                       g.tableOtp = jcFinal || "";
                       const payload = saveDiningGuest(g, tKey, claimInfo && claimInfo.sessionId);
                       setGuest(payload);
+                      if (needJoinOtp) {
+                        setGateOtpSuccess(true);
+                        await new Promise(r => setTimeout(r, 420));
+                      }
                       setShowGuestGate(false);
+                      setGateOtpSuccess(false);
                       if (pendingPlace.current) {
                         const { items, tableLabel, disc } = pendingPlace.current;
                         pendingPlace.current = null;
@@ -3678,6 +3912,8 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                       const msg = (e && e.message) || "Could not claim table";
                       if (/BAD_OTP/i.test(msg)) {
                         setNeedJoinOtp(true);
+                        setGateOtpSuccess(false);
+                        setGateJoinCode("");
                         setGateError("That code does not match. Try again or ask the first guest.");
                       } else if (/TABLE_IN_USE|already claimed|already in use|table OTP/i.test(msg)) {
                         setNeedJoinOtp(true);
@@ -3788,21 +4024,28 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       return <div className="h-64"><canvas ref={canvasRef} /></div>;
     };
 
+    // Simplified kitchen flow: new → preparing → served
+    // Legacy statuses (accepted / ready) map into preparing so old rounds still work.
     const ORDER_FLOW = [
-      { key: "new", label: "Pending confirm", guestLabel: "Sent", next: "accepted", nextLabel: "Confirm order" },
-      { key: "accepted", label: "Confirmed", guestLabel: "Confirmed", next: "cooking", nextLabel: "Start prep" },
-      { key: "cooking", label: "In prep", guestLabel: "Preparing", next: "ready", nextLabel: "Mark ready" },
-      { key: "ready", label: "Ready", guestLabel: "Ready for you", next: "delivered", nextLabel: "Mark served" },
+      { key: "new", label: "New order", guestLabel: "Sent", next: "cooking", nextLabel: "Start preparing" },
+      { key: "cooking", label: "Preparing", guestLabel: "Preparing", next: "delivered", nextLabel: "Mark served" },
       { key: "delivered", label: "Served", guestLabel: "Served", next: null, nextLabel: null },
     ];
-    const statusMeta = (s) => ORDER_FLOW.find(x => x.key === s) || ORDER_FLOW[0];
+    const normalizeRoundStatus = (s) => {
+      const k = String(s || "new").toLowerCase();
+      if (k === "accepted" || k === "confirmed" || k === "ready" || k === "preparing") return "cooking";
+      if (k === "served") return "delivered";
+      if (k === "cooking" || k === "delivered" || k === "new") return k;
+      return "new";
+    };
+    const statusMeta = (s) => ORDER_FLOW.find(x => x.key === normalizeRoundStatus(s)) || ORDER_FLOW[0];
     const statusColor = (s) => ({
       new: "bg-amber-100 text-amber-700 border-amber-300",
-      accepted: "bg-sky-100 text-sky-700 border-sky-300",
       cooking: "bg-orange-100 text-orange-700 border-orange-300",
-      ready: "bg-emerald-100 text-emerald-700 border-emerald-300",
+      accepted: "bg-orange-100 text-orange-700 border-orange-300",
+      ready: "bg-orange-100 text-orange-700 border-orange-300",
       delivered: "bg-pink-soft text-pink-deep border-pink/40",
-    }[s] || "bg-blush text-mist");
+    }[normalizeRoundStatus(s)] || "bg-blush text-mist");
 
     function maskPhone(p) {
       const d = String(p || "").replace(/\D/g, "");
@@ -3899,6 +4142,8 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
     const OwnerView = ({ dishes, setDishes, recommendations, setRecommendations, liveOrders = [], updateRoundStatus, updateRoundItems, clearTable, cancelRound, tablePins = {}, setTablePins, onLogout, showToast, onReset, onRefreshOrders, snakeDiscount, setSnakeDiscount }) => {
       const [editingDish, setEditingDish] = useState(null);
       React.useEffect(() => { _editingMenuLock = !!editingDish; }, [editingDish]);
+      const [menuSearch, setMenuSearch] = useState("");
+      const [menuCatFilter, setMenuCatFilter] = useState("All");
       const [staffTab, setStaffTab] = useState("live");
       const [waiterCalls, setWaiterCalls] = useState([]);
       const [ackingCallId, setAckingCallId] = useState(null);
@@ -5120,6 +5365,56 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                 )}
               </div>
 
+              <div className="mb-4 space-y-3">
+                <div className="relative">
+                  <Icon name="search" size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-mist pointer-events-none" />
+                  <input
+                    type="search"
+                    value={menuSearch}
+                    onChange={e => setMenuSearch(e.target.value)}
+                    placeholder="Search dishes by name, category, price…"
+                    className="w-full min-h-[44px] pl-10 pr-4 rounded-xl border border-pink/20 bg-white text-sm text-ink placeholder:text-mist/50 focus:outline-none focus:border-pink/45"
+                  />
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter by category">
+                  {["All", ...CATEGORIES.filter(c => c !== "All")].map(cat => {
+                    const count = cat === "All"
+                      ? dishes.length
+                      : dishes.filter(d => d.category === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        role="tab"
+                        aria-selected={menuCatFilter === cat}
+                        onClick={() => setMenuCatFilter(cat)}
+                        className={`shrink-0 px-3.5 min-h-[36px] rounded-full text-xs font-semibold transition ${
+                          menuCatFilter === cat
+                            ? "bg-pink text-white"
+                            : "bg-white border border-pink/20 text-mist hover:text-ink hover:border-pink/35"
+                        }`}
+                      >
+                        {cat}
+                        <span className={`ml-1.5 ${menuCatFilter === cat ? "text-white/80" : "text-mist/70"}`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-mist text-xs">
+                  {(() => {
+                    const q = menuSearch.trim().toLowerCase();
+                    let n = dishes;
+                    if (menuCatFilter !== "All") n = n.filter(d => d.category === menuCatFilter);
+                    if (q) n = n.filter(d =>
+                      (d.name || "").toLowerCase().includes(q) ||
+                      (d.category || "").toLowerCase().includes(q) ||
+                      String(d.price || "").includes(q)
+                    );
+                    return n.length + " item" + (n.length === 1 ? "" : "s") + " shown";
+                  })()}
+                </p>
+              </div>
+
               <div className="glass rounded-2xl overflow-hidden border border-pink/10">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
@@ -5135,7 +5430,52 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                       </tr>
                     </thead>
                     <tbody>
-                      {dishes.map(d => (
+                      {(() => {
+                        const q = menuSearch.trim().toLowerCase();
+                        let list = dishes.slice();
+                        if (menuCatFilter !== "All") list = list.filter(d => d.category === menuCatFilter);
+                        if (q) list = list.filter(d =>
+                          (d.name || "").toLowerCase().includes(q) ||
+                          (d.category || "").toLowerCase().includes(q) ||
+                          String(d.price || "").includes(q)
+                        );
+                        const catOrder = CATEGORIES.filter(c => c !== "All");
+                        list.sort((a, b) => {
+                          const ia = catOrder.indexOf(a.category);
+                          const ib = catOrder.indexOf(b.category);
+                          const sa = ia < 0 ? 999 : ia;
+                          const sb = ib < 0 ? 999 : ib;
+                          if (sa !== sb) return sa - sb;
+                          return String(a.name || "").localeCompare(String(b.name || ""));
+                        });
+                        if (!list.length) {
+                          return (
+                            <tr key="empty">
+                              <td colSpan={7} className="px-5 py-12 text-center text-mist text-sm">
+                                No dishes match{menuCatFilter !== "All" ? ` in ${menuCatFilter}` : ""}.
+                                <button type="button" className="block mx-auto mt-2 text-pink text-sm font-semibold hover:underline"
+                                  onClick={() => { setMenuSearch(""); setMenuCatFilter("All"); }}>Clear filters</button>
+                              </td>
+                            </tr>
+                          );
+                        }
+                        const showSections = menuCatFilter === "All" && !q;
+                        const out = [];
+                        let lastCat = null;
+                        list.forEach(d => {
+                          if (showSections && d.category !== lastCat) {
+                            lastCat = d.category;
+                            const cnt = list.filter(x => x.category === d.category).length;
+                            out.push(
+                              <tr key={"sec-" + String(d.category || "other")} className="bg-blush/70 border-b border-pink/10">
+                                <td colSpan={7} className="px-5 py-2.5">
+                                  <span className="font-display text-sm text-ink">{d.category || "Other"}</span>
+                                  <span className="text-mist text-xs ml-2">{cnt} item{cnt === 1 ? "" : "s"}</span>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          out.push(
                         <tr key={d.id} className="border-b border-pink/5 hover:bg-pink/[0.03]">
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-3">
@@ -5179,7 +5519,10 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      );
+                        });
+                        return out;
+                      })()}
                     </tbody>
                   </table>
                 </div>
