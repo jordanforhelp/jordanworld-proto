@@ -4255,7 +4255,9 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       React.useEffect(() => { _editingMenuLock = !!editingDish; }, [editingDish]);
       const [menuSearch, setMenuSearch] = useState("");
       const [menuCatFilter, setMenuCatFilter] = useState("All");
-      const [staffAddToRound, setStaffAddToRound] = useState(null); // { table, roundId, status }
+      const [staffAddToRound, setStaffAddToRound] = useState(null); // { table, roundId, status, pickDish? }
+      const [staffAddSearch, setStaffAddSearch] = useState("");
+      const [staffAddCat, setStaffAddCat] = useState("All");
       const [staffTab, setStaffTab] = useState("live");
       const [waiterCalls, setWaiterCalls] = useState([]);
       const [ackingCallId, setAckingCallId] = useState(null);
@@ -5152,19 +5154,34 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                                   <button type="button"
                                                     className="w-8 h-8 rounded-lg border border-pink/25 bg-white text-ink font-bold text-sm"
                                                     onClick={() => {
-                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.max(1, (Number(x.qty) || 1) - 1) } : x);
+                                                      const q = Number(it.qty) || 1;
+                                                      const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
+                                                      if (q <= 1) {
+                                                        if (!window.confirm(`Remove ${label} from this round?`)) return;
+                                                        const next = itemsList.filter((_, j) => j !== ii);
+                                                        if (!next.length) { showToast("Add another item or cancel the round"); return; }
+                                                        updateRoundItems(round.table, round.id, next);
+                                                        return;
+                                                      }
+                                                      if (!window.confirm(`Reduce ${label} to ${q - 1}?`)) return;
+                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: q - 1 } : x);
                                                       updateRoundItems(round.table, round.id, next);
                                                     }}>−</button>
                                                   <span className="w-7 text-center text-sm font-semibold text-ink">{it.qty || 1}</span>
                                                   <button type="button"
                                                     className="w-8 h-8 rounded-lg border border-pink/25 bg-white text-ink font-bold text-sm"
                                                     onClick={() => {
-                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.min(50, (Number(x.qty) || 1) + 1) } : x);
+                                                      const q = Number(it.qty) || 1;
+                                                      const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
+                                                      if (!window.confirm(`Increase ${label} to ${q + 1}?`)) return;
+                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.min(50, q + 1) } : x);
                                                       updateRoundItems(round.table, round.id, next);
                                                     }}>+</button>
                                                   <button type="button"
                                                     className="ml-auto w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-500 text-sm font-bold"
                                                     onClick={() => {
+                                                      const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
+                                                      if (!window.confirm(`Remove ${label} from this round?`)) return;
                                                       const next = itemsList.filter((_, j) => j !== ii);
                                                       if (!next.length) {
                                                         showToast("Add another item or cancel the round");
@@ -5183,7 +5200,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                       {normalizeRoundStatus(round.status) !== "delivered" && (
                                         <button
                                           type="button"
-                                          onClick={() => setStaffAddToRound({ table: round.table, roundId: round.id, status: round.status })}
+                                          onClick={() => { setStaffAddSearch(""); setStaffAddCat("All"); setStaffAddToRound({ table: round.table, roundId: round.id, status: round.status }); }}
                                           className="w-full mb-2 py-2 rounded-xl border border-dashed border-pink/35 text-pink text-xs font-semibold hover:bg-pink/5 transition"
                                         >
                                           + Add item to round
@@ -5768,76 +5785,55 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
 
 
           {staffAddToRound && (
-            <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center p-4 bg-ink/40" onClick={() => setStaffAddToRound(null)} role="dialog" aria-modal="true">
-              <div className="glass-strong rounded-2xl max-w-md w-full max-h-[80vh] overflow-hidden border border-pink/15 shadow-float flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-pink/10 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-display text-lg text-ink">Add item</h3>
+            <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center p-4 bg-ink/40" onClick={() => { setStaffAddToRound(null); setStaffAddSearch(""); setStaffAddCat("All"); }} role="dialog" aria-modal="true">
+              <div className="glass-strong rounded-2xl max-w-md w-full max-h-[85vh] overflow-hidden border border-pink/15 shadow-float flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-pink/10 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="font-display text-lg text-ink">Add item to round</h3>
                     <p className="text-mist text-xs">Table {staffAddToRound.table}</p>
                   </div>
-                  <button type="button" onClick={() => setStaffAddToRound(null)} className="hit-icon text-mist"><Icon name="x" size={20} /></button>
+                  <button type="button" onClick={() => { setStaffAddToRound(null); setStaffAddSearch(""); setStaffAddCat("All"); }} className="hit-icon text-mist shrink-0"><Icon name="x" size={20} /></button>
                 </div>
+                {!staffAddToRound.pickDish && (
+                  <div className="p-3 border-b border-pink/10 space-y-2">
+                    <div className="relative">
+                      <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-mist pointer-events-none" />
+                      <input
+                        type="search"
+                        value={staffAddSearch}
+                        onChange={e => setStaffAddSearch(e.target.value)}
+                        placeholder="Search menu…"
+                        className="w-full min-h-[42px] pl-9 pr-3 rounded-xl border border-pink/20 bg-white text-sm text-ink focus:outline-none focus:border-pink"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                      {["All", ...CATEGORIES.filter(c => c !== "All")].map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setStaffAddCat(cat)}
+                          className={`shrink-0 px-3 min-h-[32px] rounded-full text-xs font-semibold ${staffAddCat === cat ? "bg-pink text-white" : "bg-white border border-pink/20 text-mist"}`}
+                        >{cat}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="overflow-y-auto p-3 space-y-1.5 flex-1">
-                  {(dishes || []).filter(d => d.visible !== false).map(d => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      className="w-full text-left px-3 py-2.5 rounded-xl border border-pink/15 bg-white hover:border-pink/35 hover:bg-blush transition"
-                      onClick={() => {
-                        const target = staffAddToRound;
-                        const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
-                        const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
-                        if (!round) { showToast("Round not found"); setStaffAddToRound(null); return; }
-                        const existing = round.items || [];
-                        const pickVariant = (variant) => {
-                          const price = variant ? Number(variant.price) : Number(d.price);
-                          const label = variant ? variant.label : null;
-                          const keyMatch = (it) => String(it.id) === String(d.id) && String(it.variantLabel || "") === String(label || "");
-                          let next;
-                          const found = existing.find(keyMatch);
-                          if (found) {
-                            next = existing.map(it => keyMatch(it) ? { ...it, qty: (Number(it.qty) || 1) + 1 } : it);
-                          } else {
-                            next = [...existing, {
-                              id: d.id,
-                              name: d.name,
-                              variantLabel: label,
-                              price,
-                              qty: 1,
-                              note: null,
-                            }];
-                          }
-                          updateRoundItems(target.table, target.roundId, next);
-                          setStaffAddToRound(null);
-                        };
-                        if (d.variants && d.variants.length) {
-                          // simple: use first variant prompt via nested - pick default first for speed, or show variants inline
-                          const v = d.variants[0];
-                          // Show mini variant buttons by expanding - use window prompt free: add as buttons in state
-                          setStaffAddToRound({ ...target, pickDish: d });
-                          return;
-                        }
-                        pickVariant(null);
-                      }}
-                    >
-                      <span className="font-medium text-ink text-sm">{d.name}</span>
-                      <span className="text-mist text-xs ml-2">{d.category}</span>
-                      <span className="float-right text-pink text-xs font-semibold">{formatPrice(d.price)}</span>
-                    </button>
-                  ))}
-                </div>
-                {staffAddToRound.pickDish && staffAddToRound.pickDish.variants && (
-                  <div className="p-3 border-t border-pink/10 bg-blush/40">
-                    <p className="text-xs text-mist mb-2">Choose size for {staffAddToRound.pickDish.name}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {staffAddToRound.pickDish.variants.map(v => (
+                  {staffAddToRound.pickDish ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-ink font-medium">{staffAddToRound.pickDish.name}</p>
+                      <p className="text-xs text-mist mb-2">Choose size / option</p>
+                      {(staffAddToRound.pickDish.variants || []).map(v => (
                         <button
                           key={v.label}
                           type="button"
-                          className="px-3 py-2 rounded-xl bg-pink text-white text-xs font-semibold"
+                          className="w-full flex items-center justify-between px-3 py-3 rounded-xl border border-pink/15 bg-white hover:border-pink/40 hover:bg-blush text-left"
                           onClick={() => {
+                            const d = staffAddToRound.pickDish;
+                            const label = `${d.name} (${v.label})`;
+                            if (!window.confirm(`Add ${label} to Table ${staffAddToRound.table}?`)) return;
                             const target = staffAddToRound;
-                            const d = target.pickDish;
                             const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
                             const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
                             if (!round) { setStaffAddToRound(null); return; }
@@ -5851,15 +5847,69 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                             }
                             updateRoundItems(target.table, target.roundId, next);
                             setStaffAddToRound(null);
+                            setStaffAddSearch("");
+                            setStaffAddCat("All");
                           }}
                         >
-                          {v.label} · {formatPrice(v.price)}
+                          <span className="font-medium text-ink text-sm">{v.label}</span>
+                          <span className="text-pink text-sm font-semibold">{formatPrice(v.price)}</span>
                         </button>
                       ))}
-                      <button type="button" className="px-3 py-2 rounded-xl border border-pink/25 text-mist text-xs" onClick={() => setStaffAddToRound({ table: staffAddToRound.table, roundId: staffAddToRound.roundId, status: staffAddToRound.status })}>Back</button>
+                      <button type="button" className="w-full py-2.5 rounded-xl border border-pink/20 text-mist text-sm mt-1"
+                        onClick={() => setStaffAddToRound({ table: staffAddToRound.table, roundId: staffAddToRound.roundId, status: staffAddToRound.status })}>
+                        Back to menu
+                      </button>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    (() => {
+                      const q = staffAddSearch.trim().toLowerCase();
+                      let list = (dishes || []).filter(d => d.visible !== false);
+                      if (staffAddCat !== "All") list = list.filter(d => d.category === staffAddCat);
+                      if (q) list = list.filter(d => (d.name || "").toLowerCase().includes(q) || (d.category || "").toLowerCase().includes(q));
+                      if (!list.length) {
+                        return <p className="text-center text-mist text-sm py-8">No items match</p>;
+                      }
+                      return list.map(d => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2.5 rounded-xl border border-pink/15 bg-white hover:border-pink/35 hover:bg-blush transition"
+                          onClick={() => {
+                            if (d.variants && d.variants.length) {
+                              setStaffAddToRound({ ...staffAddToRound, pickDish: d });
+                              return;
+                            }
+                            if (!window.confirm(`Add ${d.name} to Table ${staffAddToRound.table}?`)) return;
+                            const target = staffAddToRound;
+                            const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
+                            const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
+                            if (!round) { setStaffAddToRound(null); return; }
+                            const existing = round.items || [];
+                            const keyMatch = (it) => String(it.id) === String(d.id) && !it.variantLabel;
+                            let next;
+                            if (existing.find(keyMatch)) {
+                              next = existing.map(it => keyMatch(it) ? { ...it, qty: (Number(it.qty) || 1) + 1 } : it);
+                            } else {
+                              next = [...existing, { id: d.id, name: d.name, variantLabel: null, price: Number(d.price), qty: 1, note: null }];
+                            }
+                            updateRoundItems(target.table, target.roundId, next);
+                            setStaffAddToRound(null);
+                            setStaffAddSearch("");
+                            setStaffAddCat("All");
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-ink text-sm">{d.name}</p>
+                              <p className="text-mist text-[11px]">{d.category}{d.variants && d.variants.length ? " · sizes" : ""}</p>
+                            </div>
+                            <span className="text-pink text-xs font-semibold shrink-0">{formatPrice(d.price)}</span>
+                          </div>
+                        </button>
+                      ));
+                    })()
+                  )}
+                </div>
               </div>
             </div>
           )}
