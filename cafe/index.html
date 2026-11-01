@@ -1987,21 +1987,68 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
     };
 
     const VariantPicker = ({ dish, onPick, onClose }) => {
+      const pickingRef = useRef(false);
+
+      useEffect(() => {
+        if (!dish?.variants?.length) return;
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        const prevOverflow = document.body.style.overflow;
+        const prevPosition = document.body.style.position;
+        const prevTop = document.body.style.top;
+        const prevWidth = document.body.style.width;
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.width = "100%";
+        return () => {
+          document.body.style.overflow = prevOverflow;
+          document.body.style.position = prevPosition;
+          document.body.style.top = prevTop;
+          document.body.style.width = prevWidth;
+          window.scrollTo(0, scrollY);
+        };
+      }, [dish]);
+
       if (!dish?.variants?.length) return null;
+
+      const pick = (v) => {
+        if (pickingRef.current) return;
+        pickingRef.current = true;
+        // Close first so mobile doesn't keep a stuck blurred sheet
+        if (typeof onClose === "function") onClose();
+        // Defer add so unmount paints before toast / cart badge updates
+        setTimeout(() => {
+          try { onPick(v); } finally { pickingRef.current = false; }
+        }, 30);
+      };
+
       return (
-        <div className="fixed inset-0 z-[155] flex items-end sm:items-center justify-center p-4 bg-ink/40 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="variant-title">
-          <div className="glass-strong rounded-2xl max-w-sm w-full p-6 shadow-float border border-pink/20 animate-scale-in" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-[155] flex items-end sm:items-center justify-center p-4 bg-ink/40"
+          style={{ WebkitBackdropFilter: "blur(4px)", backdropFilter: "blur(4px)", touchAction: "manipulation" }}
+          onClick={() => { if (!pickingRef.current && onClose) onClose(); }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="variant-title"
+        >
+          <div
+            className="glass-strong rounded-2xl max-w-sm w-full p-6 shadow-float border border-pink/20 animate-scale-in mb-[env(safe-area-inset-bottom,0px)]"
+            onClick={e => e.stopPropagation()}
+            onTouchMove={e => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start mb-1">
               <h3 id="variant-title" className="font-display text-xl text-ink pr-4">{dish.name}</h3>
-              <button onClick={onClose} className="hit-icon text-mist hover:text-ink" aria-label="Close"><Icon name="x" size={20} /></button>
+              <button type="button" onClick={onClose} className="hit-icon text-mist hover:text-ink" aria-label="Close"><Icon name="x" size={20} /></button>
             </div>
             <p className="text-mist text-sm mb-5">{getVariantPrompt(dish).title}</p>
             <div className="space-y-2">
               {dish.variants.map(v => (
                 <button
                   key={v.label}
-                  onClick={() => onPick(v)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl bg-blush border border-pink/15 hover:border-pink/40 hover:bg-pink-soft transition text-left"
+                  type="button"
+                  onClick={() => pick(v)}
+                  className="w-full flex items-center justify-between px-4 py-3.5 min-h-[48px] rounded-xl bg-blush border border-pink/15 active:bg-pink-soft hover:border-pink/40 hover:bg-pink-soft transition text-left"
+                  style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
                 >
                   <span className="font-medium text-ink">{v.label}</span>
                   <span className="text-pink font-semibold">{formatPrice(v.price)}</span>
@@ -3459,14 +3506,10 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
           markOptionsCalled(tk, available);
           setCallWaiterSelected([]);
           setCallWaiterOpen(false);
-          if (res && res.alreadyPending) {
-            showToast("Waiter already on the way for your table");
-          } else {
-            showToast("Waiter called for " + message);
-          }
+          showToast("Waiter called for " + message);
         } catch (e) {
           const msg = (e && e.message) || "Could not call waiter";
-          if (/rate_limited/i.test(msg)) showToast("Please wait a few minutes before calling again");
+          if (/rate_limited/i.test(msg)) showToast("Please wait a moment before calling again");
           else showToast(msg);
         } finally {
           setCallingWaiter(false);
@@ -3513,14 +3556,16 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       };
 
       const handleVariantPick = (variant) => {
-        if (!variantDish) return;
+        // Capture dish before close clears state
+        const base = variantDish;
+        setVariantDish(null);
+        if (!base || !variant) return;
         addToSession({
-          ...variantDish,
+          ...base,
           price: variant.price,
           variantLabel: variant.label,
-          name: variantDish.name,
+          name: base.name,
         });
-        setVariantDish(null);
       };
 
       return (
@@ -3690,7 +3735,9 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                         type="button"
                         disabled={onCd || callingWaiter}
                         onClick={() => toggleWaiterOption(opt.id)}
-                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border min-h-[96px] transition ${
+                        title={opt.label}
+                        aria-label={opt.label}
+                        className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border min-h-[72px] transition ${
                           onCd
                             ? "bg-pink-soft/40 border-pink/15 opacity-80 cursor-not-allowed"
                             : selected
@@ -3698,12 +3745,11 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                               : "bg-white border-pink/15 hover:border-pink/35 hover:bg-blush"
                         }`}
                       >
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
                           onCd || selected ? "bg-pink text-white" : "bg-blush text-ink"
                         }`}>
-                          {onCd || selected ? <Icon name="check" size={20} className="text-white" /> : <span>{opt.emoji}</span>}
+                          {onCd || selected ? <Icon name="check" size={22} className="text-white" /> : <span>{opt.emoji}</span>}
                         </div>
-                        <span className={`text-xs font-semibold ${onCd ? "text-mist" : "text-ink"}`}>{opt.label}</span>
                       </button>
                     );
                   })}
@@ -4893,14 +4939,9 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                           </div>
                           <div className="flex flex-col gap-1.5 shrink-0">
                             <button type="button" disabled={ackingCallId === c.id}
-                              onClick={() => handleAckWaiterCall(c.id, "acknowledged")}
-                              className="px-3 py-1.5 rounded-lg bg-pink text-white text-xs font-semibold hover:bg-pink-deep transition disabled:opacity-50">
-                              On my way
-                            </button>
-                            <button type="button" disabled={ackingCallId === c.id}
                               onClick={() => handleAckWaiterCall(c.id, "done")}
-                              className="px-3 py-1.5 rounded-lg border border-pink/25 text-mist text-xs font-medium hover:bg-white transition disabled:opacity-50">
-                              Done
+                              className="px-3 py-1.5 rounded-lg bg-pink text-white text-xs font-semibold hover:bg-pink-deep transition disabled:opacity-50">
+                              {ackingCallId === c.id ? "…" : "Done"}
                             </button>
                           </div>
                         </div>
