@@ -3834,23 +3834,12 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                       className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="10-digit mobile" autoComplete="tel" />
                   </div>
                   {needJoinOtp && (
-                  <div className="rounded-2xl border border-pink/15 bg-blush/60 px-2 pt-3 pb-2">
-                    <p className="text-center font-display text-lg text-ink mb-0.5">Verify table code</p>
-                    <p className="text-center text-mist text-xs mb-1 px-3">
-                      Enter the 6-digit OTP from the guest who started this table.
-                    </p>
-                    <OtpBoxes
-                      value={gateJoinCode}
-                      onChange={v => { setGateJoinCode(v); setGateError(""); }}
-                      length={6}
-                      autoFocus
-                      error={!!gateError && needJoinOtp}
-                      verifying={loginBusy && needJoinOtp}
-                      success={gateOtpSuccess}
-                    />
-                    <p className="text-center text-mist text-[11px] mt-1 mb-2">
-                      Ask them or staff for the code. Paste works too.
-                    </p>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-mist">Table OTP *</label>
+                    <input type="tel" inputMode="numeric" maxLength={6} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink tracking-[0.3em] font-semibold text-center"
+                      placeholder="6-digit code" autoFocus />
+                    <p className="text-mist text-xs mt-1">Ask the first guest for the 6-digit code, or ask staff to free the table.</p>
                   </div>
                   )}
                   {gateError && <p className="text-sm text-mist">{gateError}</p>}
@@ -3888,10 +3877,6 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                       g.tableOtp = jcFinal || "";
                       const payload = saveDiningGuest(g, tKey, claimInfo && claimInfo.sessionId);
                       setGuest(payload);
-                      if (needJoinOtp) {
-                        setGateOtpSuccess(true);
-                        await new Promise(r => setTimeout(r, 420));
-                      }
                       setShowGuestGate(false);
                       setGateOtpSuccess(false);
                       if (pendingPlace.current) {
