@@ -3283,7 +3283,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       const [callWaiterOpen, setCallWaiterOpen] = useState(false);
       const [callWaiterSelected, setCallWaiterSelected] = useState([]);
       const [callingWaiter, setCallingWaiter] = useState(false);
-      const waiterCooldownMs = 45000; // 45s client lock (server also rate-limits)
+      const waiterCooldownMs = 20000; // 20s per-option lock (server merges into one pending card)
       const waiterCallStorageKey = (tk) => "boba_waiter_called_at_" + String(tk || "").replace(/^0+/, "");
       const readWaiterCalledAt = (tk) => {
         if (!tk) return 0;
@@ -3872,19 +3872,19 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Your name *</label>
                     <input value={gateName} onChange={e => setGateName(e.target.value)}
-                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="Full name" autoComplete="name" />
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="" autoComplete="name" />
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Mobile number *</label>
                     <input type="tel" value={gatePhone} onChange={e => setGatePhone(e.target.value)}
-                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="10-digit mobile" autoComplete="tel" />
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink" placeholder="" autoComplete="tel" />
                   </div>
                   {needJoinOtp && (
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Table OTP *</label>
                     <input type="tel" inputMode="numeric" maxLength={6} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink"
-                      placeholder="6-digit table OTP" autoFocus />
+                      placeholder="" autoFocus />
                     <p className="text-mist text-xs mt-1">Ask the first guest for the 6-digit code, or ask staff to free the table.</p>
                   </div>
                   )}
@@ -4190,6 +4190,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       const [staffMuted, setStaffMutedState] = useState(() => isStaffMuted());
       const [notifPerm, setNotifPerm] = useState(() => getNotifPermission());
       const prevPendingCallsRef = useRef(null);
+      const prevWaiterSigRef = useRef("");
       const titleFlashRef = useRef(null);
 
       // Keep permission label in sync (e.g. user changed it in browser settings)
@@ -4204,10 +4205,16 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       const refreshWaiterCalls = useCallback(async () => {
         try {
           const list = await cloudFetchWaiterCalls();
-          const pending = (list || []).filter(c => c.status === "pending").length;
-          if (prevPendingCallsRef.current !== null && pending > prevPendingCallsRef.current) {
+          const pendingList = (list || []).filter(c => c.status === "pending");
+          const pending = pendingList.length;
+          const sig = pendingList.map(c => String(c.id) + ":" + String(c.message || "")).sort().join("|");
+          const isNewOrUpdated =
+            prevPendingCallsRef.current !== null &&
+            (pending > prevPendingCallsRef.current || (pending > 0 && sig !== prevWaiterSigRef.current && prevWaiterSigRef.current !== ""));
+          if (isNewOrUpdated) {
             playStaffChime("waiter");
-            notifyStaff("Waiter call", pending + " table" + (pending === 1 ? "" : "s") + " need help", "boba-waiter");
+            const msgPreview = pendingList.map(c => "T" + c.table + (c.message ? " " + c.message : "")).join(" · ");
+            notifyStaff("Waiter call", msgPreview || (pending + " table(s) need help"), "boba-waiter");
             try {
               document.title = "🔔 Waiter · BOBA";
               if (titleFlashRef.current) clearTimeout(titleFlashRef.current);
@@ -4215,6 +4222,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
             } catch {}
           }
           prevPendingCallsRef.current = pending;
+          prevWaiterSigRef.current = sig;
           setWaiterCalls(list || []);
         } catch (e) {
           console.error(e);
@@ -4223,7 +4231,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
 
       useEffect(() => {
         refreshWaiterCalls();
-        const id = setInterval(refreshWaiterCalls, 12000);
+        const id = setInterval(refreshWaiterCalls, 4000);
         let channel;
         if (sb) {
           channel = sb.channel("boba-waiter-calls")
