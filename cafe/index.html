@@ -3836,8 +3836,8 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   <div>
                     <label className="text-xs uppercase tracking-wider text-mist">Table OTP *</label>
                     <input type="tel" inputMode="numeric" maxLength={6} value={gateJoinCode} onChange={e => setGateJoinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink tracking-[0.3em] font-semibold text-center"
-                      placeholder="6-digit code" autoFocus />
+                      className="mt-1 w-full min-h-[44px] bg-white border border-pink/20 rounded-xl px-4 text-ink text-sm focus:outline-none focus:border-pink"
+                      placeholder="6-digit table OTP" autoFocus />
                     <p className="text-mist text-xs mt-1">Ask the first guest for the 6-digit code, or ask staff to free the table.</p>
                   </div>
                   )}
