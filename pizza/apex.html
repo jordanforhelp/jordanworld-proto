@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1C1410" />
+  <title>Jordan's Pizza — Kitchen</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.0/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            parchment: '#FBF6F0',
+            cream: '#FFFDF8',
+            wood: '#5C3A21',
+            'wood-deep': '#3D2414',
+            'wood-light': '#8B5E3C',
+            tomato: '#C2410C',
+            'tomato-deep': '#9A3412',
+            ember: '#EA580C',
+            gold: '#D97706',
+            ink: '#1C1410',
+            mist: '#6B5B4F',
+            soft: '#F5E6D3',
+          },
+          fontFamily: {
+            display: ['Playfair Display', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #1C1410;
+      color: #FFFDF8;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #2A1F18; }
+    ::-webkit-scrollbar-thumb { background: #C2410C; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;color:#C2410C;font-weight:500">
+      Loading Kitchen…
+    </div>
+  </div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    function formatPrice(n) {
+      return "₹" + Number(n).toLocaleString("en-IN");
+    }
+
+    function timeAgo(ts) {
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return s + "s";
+      if (s < 3600) return Math.floor(s / 60) + "m";
+      return Math.floor(s / 3600) + "h";
+    }
+
+    // Demo seed orders so the board isn't empty
+    const DEMO_ORDERS = [
+      {
+        id: "o1",
+        number: 211,
+        table: "12",
+        status: "new",
+        createdAt: Date.now() - 45000,
+        items: [
+          { name: "Margherita", qty: 1, price: 299, note: null },
+          { name: "Custom Pizza", qty: 1, price: 387, note: "extra crispy", description: "Large · Tomato · Pepperoni, Jalapeño, Extra Cheese" }
+        ],
+        total: 686
+      },
+      {
+        id: "o2",
+        number: 212,
+        table: "7",
+        status: "cooking",
+        createdAt: Date.now() - 180000,
+        items: [
+          { name: "Pepperoni", qty: 2, price: 349, note: null },
+          { name: "Garlic Bread", qty: 1, price: 129, note: null }
+        ],
+        total: 827
+      },
+      {
+        id: "o3",
+        number: 209,
+        table: "3",
+        status: "ready",
+        createdAt: Date.now() - 420000,
+        items: [
+          { name: "BBQ Chicken", qty: 1, price: 399, note: "no onion" }
+        ],
+        total: 399
+      }
+    ];
+
+    function OrderCard({ order, onMove, onDone }) {
+      const isNew = order.status === "new";
+      const isCooking = order.status === "cooking";
+      const isReady = order.status === "ready";
+
+      return (
+        <div className={`rounded-2xl border p-4 mb-3 transition ${
+          isNew ? "bg-[#2A1F18] border-tomato/40" :
+          isCooking ? "bg-[#2A1F18] border-gold/30" :
+          "bg-[#2A1F18] border-emerald-500/30"
+        }`}>
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-lg text-cream">#{order.number}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-mist">
+                  Table {order.table}
+                </span>
+              </div>
+              <p className="text-[11px] text-mist mt-0.5">{timeAgo(order.createdAt)} ago</p>
+            </div>
+            {isNew && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-tomato bg-tomato/15 px-2 py-1 rounded-md">
+                New
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {order.items.map((it, i) => (
+              <div key={i} className="text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-cream font-medium">
+                    {it.qty}× {it.name}
+                  </span>
+                  <span className="text-mist text-xs flex-shrink-0">{formatPrice(it.price * it.qty)}</span>
+                </div>
+                {it.description && (
+                  <p className="text-[11px] text-mist/80 mt-0.5 pl-1">{it.description}</p>
+                )}
+                {it.note && (
+                  <p className="text-[11px] text-gold mt-0.5 pl-1 italic">📝 {it.note}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+            <span className="font-semibold text-cream text-sm">{formatPrice(order.total)}</span>
+            <div className="flex gap-2">
+              {isNew && (
+                <>
+                  <button onClick={() => onMove(order.id, "cooking")}
+                    className="px-3 py-1.5 rounded-lg bg-gold/20 text-gold text-xs font-semibold hover:bg-gold/30 transition">
+                    Start cooking
+                  </button>
+                  <button onClick={() => onDone(order.id)}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 text-mist text-xs hover:bg-white/10 transition">
+                    Reject
+                  </button>
+                </>
+              )}
+              {isCooking && (
+                <button onClick={() => onMove(order.id, "ready")}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition">
+                  Mark ready
+                </button>
+              )}
+              {isReady && (
+                <button onClick={() => onDone(order.id)}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-600 transition">
+                  Picked up
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Column({ title, subtitle, orders, status, onMove, onDone, accent }) {
+      return (
+        <div className="flex-1 min-w-[280px] max-w-md">
+          <div className="mb-3 px-1">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-lg text-cream">{title}</h2>
+              <span className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${accent}`}>
+                {orders.length}
+              </span>
+            </div>
+            <p className="text-xs text-mist mt-0.5">{subtitle}</p>
+          </div>
+          <div className="space-y-0">
+            {orders.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-mist text-sm">
+                Nothing here
+              </div>
+            ) : (
+              orders.map(o => (
+                <OrderCard key={o.id} order={o} onMove={onMove} onDone={onDone} />
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [orders, setOrders] = useState(DEMO_ORDERS);
+      const [pin, setPin] = useState("");
+      const [authed, setAuthed] = useState(false);
+      const [error, setError] = useState("");
+
+      // Simple local PIN for demo (change later)
+      const STAFF_PIN = "1234";
+
+      const handleLogin = (e) => {
+        e.preventDefault();
+        if (pin === STAFF_PIN) {
+          setAuthed(true);
+          setError("");
+        } else {
+          setError("Wrong PIN");
+          setPin("");
+        }
+      };
+
+      const moveOrder = useCallback((id, status) => {
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+      }, []);
+
+      const removeOrder = useCallback((id) => {
+        setOrders(prev => prev.filter(o => o.id !== id));
+      }, []);
+
+      const newOrders = orders.filter(o => o.status === "new");
+      const cookingOrders = orders.filter(o => o.status === "cooking");
+      const readyOrders = orders.filter(o => o.status === "ready");
+
+      if (!authed) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <form onSubmit={handleLogin} className="w-full max-w-xs space-y-5">
+              <div className="text-center">
+                <h1 className="font-display text-3xl text-cream mb-1">Jordan's Pizza</h1>
+                <p className="text-mist text-sm">Kitchen · enter staff PIN</p>
+              </div>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="••••"
+                className="w-full text-center text-2xl tracking-[0.4em] py-3.5 rounded-2xl bg-white/5 border border-white/10 text-cream focus:outline-none focus:border-tomato/50"
+                autoFocus
+              />
+              {error && <p className="text-tomato text-sm text-center">{error}</p>}
+              <button type="submit"
+                className="w-full py-3.5 rounded-2xl bg-tomato text-white font-semibold hover:bg-tomato-deep transition">
+                Enter
+              </button>
+            </form>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* Top bar */}
+          <header className="border-b border-white/8 px-5 py-3 flex items-center justify-between">
+            <div>
+              <h1 className="font-display text-xl text-cream">Kitchen</h1>
+              <p className="text-[11px] text-mist">Jordan's Pizza · Live board</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-mist">
+                {orders.length} active
+              </span>
+              <button onClick={() => setAuthed(false)}
+                className="text-xs text-mist hover:text-cream px-3 py-1.5 rounded-lg bg-white/5">
+                Logout
+              </button>
+            </div>
+          </header>
+
+          {/* Kanban columns */}
+          <div className="flex-1 overflow-x-auto">
+            <div className="flex gap-5 p-5 min-w-max lg:min-w-0 lg:justify-center">
+              <Column
+                title="New"
+                subtitle="Orders just landed"
+                orders={newOrders}
+                status="new"
+                onMove={moveOrder}
+                onDone={removeOrder}
+                accent="bg-tomato/20 text-tomato"
+              />
+              <Column
+                title="Cooking"
+                subtitle="On the fire"
+                orders={cookingOrders}
+                status="cooking"
+                onMove={moveOrder}
+                onDone={removeOrder}
+                accent="bg-gold/20 text-gold"
+              />
+              <Column
+                title="Ready"
+                subtitle="Waiting at the pass"
+                orders={readyOrders}
+                status="ready"
+                onMove={moveOrder}
+                onDone={removeOrder}
+                accent="bg-emerald-500/20 text-emerald-400"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
