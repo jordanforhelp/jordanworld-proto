@@ -4506,6 +4506,10 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       const [staffAddCat, setStaffAddCat] = useState("All");
       const [statusUndo, setStatusUndo] = useState(null); // { table, roundId, prevStatus, expires }
       const statusUndoTimerRef = useRef(null);
+      const [kitchenDoneQueue, setKitchenDoneQueue] = useState([]); // recently marked done, linger 3 min
+      const [tableHistory, setTableHistory] = useState([]);
+      const [historyLoading, setHistoryLoading] = useState(false);
+      const [historyFilter, setHistoryFilter] = useState("day"); // day | week | all
       const [staffTab, setStaffTab] = useState("live");
       const [waiterCalls, setWaiterCalls] = useState([]);
       const [ackingCallId, setAckingCallId] = useState(null);
@@ -4792,7 +4796,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
         const session = (liveOrders || []).find(s => String(s.table) === String(sessionTable));
         const openBusy = (session && session.rounds || []).filter(r => {
           const st = normalizeRoundStatus(r.status);
-          return st === "new" || st === "cooking";
+          return st === "cooking";
         });
         const warn = openBusy.length
           ? `${openBusy.length} round(s) still New or Preparing. Clear only if the guest has paid and kitchen is done.`
@@ -4911,6 +4915,85 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
           fetchQrTokens();
         }
       }, [staffTab, fetchQrTokens]);
+      React.useEffect(() => {
+        const id = setInterval(() => {
+          const cut = Date.now() - 3 * 60 * 1000;
+          setKitchenDoneQueue(prev => (prev || []).filter(x => (x.doneAt || 0) > cut));
+        }, 10000);
+        return () => clearInterval(id);
+      }, []);
+
+      const loadTableHistory = useCallback(async (period) => {
+        if (!sb) {
+          showToast("Cloud not connected");
+          return;
+        }
+        setHistoryLoading(true);
+        try {
+          const p = period || "day";
+          const now = new Date();
+          let fromIso = null;
+          if (p === "day") {
+            fromIso = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+          } else if (p === "week") {
+            fromIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          }
+          let q = sb.from("boba_table_sessions")
+            .select("id, table_no, status, guest_name, guest_phone, cleared_at, created_at, discount_percent")
+            .eq("status", "paid")
+            .order("cleared_at", { ascending: false })
+            .limit(100);
+          if (fromIso) q = q.gte("cleared_at", fromIso);
+          const { data: sessions, error } = await q;
+          if (error) throw error;
+          const list = sessions || [];
+          const ids = list.map(s => s.id).filter(Boolean);
+          let rounds = [];
+          for (let i = 0; i < ids.length; i += 40) {
+            const chunk = ids.slice(i, i + 40);
+            const { data: pr, error: e2 } = await sb
+              .from("boba_order_rounds")
+              .select("id, session_id, status, items, total, created_at, ordered_by_name")
+              .in("session_id", chunk);
+            if (e2) throw e2;
+            rounds = rounds.concat(pr || []);
+          }
+          const byS = {};
+          rounds.forEach(r => {
+            if (!byS[r.session_id]) byS[r.session_id] = [];
+            byS[r.session_id].push(r);
+          });
+          setTableHistory(list.map(s => {
+            const rs = (byS[s.id] || []).slice().sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+            const bill = rs.reduce((sum, r) => {
+              if (/cancel/i.test(String(r.status || ""))) return sum;
+              return sum + (Number(r.total) || 0);
+            }, 0);
+            return {
+              id: s.id,
+              table: s.table_no,
+              guest: s.guest_name || "Guest",
+              phone: s.guest_phone || "",
+              clearedAt: s.cleared_at,
+              createdAt: s.created_at,
+              discountPercent: Number(s.discount_percent || 0),
+              rounds: rs,
+              bill,
+            };
+          }));
+        } catch (e) {
+          console.error(e);
+          showToast("Could not load history: " + (e.message || ""));
+          setTableHistory([]);
+        } finally {
+          setHistoryLoading(false);
+        }
+      }, [showToast]);
+
+      React.useEffect(() => {
+        if (staffTab === "history") loadTableHistory(historyFilter);
+      }, [staffTab, historyFilter, loadTableHistory]);
+
 
       const getOrMakeTableToken = useCallback((n) => {
         const k = String(n);
@@ -5182,7 +5265,12 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
             <div className="max-w-7xl mx-auto mt-5 flex gap-2 overflow-x-auto">
               {[
                 { id: "live", label: "Live Tables", count: liveOrders.length },
+                { id: "kitchen", label: "Kitchen", count: (liveOrders || []).reduce((n, s) => n + (s.rounds || []).filter(r => {
+                  const st = normalizeRoundStatus(r.status);
+                  return st === "cooking";
+                }).length, 0) },
                 { id: "tables", label: "Tables" },
+                { id: "history", label: "History" },
                 { id: "menu", label: "Menu", locked: true },
                 { id: "insights", label: "Insights", locked: true },
               ].map(tab => (
@@ -5760,6 +5848,221 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     </div>
                   );
                 })()}
+              </section>
+            )}
+
+            
+            {staffTab === "kitchen" && (
+              <section>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                  <div>
+                    <h2 className="font-display text-2xl text-ink">Kitchen</h2>
+                    <p className="text-mist text-sm">Orders staff sent to kitchen only · done stays ~3 min</p>
+                  </div>
+                  <button type="button" onClick={() => onRefreshOrders && onRefreshOrders()}
+                    className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold flex items-center gap-1.5">
+                    <Icon name="refresh-cw" size={14} /> Refresh
+                  </button>
+                </div>
+
+                {(() => {
+                  const tickets = [];
+                  (liveOrders || []).forEach(session => {
+                    (session.rounds || []).forEach((r, idx) => {
+                      const st = normalizeRoundStatus(r.status);
+                      if (st !== "cooking") return;
+                      tickets.push({ ...r, table: session.table, session, roundNo: idx + 1, st });
+                    });
+                  });
+                  tickets.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+                  const lingering = (kitchenDoneQueue || []).filter(x => Date.now() - (x.doneAt || 0) < 3 * 60 * 1000);
+
+                  const timeAgo = (iso) => {
+                    if (!iso) return "";
+                    const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+                    if (sec < 60) return sec + "s";
+                    if (sec < 3600) return Math.floor(sec / 60) + "m";
+                    return Math.floor(sec / 3600) + "h";
+                  };
+
+                  return (
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="font-display text-lg text-ink">In kitchen</h3>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">{tickets.length}</span>
+                        </div>
+                        {!tickets.length ? (
+                          <div className="glass rounded-2xl p-8 text-center border border-pink/10 text-mist text-sm">No active kitchen tickets</div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {tickets.map(round => {
+                              const itemsList = round.items || [];
+                              const total = Number(round.total) || itemsList.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
+                              return (
+                                <div key={String(round.id)} className="rounded-2xl bg-white border border-pink/20 shadow-sm p-4 flex flex-col">
+                                  <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div>
+                                      <p className="font-display text-lg text-ink">Table {round.table}</p>
+                                      <p className="text-[11px] text-mist">{timeAgo(round.createdAt)} ago · Round {round.roundNo}</p>
+                                    </div>
+                                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full border ${statusColor(round.status)}`}>
+                                      {round.st === "new" ? "New" : "Preparing"}
+                                    </span>
+                                  </div>
+                                  <ul className="space-y-1.5 mb-3 flex-1">
+                                    {itemsList.map((it, ii) => (
+                                      <li key={ii} className="text-sm text-ink">
+                                        <span className="font-semibold text-pink">{it.qty || 1}×</span> {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}
+                                        {it.note ? <span className="block text-[11px] text-amber-800">{it.note}</span> : null}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-pink/10">
+                                    <span className="font-semibold text-sm">{formatPrice(total)}</span>
+                                    <div className="flex gap-1.5">
+                                      {round.st === "new" && (
+                                        <button type="button"
+                                          onClick={() => {
+                                            updateRoundStatus(round.table, round.id, "cooking");
+                                            showToast(`Table ${round.table}: preparing`);
+                                          }}
+                                          className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold min-h-[44px]">
+                                          Start
+                                        </button>
+                                      )}
+                                      <button type="button"
+                                        onClick={() => {
+                                          updateRoundStatus(round.table, round.id, "delivered");
+                                          setKitchenDoneQueue(prev => [
+                                            {
+                                              id: String(round.id),
+                                              table: round.table,
+                                              roundNo: round.roundNo,
+                                              items: itemsList,
+                                              total,
+                                              doneAt: Date.now(),
+                                            },
+                                            ...(prev || []).filter(x => String(x.id) !== String(round.id)),
+                                          ]);
+                                          showToast(`Table ${round.table}: done`);
+                                        }}
+                                        className="px-3 py-2 rounded-xl bg-pink text-white text-xs font-semibold min-h-[44px]">
+                                        Mark done
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="font-display text-lg text-ink">Recently done</h3>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{lingering.length}</span>
+                          <span className="text-[11px] text-mist">Visible ~3 min</span>
+                        </div>
+                        {!lingering.length ? (
+                          <p className="text-mist text-sm">Completed tickets appear here briefly</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {lingering.map(card => {
+                              const left = Math.max(0, 3 * 60 * 1000 - (Date.now() - card.doneAt));
+                              const sec = Math.ceil(left / 1000);
+                              return (
+                                <div key={card.id} className="rounded-2xl bg-emerald-50/80 border border-emerald-200/80 p-4 opacity-80">
+                                  <div className="flex justify-between mb-1">
+                                    <p className="font-display text-ink line-through decoration-emerald-700/40">Table {card.table} · R{card.roundNo}</p>
+                                    <span className="text-[10px] font-semibold text-emerald-800">{sec}s</span>
+                                  </div>
+                                  <ul className="text-sm text-mist line-through space-y-0.5">
+                                    {(card.items || []).map((it, ii) => (
+                                      <li key={ii}>{(it.qty || 1)}× {it.name}</li>
+                                    ))}
+                                  </ul>
+                                  <p className="text-xs font-semibold text-emerald-900 mt-2">{formatPrice(card.total)}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </section>
+            )}
+
+            {staffTab === "history" && (
+              <section>
+                <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+                  <div>
+                    <h2 className="font-display text-2xl text-ink">Table history</h2>
+                    <p className="text-mist text-sm">Cleared / paid sessions — recover details if a table was closed by mistake</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {[
+                      { id: "day", label: "Today" },
+                      { id: "week", label: "7 days" },
+                      { id: "all", label: "All recent" },
+                    ].map(p => (
+                      <button key={p.id} type="button" onClick={() => setHistoryFilter(p.id)}
+                        className={`px-3 min-h-[40px] rounded-full text-xs font-semibold ${historyFilter === p.id ? "bg-pink text-white" : "border border-pink/25 text-mist"}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                    <button type="button" onClick={() => loadTableHistory(historyFilter)}
+                      className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold">Refresh</button>
+                  </div>
+                </div>
+
+                {historyLoading ? (
+                  <div className="glass rounded-2xl p-10 text-center text-mist text-sm">Loading history…</div>
+                ) : !tableHistory.length ? (
+                  <div className="glass rounded-2xl p-10 text-center border border-pink/10">
+                    <p className="text-mist">No cleared tables in this period</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {tableHistory.map(h => (
+                      <details key={h.id} className="glass rounded-2xl border border-pink/10 open:shadow-sm group">
+                        <summary className="cursor-pointer list-none p-4 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-display text-lg text-ink">Table {h.table}</p>
+                            <p className="text-xs text-mist">{h.guest}{h.phone ? ` · ${h.phone}` : ""}</p>
+                            <p className="text-[11px] text-mist mt-0.5">
+                              Cleared {h.clearedAt ? new Date(h.clearedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-pink">{formatPrice(h.bill)}</p>
+                            <p className="text-[11px] text-mist">{(h.rounds || []).length} round(s)</p>
+                          </div>
+                        </summary>
+                        <div className="px-4 pb-4 space-y-2 border-t border-pink/10 pt-3">
+                          {(h.rounds || []).length === 0 ? (
+                            <p className="text-sm text-mist">No rounds stored for this session</p>
+                          ) : (h.rounds || []).map((r, ri) => (
+                            <div key={r.id || ri} className="rounded-xl bg-white border border-pink/10 p-3">
+                              <div className="flex justify-between text-xs text-mist mb-1">
+                                <span>Round {ri + 1} · {r.status || "—"}</span>
+                                <span>{formatPrice(r.total)}</span>
+                              </div>
+                              <ul className="text-sm text-ink space-y-0.5">
+                                {(r.items || []).map((it, ii) => (
+                                  <li key={ii}>{(it.qty || 1)}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""} · {formatPrice((Number(it.price)||0)*(Number(it.qty)||1))}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
@@ -6805,7 +7108,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   {confirmOrderModal.itemName && (
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-mist font-medium">Item</span>
-                      <span className="text-ink font-semibold text-right">
+                      <span className="text-ink font-semibold text-right text-sm leading-snug break-words max-w-[65%]">
                         {confirmOrderModal.itemName}
                         {confirmOrderModal.variantLabel ? ` (${confirmOrderModal.variantLabel})` : ""}
                       </span>
@@ -6842,11 +7145,13 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     </div>
                   )}
                   {confirmOrderModal.newTotalText && (
-                    <div className="flex items-center justify-between pt-1 border-t border-pink/10">
-                      <span className="text-mist font-medium">Updated Total</span>
-                      <span className="font-bold text-ink text-base">
-                        {confirmOrderModal.newTotalText}
+                    <div className="pt-2 border-t border-pink/10 space-y-1.5">
+                      <span className="text-mist font-medium text-xs uppercase tracking-wide block">
+                        {["clear_table", "remove", "undo", "rotate_qr"].includes(confirmOrderModal.type) ? "Note" : "Updated total"}
                       </span>
+                      <p className="font-semibold text-ink text-sm leading-snug break-words whitespace-normal">
+                        {confirmOrderModal.newTotalText}
+                      </p>
                     </div>
                   )}
                 </div>
