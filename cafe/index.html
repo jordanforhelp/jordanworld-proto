@@ -1906,6 +1906,9 @@ async function cloudPlaceOrder(items, tableLabel, guest, discount) {
       "edit-3": <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></>,
       copy: <><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></>,
       download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></>,
+      camera: <><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></>,
+      "help-circle": <><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></>,
+      "book-open": <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>,
     };
     const Icon = ({ name, size = 20, className = "" }) => (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -3122,80 +3125,180 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       );
     };
 
-    const BrokenLinkView = ({ linkError, onBrowseMenu }) => {
+    const BrokenLinkView = ({ linkError, onScanned, onBrowseMenu }) => {
       const [showStaffGuide, setShowStaffGuide] = useState(false);
+      const [scanning, setScanning] = useState(false);
+      const [scanError, setScanError] = useState("");
+      const videoRef = useRef(null);
+      const streamRef = useRef(null);
+      const rafRef = useRef(null);
+      const handledRef = useRef(false);
+
+      const stopScanner = () => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(tr => tr.stop());
+          streamRef.current = null;
+        }
+        if (videoRef.current) {
+          try { videoRef.current.srcObject = null; } catch (e) {}
+        }
+        setScanning(false);
+      };
+
+      useEffect(() => () => stopScanner(), []);
+
+      const handleDecoded = (raw) => {
+        if (handledRef.current) return;
+        const text = String(raw || "").trim();
+        if (!text) return;
+        handledRef.current = true;
+        stopScanner();
+        if (typeof onScanned === "function") onScanned(text);
+      };
+
+      const startScanner = async () => {
+        setScanError("");
+        handledRef.current = false;
+        setScanning(true);
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setScanError("Camera not available on this device.");
+            setScanning(false);
+            return;
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          });
+          streamRef.current = stream;
+          const video = videoRef.current;
+          if (!video) {
+            setScanError("Camera view failed to open.");
+            stopScanner();
+            return;
+          }
+          video.srcObject = stream;
+          video.setAttribute("playsinline", "true");
+          await video.play();
+
+          if (typeof window.BarcodeDetector === "function") {
+            const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+            const tick = async () => {
+              if (!videoRef.current || handledRef.current) return;
+              try {
+                if (video.readyState >= 2) {
+                  const codes = await detector.detect(video);
+                  if (codes && codes.length && codes[0].rawValue) {
+                    handleDecoded(codes[0].rawValue);
+                    return;
+                  }
+                }
+              } catch (e) {}
+              rafRef.current = requestAnimationFrame(tick);
+            };
+            rafRef.current = requestAnimationFrame(tick);
+          } else {
+            setScanError("Live QR scan needs Chrome or Edge on this phone. You can still open the link from the table sticker.");
+          }
+        } catch (e) {
+          console.error(e);
+          setScanError("Camera permission denied or unavailable. Allow camera access and try again.");
+          setScanning(false);
+        }
+      };
+
       return (
         <div className="min-h-screen bg-blush flex flex-col justify-between p-4 sm:p-6 text-center select-none animate-fade-up">
           <div className="pt-6 sm:pt-10 max-w-md mx-auto w-full">
             <p className="text-pink tracking-[0.3em] uppercase text-xs font-semibold mb-2">BOBA Café</p>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              Invalid or Expired Table Link
+              {linkError ? "Invalid or expired table link" : "Scan your table to order"}
             </span>
           </div>
 
           <div className="max-w-md mx-auto w-full glass-strong rounded-3xl p-6 sm:p-8 border border-pink/15 shadow-float my-6">
-            <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-pink-soft flex items-center justify-center border border-pink/20 shadow-sm text-pink">
-              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                <line x1="2" y1="2" x2="22" y2="22"/>
-              </svg>
-            </div>
-
-            <h1 className="font-display text-2xl sm:text-3xl text-ink font-bold mb-2">
-              We Couldn't Connect Your Table
-            </h1>
-            <p className="text-mist text-sm leading-relaxed mb-6">
-              The table link you opened is invalid, expired, or was rotated by staff.
-              {linkError?.tableNo ? (
-                <span className="block mt-2 text-xs text-ink/90 font-mono bg-pink-soft/80 py-1.5 px-3 rounded-lg border border-pink/15">
-                  Table {linkError.tableNo} is not active in the café system.
-                </span>
-              ) : linkError?.rawToken ? (
-                <span className="block mt-2 text-xs text-mist font-mono truncate bg-pink-soft/80 py-1.5 px-3 rounded-lg border border-pink/15">
-                  Code: {linkError.rawToken}
-                </span>
-              ) : null}
+            <h1 className="font-display text-2xl text-ink mb-2">Table QR required</h1>
+            <p className="text-mist text-sm leading-relaxed mb-5">
+              Point your camera at the QR sticker on your table to open the menu and place orders.
             </p>
+            {linkError?.rawToken ? (
+              <p className="text-xs text-mist font-mono truncate bg-pink-soft/80 py-1.5 px-3 rounded-lg border border-pink/15 mb-4">
+                Code: {linkError.rawToken}
+              </p>
+            ) : null}
 
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={onBrowseMenu}
-                className="w-full py-3.5 px-4 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep transition shadow-sm flex items-center justify-center gap-2">
-                <Icon name="book-open" size={16} />
-                Browse Menu (Preview Mode)
-              </button>
+            {scanning ? (
+              <div className="space-y-3">
+                <div className="relative rounded-2xl overflow-hidden border border-pink/25 bg-ink aspect-[3/4] max-h-[52vh] mx-auto w-full">
+                  <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+                  <div className="absolute inset-0 pointer-events-none border-2 border-pink/50 rounded-2xl m-8 shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
+                  <p className="absolute bottom-3 left-0 right-0 text-white text-xs font-medium">Align the table QR inside the frame</p>
+                </div>
+                {scanError ? <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{scanError}</p> : null}
+                <button type="button" onClick={stopScanner}
+                  className="w-full py-3 rounded-xl border border-pink/25 text-ink text-sm font-semibold bg-white">
+                  Close camera
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={startScanner}
+                  className="w-full py-3.5 px-4 rounded-xl bg-pink text-white font-semibold text-sm hover:bg-pink-deep transition shadow-sm flex items-center justify-center gap-2"
+                >
+                  <Icon name="camera" size={18} />
+                  Scan table QR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { if (typeof onBrowseMenu === "function") onBrowseMenu(); }}
+                  className="w-full py-3 px-4 rounded-xl bg-white border border-pink/25 text-ink text-sm font-semibold hover:bg-pink-soft/50 transition flex items-center justify-center gap-2"
+                >
+                  <Icon name="book-open" size={16} className="text-pink" />
+                  Preview menu
+                </button>
+                {scanError ? <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{scanError}</p> : null}
+                <button
+                  type="button"
+                  onClick={() => setShowStaffGuide(prev => !prev)}
+                  className="w-full py-3 px-4 rounded-xl bg-white border border-pink/20 text-mist text-sm font-medium hover:bg-pink-soft/50 transition flex items-center justify-center gap-1.5"
+                >
+                  <Icon name="help-circle" size={16} className="text-pink" />
+                  {showStaffGuide ? "Hide guide" : "How ordering works"}
+                </button>
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => setShowStaffGuide(prev => !prev)}
-                className="w-full py-3 px-4 rounded-xl bg-white border border-pink/20 text-ink text-sm font-medium hover:bg-pink-soft/50 transition flex items-center justify-center gap-1.5">
-                <Icon name="help-circle" size={16} className="text-pink" />
-                {showStaffGuide ? "Hide Ordering Guide" : "How to Order at Your Table"}
-              </button>
-            </div>
-
-            {showStaffGuide && (
-              <div className="mt-5 p-4 rounded-2xl bg-pink-soft/50 border border-pink/15 text-left text-xs text-mist space-y-2 animate-fade-up">
-                <p className="font-semibold text-ink text-xs mb-1">Simple steps to order:</p>
-                <p>1. Check the acrylic table stand on your table for the BOBA Café QR code sticker.</p>
-                <p>2. Open your smartphone camera or scanner and point at the QR code.</p>
-                <p>3. If your table has no sticker or the link still fails, please ask any staff member at the counter — they can generate a fresh QR code in seconds.</p>
+            {showStaffGuide && !scanning && (
+              <div className="mt-4 text-left text-sm text-mist space-y-2 bg-blush/80 rounded-2xl p-4 border border-pink/10">
+                <p>1. Scan the QR on your table</p>
+                <p>2. Browse the menu and add items</p>
+                <p>3. Place the order — kitchen gets it live</p>
+                <p>4. Share the table OTP so friends can join the same bill</p>
               </div>
             )}
           </div>
 
-          <div className="pb-6 text-center text-xs text-mist/60 font-medium">
-            BOBA Café · Authentic Artisanal Boba & Teas
-          </div>
+          <p className="text-mist/70 text-xs pb-4">BOBA Café</p>
         </div>
       );
     };
 
+    
     const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount, isPreviewMode }) => {
       const [filter, setFilter] = useState("All");
+      const [previewScanning, setPreviewScanning] = useState(false);
+      const [previewScanError, setPreviewScanError] = useState("");
+      const previewVideoRef = useRef(null);
+      const previewStreamRef = useRef(null);
+      const previewRafRef = useRef(null);
+      const previewHandledRef = useRef(false);
       const [tableNumber, setTableNumber] = useState(tableFromQr || "");
       const loadDiningGuest = (tableHint) => {
         try {
@@ -3686,13 +3789,86 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
               ) : (
                 <div className="mt-5 max-w-sm mx-auto px-3">
                   {isPreviewMode ? (
-                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                      Menu Preview Mode · Scan your table QR to place orders
+                    <div className="w-full max-w-md mx-auto space-y-2">
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                        Menu preview · scan a table QR to order
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewScanError("");
+                          setPreviewScanning(true);
+                          previewHandledRef.current = false;
+                          setTimeout(async () => {
+                            try {
+                              if (!navigator.mediaDevices?.getUserMedia) {
+                                setPreviewScanError("Camera not available on this device.");
+                                return;
+                              }
+                              const stream = await navigator.mediaDevices.getUserMedia({
+                                audio: false,
+                                video: { facingMode: { ideal: "environment" } },
+                              });
+                              previewStreamRef.current = stream;
+                              const video = previewVideoRef.current;
+                              if (!video) return;
+                              video.srcObject = stream;
+                              video.setAttribute("playsinline", "true");
+                              await video.play();
+                              if (typeof window.BarcodeDetector === "function") {
+                                const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+                                const tick = async () => {
+                                  if (!previewVideoRef.current || previewHandledRef.current) return;
+                                  try {
+                                    if (video.readyState >= 2) {
+                                      const codes = await detector.detect(video);
+                                      if (codes?.[0]?.rawValue) {
+                                        previewHandledRef.current = true;
+                                        if (previewRafRef.current) cancelAnimationFrame(previewRafRef.current);
+                                        if (previewStreamRef.current) {
+                                          previewStreamRef.current.getTracks().forEach(tr => tr.stop());
+                                          previewStreamRef.current = null;
+                                        }
+                                        setPreviewScanning(false);
+                                        const href = String(codes[0].rawValue).trim();
+                                        let token = "";
+                                        try {
+                                          const u = new URL(href, window.location.origin);
+                                          token = (u.searchParams.get("t") || u.searchParams.get("token") || "").trim();
+                                        } catch (e) {
+                                          const m = href.match(/[?&](?:t|token)=([^&\s]+)/i);
+                                          if (m) token = decodeURIComponent(m[1]);
+                                        }
+                                        if (token) {
+                                          window.location.assign(window.location.pathname + "?t=" + encodeURIComponent(token));
+                                        } else {
+                                          showToast("That QR is not a BOBA table link.");
+                                        }
+                                        return;
+                                      }
+                                    }
+                                  } catch (e) {}
+                                  previewRafRef.current = requestAnimationFrame(tick);
+                                };
+                                previewRafRef.current = requestAnimationFrame(tick);
+                              } else {
+                                setPreviewScanError("Live scan works best in Chrome or Edge. You can also use your phone Camera app on the table sticker.");
+                              }
+                            } catch (e) {
+                              setPreviewScanError("Camera permission denied. Allow camera access and try again.");
+                            }
+                          }, 50);
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-pink text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <Icon name="camera" size={16} />
+                        Scan table QR
+                      </button>
                     </div>
                   ) : (
                     <p className="text-mist text-sm leading-relaxed">
-                      Scan the <span className="text-pink font-medium">QR code on your table</span> to order.
+                      Table <span className="text-pink font-medium">{tableFromQr}</span>
                     </p>
                   )}
                 </div>
@@ -4045,6 +4221,27 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
             </div>
           )}
           {pairingDish && <PairingModal dish={pairingDish} dishes={dishes} onClose={() => setPairingDish(null)} onAdd={handleAdd} />}
+          {previewScanning && (
+            <div className="fixed inset-0 z-[180] flex flex-col bg-ink/90 p-4">
+              <div className="flex items-center justify-between text-white mb-3">
+                <p className="font-semibold text-sm">Scan table QR</p>
+                <button type="button" className="px-3 py-1.5 rounded-lg bg-white/15 text-sm" onClick={() => {
+                  if (previewRafRef.current) cancelAnimationFrame(previewRafRef.current);
+                  if (previewStreamRef.current) {
+                    previewStreamRef.current.getTracks().forEach(tr => tr.stop());
+                    previewStreamRef.current = null;
+                  }
+                  setPreviewScanning(false);
+                }}>Close</button>
+              </div>
+              <div className="relative flex-1 min-h-[50vh] rounded-2xl overflow-hidden border border-white/20 bg-black">
+                <video ref={previewVideoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
+              </div>
+              {previewScanError ? <p className="mt-3 text-amber-100 text-sm text-center">{previewScanError}</p> : (
+                <p className="mt-3 text-white/80 text-xs text-center">Point at the QR sticker on your table</p>
+              )}
+            </div>
+          )}
           {variantDish && <VariantPicker dish={variantDish} onPick={handleVariantPick} onClose={() => setVariantDish(null)} />}
 
           <footer className="border-t border-pink/10 mt-16 py-10 px-4">
@@ -4258,6 +4455,8 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       const [staffAddToRound, setStaffAddToRound] = useState(null); // { table, roundId, status, pickDish? }
       const [staffAddSearch, setStaffAddSearch] = useState("");
       const [staffAddCat, setStaffAddCat] = useState("All");
+      const [statusUndo, setStatusUndo] = useState(null); // { table, roundId, prevStatus, expires }
+      const statusUndoTimerRef = useRef(null);
       const [staffTab, setStaffTab] = useState("live");
       const [waiterCalls, setWaiterCalls] = useState([]);
       const [ackingCallId, setAckingCallId] = useState(null);
@@ -4568,19 +4767,27 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       };
 
       const performRotate = async (tableNo) => {
-        const confirmed = window.confirm(
-          "Are you sure you want to rotate Table " + tableNo + "'s QR code?\n\nWARNING: The old QR code will stop working immediately. You will need to print and replace the physical QR sticker on Table " + tableNo + "."
-        );
-        if (!confirmed) return;
-        try {
-          const res = await cloudRotateQrToken(tableNo);
-          if (res && res.qr_token) {
-            setTableQrTokens(prev => ({ ...prev, [String(tableNo)]: res.qr_token }));
-            showToast("Table " + tableNo + " QR token rotated by Manager! Old links invalidated.");
-          }
-        } catch (e) {
-          showToast("Rotate failed: " + (e.message || ""));
-        }
+        setConfirmOrderModal({
+          title: "Rotate table QR",
+          type: "rotate_qr",
+          tableNo: tableNo,
+          itemName: "QR code for Table " + tableNo,
+          newTotalText: "The old QR stops working immediately. Print and replace the sticker on the table.",
+          isDestructive: true,
+          confirmLabel: "Rotate QR code",
+          onConfirm: async () => {
+            setConfirmOrderModal(null);
+            try {
+              const res = await cloudRotateQrToken(tableNo);
+              if (res && res.qr_token) {
+                setTableQrTokens(prev => ({ ...prev, [String(tableNo)]: res.qr_token }));
+                showToast("Table " + tableNo + " QR token rotated by Manager! Old links invalidated.");
+              }
+            } catch (e) {
+              showToast("Rotate failed: " + (e.message || ""));
+            }
+          },
+        });
       };
 
       const handleVerifyManagerForRotate = async () => {
@@ -4807,13 +5014,24 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
 
       const deleteDish = (id) => {
         const dish = dishes.find(d => d.id === id);
-        if (!dish || !window.confirm(`Remove "${dish.name}" from the menu?`)) return;
-        setDishes(prev => {
-          const next = prev.filter(d => d.id !== id);
-          saveState("boba_dishes", next);
-          return next;
+        if (!dish) return;
+        setConfirmOrderModal({
+          title: "Remove menu item",
+          type: "remove",
+          tableNo: "Menu",
+          itemName: dish.name,
+          isDestructive: true,
+          confirmLabel: "Remove from menu",
+          onConfirm: () => {
+            setDishes(prev => {
+              const next = prev.filter(d => d.id !== id);
+              saveState("boba_dishes", next);
+              return next;
+            });
+            showToast(`"${dish.name}" removed`);
+            setConfirmOrderModal(null);
+          },
         });
-        showToast(`"${dish.name}" removed`);
       };
 
       const openAddDish = () => setEditingDish({
@@ -5157,37 +5375,83 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                                       const q = Number(it.qty) || 1;
                                                       const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
                                                       if (q <= 1) {
-                                                        if (!window.confirm(`Remove ${label} from this round?`)) return;
                                                         const next = itemsList.filter((_, j) => j !== ii);
                                                         if (!next.length) { showToast("Add another item or cancel the round"); return; }
-                                                        updateRoundItems(round.table, round.id, next);
+                                                        setConfirmOrderModal({
+                                                          title: "Remove item",
+                                                          type: "remove",
+                                                          tableNo: round.table,
+                                                          itemName: it.name,
+                                                          variantLabel: it.variantLabel || null,
+                                                          isDestructive: true,
+                                                          confirmLabel: "Remove",
+                                                          onConfirm: () => {
+                                                            updateRoundItems(round.table, round.id, next);
+                                                            setConfirmOrderModal(null);
+                                                          },
+                                                        });
                                                         return;
                                                       }
-                                                      if (!window.confirm(`Reduce ${label} to ${q - 1}?`)) return;
-                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: q - 1 } : x);
-                                                      updateRoundItems(round.table, round.id, next);
+                                                      setConfirmOrderModal({
+                                                        title: "Reduce quantity",
+                                                        type: "qty",
+                                                        tableNo: round.table,
+                                                        itemName: it.name,
+                                                        variantLabel: it.variantLabel || null,
+                                                        oldQty: q,
+                                                        newQty: q - 1,
+                                                        isDestructive: false,
+                                                        confirmLabel: "Update quantity",
+                                                        onConfirm: () => {
+                                                          const n2 = itemsList.map((x, j) => j === ii ? { ...x, qty: q - 1 } : x);
+                                                          updateRoundItems(round.table, round.id, n2);
+                                                          setConfirmOrderModal(null);
+                                                        },
+                                                      });
                                                     }}>−</button>
                                                   <span className="w-7 text-center text-sm font-semibold text-ink">{it.qty || 1}</span>
                                                   <button type="button"
                                                     className="w-8 h-8 rounded-lg border border-pink/25 bg-white text-ink font-bold text-sm"
                                                     onClick={() => {
                                                       const q = Number(it.qty) || 1;
-                                                      const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
-                                                      if (!window.confirm(`Increase ${label} to ${q + 1}?`)) return;
-                                                      const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.min(50, q + 1) } : x);
-                                                      updateRoundItems(round.table, round.id, next);
+                                                      setConfirmOrderModal({
+                                                        title: "Increase quantity",
+                                                        type: "qty",
+                                                        tableNo: round.table,
+                                                        itemName: it.name,
+                                                        variantLabel: it.variantLabel || null,
+                                                        oldQty: q,
+                                                        newQty: Math.min(50, q + 1),
+                                                        isDestructive: false,
+                                                        confirmLabel: "Update quantity",
+                                                        onConfirm: () => {
+                                                          const next = itemsList.map((x, j) => j === ii ? { ...x, qty: Math.min(50, q + 1) } : x);
+                                                          updateRoundItems(round.table, round.id, next);
+                                                          setConfirmOrderModal(null);
+                                                        },
+                                                      });
                                                     }}>+</button>
                                                   <button type="button"
                                                     className="ml-auto w-8 h-8 rounded-lg border border-red-200 bg-red-50 text-red-500 text-sm font-bold"
                                                     onClick={() => {
-                                                      const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
-                                                      if (!window.confirm(`Remove ${label} from this round?`)) return;
                                                       const next = itemsList.filter((_, j) => j !== ii);
                                                       if (!next.length) {
                                                         showToast("Add another item or cancel the round");
                                                         return;
                                                       }
-                                                      updateRoundItems(round.table, round.id, next);
+                                                      setConfirmOrderModal({
+                                                        title: "Remove item",
+                                                        type: "remove",
+                                                        tableNo: round.table,
+                                                        itemName: it.name,
+                                                        variantLabel: it.variantLabel || null,
+                                                        isDestructive: true,
+                                                        confirmLabel: "Remove",
+                                                        onConfirm: () => {
+                                                          updateRoundItems(round.table, round.id, next);
+                                                          setConfirmOrderModal(null);
+                                                        },
+                                                      });
                                                     }}>×</button>
                                                 </div>
                                               ) : (
@@ -5213,8 +5477,19 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                             <button
                                               type="button"
                                               onClick={() => {
+                                                const prev = normalizeRoundStatus(round.status);
                                                 updateRoundStatus(round.table, round.id, act.status);
                                                 showToast(`Table ${round.table}: ${act.label}`);
+                                                if (statusUndoTimerRef.current) clearTimeout(statusUndoTimerRef.current);
+                                                setStatusUndo({
+                                                  table: String(round.table),
+                                                  roundId: String(round.id),
+                                                  prevStatus: prev,
+                                                  fromLabel: statusMeta(prev).label,
+                                                  toLabel: act.label,
+                                                  expires: Date.now() + 45000,
+                                                });
+                                                statusUndoTimerRef.current = setTimeout(() => setStatusUndo(null), 45000);
                                               }}
                                               className="px-3 py-1.5 rounded-xl bg-pink text-white text-xs font-semibold hover:bg-pink-deep transition shadow-sm"
                                             >
@@ -5231,6 +5506,38 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                               className="px-3 py-1.5 rounded-xl border border-pink/35 text-pink text-xs font-semibold hover:bg-pink/10 transition"
                                             >
                                               Clear table
+                                            </button>
+                                          )}
+                                          {statusUndo
+                                            && String(statusUndo.table) === String(round.table)
+                                            && String(statusUndo.roundId) === String(round.id)
+                                            && statusUndo.expires > Date.now() && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const u = statusUndo;
+                                                if (!u) return;
+                                                setConfirmOrderModal({
+                                                  title: "Undo status change",
+                                                  type: "undo",
+                                                  tableNo: u.table,
+                                                  itemName: `Move back to ${u.fromLabel}`,
+                                                  newTotalText: `Was marked: ${u.toLabel || "updated"}`,
+                                                  isDestructive: false,
+                                                  confirmLabel: "Undo",
+                                                  onConfirm: () => {
+                                                    updateRoundStatus(u.table, u.roundId, u.prevStatus);
+                                                    showToast(`Table ${u.table}: moved back to ${u.fromLabel}`);
+                                                    if (statusUndoTimerRef.current) clearTimeout(statusUndoTimerRef.current);
+                                                    setStatusUndo(null);
+                                                    setConfirmOrderModal(null);
+                                                  },
+                                                });
+                                              }}
+                                              className="px-2.5 py-1.5 rounded-xl border border-mist/30 text-mist text-[11px] font-semibold hover:text-ink hover:border-pink/30 hover:bg-blush transition"
+                                              title="Undo last status change"
+                                            >
+                                              Undo
                                             </button>
                                           )}
                                           {col.key === "new" && (
@@ -5389,13 +5696,23 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                             Rotate
                           </button>
                           <button type="button" onClick={() => {
-                            if (!window.confirm("Remove table " + n + "?")) return;
-                            setTablePins(prev => {
-                              const copy = { ...prev };
-                              delete copy[String(n)];
-                              return copy;
+                            setConfirmOrderModal({
+                              title: "Remove table",
+                              type: "remove",
+                              tableNo: n,
+                              itemName: "Table " + n + " PIN / QR entry",
+                              isDestructive: true,
+                              confirmLabel: "Remove table",
+                              onConfirm: () => {
+                                setTablePins(prev => {
+                                  const copy = { ...prev };
+                                  delete copy[String(n)];
+                                  return copy;
+                                });
+                                cloudDeleteTablePin(n);
+                                setConfirmOrderModal(null);
+                              },
                             });
-                            cloudDeleteTablePin(n);
                             showToast("Table " + n + " removed");
                           }} className="px-2 py-2 rounded-lg text-mist hover:text-red-500 border border-pink/10">Remove</button>
                         </div>
@@ -5832,7 +6149,6 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                           onClick={() => {
                             const d = staffAddToRound.pickDish;
                             const label = `${d.name} (${v.label})`;
-                            if (!window.confirm(`Add ${label} to Table ${staffAddToRound.table}?`)) return;
                             const target = staffAddToRound;
                             const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
                             const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
@@ -5845,10 +6161,22 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                             } else {
                               next = [...existing, { id: d.id, name: d.name, variantLabel: v.label, price: Number(v.price), qty: 1, note: null }];
                             }
-                            updateRoundItems(target.table, target.roundId, next);
-                            setStaffAddToRound(null);
-                            setStaffAddSearch("");
-                            setStaffAddCat("All");
+                            setConfirmOrderModal({
+                              title: "Add to round",
+                              type: "add",
+                              tableNo: target.table,
+                              itemName: d.name,
+                              variantLabel: v.label,
+                              isDestructive: false,
+                              confirmLabel: "Add item",
+                              onConfirm: () => {
+                                updateRoundItems(target.table, target.roundId, next);
+                                setStaffAddToRound(null);
+                                setStaffAddSearch("");
+                                setStaffAddCat("All");
+                                setConfirmOrderModal(null);
+                              },
+                            });
                           }}
                         >
                           <span className="font-medium text-ink text-sm">{v.label}</span>
@@ -5879,7 +6207,6 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                               setStaffAddToRound({ ...staffAddToRound, pickDish: d });
                               return;
                             }
-                            if (!window.confirm(`Add ${d.name} to Table ${staffAddToRound.table}?`)) return;
                             const target = staffAddToRound;
                             const session = (liveOrders || []).find(s => String(s.table) === String(target.table));
                             const round = session && (session.rounds || []).find(r => String(r.id) === String(target.roundId));
@@ -5892,10 +6219,21 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                             } else {
                               next = [...existing, { id: d.id, name: d.name, variantLabel: null, price: Number(d.price), qty: 1, note: null }];
                             }
-                            updateRoundItems(target.table, target.roundId, next);
-                            setStaffAddToRound(null);
-                            setStaffAddSearch("");
-                            setStaffAddCat("All");
+                            setConfirmOrderModal({
+                              title: "Add to round",
+                              type: "add",
+                              tableNo: target.table,
+                              itemName: d.name,
+                              isDestructive: false,
+                              confirmLabel: "Add item",
+                              onConfirm: () => {
+                                updateRoundItems(target.table, target.roundId, next);
+                                setStaffAddToRound(null);
+                                setStaffAddSearch("");
+                                setStaffAddCat("All");
+                                setConfirmOrderModal(null);
+                              },
+                            });
                           }}
                         >
                           <div className="flex items-center justify-between gap-2">
@@ -6293,7 +6631,9 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                     </div>
                     <div>
                       <h3 className="font-display text-lg text-ink leading-tight">{confirmOrderModal.title}</h3>
-                      <p className="text-xs text-mist font-medium">Table {confirmOrderModal.tableNo}</p>
+                      {confirmOrderModal.tableNo != null && confirmOrderModal.tableNo !== "" && (
+                      <p className="text-xs text-mist font-medium">{String(confirmOrderModal.tableNo) === "Menu" ? "Menu management" : `Table ${confirmOrderModal.tableNo}`}</p>
+                    )}
                     </div>
                   </div>
                   <button type="button" onClick={() => setConfirmOrderModal(null)}
@@ -6771,6 +7111,37 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <BrokenLinkView
                   linkError={linkError}
                   onBrowseMenu={() => setDismissedBrokenLink(true)}
+                  onScanned={(raw) => {
+                    try {
+                      let href = String(raw || "").trim();
+                      if (!href) return;
+                      // Accept full URLs or query fragments containing t=
+                      let token = "";
+                      let table = "";
+                      try {
+                        const u = new URL(href, window.location.origin);
+                        token = (u.searchParams.get("t") || u.searchParams.get("token") || "").trim();
+                        table = (u.searchParams.get("table") || "").trim();
+                      } catch (e) {
+                        const m = href.match(/[?&](?:t|token)=([^&\s]+)/i);
+                        if (m) token = decodeURIComponent(m[1]);
+                        const m2 = href.match(/[?&]table=([^&\s]+)/i);
+                        if (m2) table = decodeURIComponent(m2[1]);
+                      }
+                      if (token) {
+                        const next = window.location.pathname + "?t=" + encodeURIComponent(token);
+                        window.location.assign(next);
+                        return;
+                      }
+                      if (table) {
+                        showToast("Use the official table QR sticker (token link), not a plain table number.");
+                        return;
+                      }
+                      showToast("That QR is not a BOBA table link. Scan the sticker on your table.");
+                    } catch (e) {
+                      showToast("Could not read that QR. Try again.");
+                    }
+                  }}
                 />
               ) : (
                 <CustomerView
@@ -6784,7 +7155,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   pinFromQr={pinFromQr}
                   tablePins={tablePins}
                   snakeDiscount={snakeDiscount}
-                  isPreviewMode={!tableFromQr || dismissedBrokenLink}
+                  isPreviewMode={!tableFromQr}
                 />
               )
             ) : (
