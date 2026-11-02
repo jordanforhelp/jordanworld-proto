@@ -475,7 +475,12 @@
       .animate-pulse-pink, .animate-bounce-soft { animation: none !important; }
       .petal-stage, .order-burst { display: none !important; }
     }
-  </style>
+  
+      /* boba-a11y */
+      .text-mist { color: #6b5e52 !important; }
+      button.min-h-tap, .hit-icon { min-height: 44px; min-width: 44px; }
+      input, select, textarea { font-size: 16px !important; }
+      </style>
 </head>
 <body>
   <script>window.__BOBA_APEX__ = true;</script>
@@ -2814,6 +2819,10 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
           showToast("Scan your table QR to order");
           return;
         }
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          showToast("You're offline. Reconnect, then place order again — cart is saved.");
+          return;
+        }
         placingRef.current = true;
         setPlacing(true);
         try {
@@ -2985,7 +2994,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <div key={itemKey(item)} className="flex gap-3 p-3 rounded-2xl bg-blush border border-pink/10">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0 bg-pink-soft border border-pink/10">
                     {item.image ? (
-                      <img src={item.image} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img src={item.image} alt="" className="w-full h-full object-cover object-center" loading="lazy" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-lg opacity-50">🧋</div>
                     )}
@@ -3093,18 +3102,22 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   <button
                     type="button"
                     onClick={handlePlaceOrder}
-                    disabled={!lockedTable || placing}
-                    className={`w-full py-3.5 rounded-xl font-semibold text-sm transition shadow-sm ${
-                      lockedTable && !placing
+                    disabled={!items.length || !lockedTable || placing || (typeof navigator !== "undefined" && navigator.onLine === false)}
+                    className={`w-full min-h-[48px] py-3.5 rounded-xl font-semibold text-sm transition shadow-sm ${
+                      items.length && lockedTable && !placing && !(typeof navigator !== "undefined" && navigator.onLine === false)
                         ? "bg-pink text-white hover:bg-pink-deep"
-                        : "bg-blush text-mist cursor-not-allowed opacity-60"
+                        : "bg-blush text-mist cursor-not-allowed opacity-80"
                     }`}
                   >
                     {placing
-                      ? "Sending…"
-                      : lockedTable
-                        ? `Place Order · ${formatPrice(total)}`
-                        : "Scan table QR to order"}
+                      ? "Sending order…"
+                      : (typeof navigator !== "undefined" && navigator.onLine === false)
+                        ? "Offline — reconnect to order"
+                        : !lockedTable
+                          ? "Scan table QR to order"
+                          : !items.length
+                            ? "Add items to order"
+                            : `Place order · ${formatPrice(payable)}`}
                   </button>
                   {!lockedTable && (
                     <p className="text-center text-[11px] text-mist leading-snug px-2">
@@ -3292,7 +3305,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
     };
 
     
-    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount, isPreviewMode }) => {
+    const CustomerView = ({ dishes, sessionItems, setSessionItems, showToast, onStaffAccess, onPlaceOrder, tableFromQr, pinFromQr, tablePins, snakeDiscount, isPreviewMode, isOnline = true, guestLiveRounds = [] }) => {
       const [filter, setFilter] = useState("All");
       const [previewScanning, setPreviewScanning] = useState(false);
       const [previewScanError, setPreviewScanError] = useState("");
@@ -3741,6 +3754,12 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
 
       return (
         <div className="min-h-screen ambient-bg pb-10" style={{ paddingBottom: "max(2.5rem, calc(env(safe-area-inset-bottom) + 1.5rem))" }}>
+          {isOnline === false && (
+            <div className="sticky top-0 z-[120] px-3 py-2.5 bg-amber-600 text-white text-center text-sm font-semibold shadow">
+              You're offline · cart is kept · reconnect to place orders
+            </div>
+          )}
+
           <header className="relative pt-10 pb-10 px-4 overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(186,107,37,0.08)_0%,_transparent_55%)]" />
             <div className="relative max-w-5xl mx-auto text-center">
@@ -3875,6 +3894,33 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 </div>
               )}
 
+              
+              {tableFromQr && Array.isArray(guestLiveRounds) && guestLiveRounds.length > 0 && (
+                <div className="mt-4 max-w-md mx-auto px-3">
+                  <div className="rounded-2xl border border-pink/20 bg-white/90 p-3 shadow-sm">
+                    <p className="text-[11px] uppercase tracking-wider text-mist font-semibold mb-2">Your orders</p>
+                    <ul className="space-y-2">
+                      {guestLiveRounds.slice(0, 6).map((r, idx) => {
+                        const st = normalizeRoundStatus(r.status);
+                        const label = st === "new" ? "Sent" : st === "cooking" ? "Preparing" : st === "delivered" ? "Served" : (r.status || "Order");
+                        const color = st === "new" ? "bg-amber-100 text-amber-900" : st === "cooking" ? "bg-orange-100 text-orange-900" : "bg-emerald-100 text-emerald-900";
+                        const items = (r.items || []).map(it => (it.qty || 1) + "× " + (it.name || "Item")).join(", ");
+                        return (
+                          <li key={String(r.id || idx)} className="flex items-start justify-between gap-2 text-sm">
+                            <div className="min-w-0">
+                              <p className="text-ink font-medium truncate">{items || "Order"}</p>
+                              <p className="text-[11px] text-mist">Round {r.roundNo || idx + 1}</p>
+                            </div>
+                            <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full ${color}`}>{label}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="mt-2 text-[10px] text-mist">Sent → Preparing → Served</p>
+                  </div>
+                </div>
+              )}
+
               {/* Friend Join Banner: When session is active on this table but current phone hasn't joined yet */}
               {tableFromQr && activeCloudSession && !shownTableOtp && (
                 <div className="mt-4 max-w-md mx-auto p-3.5 rounded-2xl bg-white border border-pink/30 shadow-card flex items-center justify-between gap-3 text-left animate-fade-up">
@@ -3981,7 +4027,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                         onClick={() => toggleWaiterOption(opt.id)}
                         title={opt.label}
                         aria-label={opt.label}
-                        className={`flex flex-col items-center justify-center p-2.5 rounded-2xl border min-h-[72px] transition ${
+                        className={`flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl border min-h-[88px] transition ${
                           onCd
                             ? "bg-pink-soft/40 border-pink/15 opacity-80 cursor-not-allowed"
                             : selected
@@ -3989,11 +4035,14 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                               : "bg-white border-pink/15 hover:border-pink/35 hover:bg-blush"
                         }`}
                       >
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${
                           onCd || selected ? "bg-pink text-white" : "bg-blush text-ink"
                         }`}>
-                          {onCd || selected ? <Icon name="check" size={22} className="text-white" /> : <span>{opt.emoji}</span>}
+                          {onCd || selected ? <Icon name="check" size={20} className="text-white" /> : <span>{opt.emoji}</span>}
                         </div>
+                        <span className={`text-[11px] font-semibold leading-tight text-center px-0.5 ${onCd ? "text-mist" : "text-ink"}`}>
+                          {opt.label}
+                        </span>
                       </button>
                     );
                   })}
@@ -4741,15 +4790,23 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       };
 
       const requestClearTable = (sessionTable, grandTotal) => {
+        const session = (liveOrders || []).find(s => String(s.table) === String(sessionTable));
+        const openBusy = (session && session.rounds || []).filter(r => {
+          const st = normalizeRoundStatus(r.status);
+          return st === "new" || st === "cooking";
+        });
+        const warn = openBusy.length
+          ? `${openBusy.length} round(s) still New or Preparing. Clear only if the guest has paid and kitchen is done.`
+          : "Session marked paid & table freed";
         setConfirmOrderModal({
           title: "Settle Bill & Clear Table",
           type: "clear_table",
           tableNo: sessionTable,
           itemName: `Table ${sessionTable} Session`,
           priceChangeText: formatPrice(grandTotal),
-          newTotalText: "Session marked paid & table freed",
+          newTotalText: warn,
           confirmLabel: `Clear Table (Paid ${formatPrice(grandTotal)})`,
-          isDestructive: false,
+          isDestructive: openBusy.length > 0,
           onConfirm: () => {
             clearTable(sessionTable);
             showToast(`Table ${sessionTable} paid & cleared`);
@@ -5377,7 +5434,24 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                                       const label = (it.name || "item") + (it.variantLabel ? ` (${it.variantLabel})` : "");
                                                       if (q <= 1) {
                                                         const next = itemsList.filter((_, j) => j !== ii);
-                                                        if (!next.length) { showToast("Add another item or cancel the round"); return; }
+                                                        if (!next.length) {
+                                                          setConfirmOrderModal({
+                                                            title: "Cancel round",
+                                                            type: "remove",
+                                                            tableNo: round.table,
+                                                            itemName: it.name,
+                                                            variantLabel: it.variantLabel || null,
+                                                            newTotalText: "This is the last item. Removing it will cancel the whole round.",
+                                                            isDestructive: true,
+                                                            confirmLabel: "Cancel round",
+                                                            onConfirm: () => {
+                                                              cancelRound(round.table, round.id);
+                                                              showToast(`Round cancelled for Table ${round.table}`);
+                                                              setConfirmOrderModal(null);
+                                                            },
+                                                          });
+                                                          return;
+                                                        }
                                                         setConfirmOrderModal({
                                                           title: "Remove item",
                                                           type: "remove",
@@ -5437,7 +5511,21 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                                                     onClick={() => {
                                                       const next = itemsList.filter((_, j) => j !== ii);
                                                       if (!next.length) {
-                                                        showToast("Add another item or cancel the round");
+                                                        setConfirmOrderModal({
+                                                          title: "Cancel round",
+                                                          type: "remove",
+                                                          tableNo: round.table,
+                                                          itemName: it.name,
+                                                          variantLabel: it.variantLabel || null,
+                                                          newTotalText: "This is the last item. Removing it will cancel the whole round.",
+                                                          isDestructive: true,
+                                                          confirmLabel: "Cancel round",
+                                                          onConfirm: () => {
+                                                            cancelRound(round.table, round.id);
+                                                            showToast(`Round cancelled for Table ${round.table}`);
+                                                            setConfirmOrderModal(null);
+                                                          },
+                                                        });
                                                         return;
                                                       }
                                                       setConfirmOrderModal({
@@ -6801,6 +6889,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       const [pinFromQr] = useState(() => getPinFromUrl());
       const [linkError, setLinkError] = useState(null);
       const [dismissedBrokenLink, setDismissedBrokenLink] = useState(false);
+      const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
       const [qrResolving, setQrResolving] = useState(() => {
         try {
           const q = new URLSearchParams(window.location.search);
@@ -6842,6 +6931,17 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
           setLinkError({ rawToken: tableParam, reason: "not_found" });
         }
       }, [tablePins]);
+
+      React.useEffect(() => {
+        const up = () => setIsOnline(true);
+        const down = () => setIsOnline(false);
+        window.addEventListener("online", up);
+        window.addEventListener("offline", down);
+        return () => {
+          window.removeEventListener("online", up);
+          window.removeEventListener("offline", down);
+        };
+      }, []);
 
       // Verify server staff session on boot
       React.useEffect(() => {
@@ -7245,6 +7345,12 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                   tablePins={tablePins}
                   snakeDiscount={snakeDiscount}
                   isPreviewMode={!tableFromQr && !qrResolving}
+                  isOnline={isOnline}
+                  guestLiveRounds={(() => {
+                    const sess = (liveOrders || []).find(s => String(s.table) === String(tableFromQr));
+                    if (!sess) return [];
+                    return (sess.rounds || []).map((r, i) => ({ ...r, roundNo: i + 1 }));
+                  })()}
                 />
               )
             ) : (
