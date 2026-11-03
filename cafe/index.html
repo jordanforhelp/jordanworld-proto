@@ -3149,7 +3149,11 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
 
       const stopScanner = () => {
         if (rafRef.current) {
-          cancelAnimationFrame(rafRef.current);
+          if (typeof rafRef.current === "object" && typeof rafRef.current.cancel === "function") {
+            try { rafRef.current.cancel(); } catch (e) {}
+          } else if (typeof rafRef.current === "number") {
+            cancelAnimationFrame(rafRef.current);
+          }
           rafRef.current = null;
         }
         if (streamRef.current) {
@@ -3196,27 +3200,17 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
           }
           video.srcObject = stream;
           video.setAttribute("playsinline", "true");
+          video.muted = true;
           await video.play();
 
-          if (typeof window.BarcodeDetector === "function") {
-            const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-            const tick = async () => {
-              if (!videoRef.current || handledRef.current) return;
-              try {
-                if (video.readyState >= 2) {
-                  const codes = await detector.detect(video);
-                  if (codes && codes.length && codes[0].rawValue) {
-                    handleDecoded(codes[0].rawValue);
-                    return;
-                  }
-                }
-              } catch (e) {}
-              rafRef.current = requestAnimationFrame(tick);
-            };
-            rafRef.current = requestAnimationFrame(tick);
-          } else {
-            setScanError("Live QR scan needs Chrome or Edge on this phone. You can still open the link from the table sticker.");
-          }
+          // Prefetch jsQR while camera warms up
+          ensureJsQR().catch(() => {});
+
+          const stopLoop = startVideoQrScan(video, (raw) => {
+            if (handledRef.current) return;
+            handleDecoded(raw);
+          });
+          rafRef.current = { cancel: stopLoop };
         } catch (e) {
           console.error(e);
           setScanError("Camera permission denied or unavailable. Allow camera access and try again.");
@@ -3250,7 +3244,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <div className="relative rounded-2xl overflow-hidden border border-pink/25 bg-ink aspect-[3/4] max-h-[52vh] mx-auto w-full">
                   <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
                   <div className="absolute inset-0 pointer-events-none border-2 border-pink/50 rounded-2xl m-8 shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
-                  <p className="absolute bottom-3 left-0 right-0 text-white text-xs font-medium">Align the table QR inside the frame</p>
+                  <p className="absolute bottom-3 left-0 right-0 text-white text-xs font-medium">Hold steady over the table QR — scans automatically</p>
                 </div>
                 {scanError ? <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{scanError}</p> : null}
                 <button type="button" onClick={stopScanner}
@@ -3835,45 +3829,26 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                               video.srcObject = stream;
                               video.setAttribute("playsinline", "true");
                               await video.play();
-                              if (typeof window.BarcodeDetector === "function") {
-                                const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-                                const tick = async () => {
-                                  if (!previewVideoRef.current || previewHandledRef.current) return;
-                                  try {
-                                    if (video.readyState >= 2) {
-                                      const codes = await detector.detect(video);
-                                      if (codes?.[0]?.rawValue) {
-                                        previewHandledRef.current = true;
-                                        if (previewRafRef.current) cancelAnimationFrame(previewRafRef.current);
-                                        if (previewStreamRef.current) {
-                                          previewStreamRef.current.getTracks().forEach(tr => tr.stop());
-                                          previewStreamRef.current = null;
-                                        }
-                                        setPreviewScanning(false);
-                                        const href = String(codes[0].rawValue).trim();
-                                        let token = "";
-                                        try {
-                                          const u = new URL(href, window.location.origin);
-                                          token = (u.searchParams.get("t") || u.searchParams.get("token") || "").trim();
-                                        } catch (e) {
-                                          const m = href.match(/[?&](?:t|token)=([^&\s]+)/i);
-                                          if (m) token = decodeURIComponent(m[1]);
-                                        }
-                                        if (token) {
-                                          window.location.assign(window.location.pathname + "?t=" + encodeURIComponent(token));
-                                        } else {
-                                          showToast("That QR is not a BOBA table link.");
-                                        }
-                                        return;
-                                      }
-                                    }
-                                  } catch (e) {}
-                                  previewRafRef.current = requestAnimationFrame(tick);
-                                };
-                                previewRafRef.current = requestAnimationFrame(tick);
-                              } else {
-                                setPreviewScanError("Live scan works best in Chrome or Edge. You can also use your phone Camera app on the table sticker.");
-                              }
+                              ensureJsQR().catch(() => {});
+                              const stopLoop = startVideoQrScan(video, (raw) => {
+                                if (previewHandledRef.current) return;
+                                previewHandledRef.current = true;
+                                if (previewRafRef.current && typeof previewRafRef.current.cancel === "function") {
+                                  try { previewRafRef.current.cancel(); } catch (e) {}
+                                }
+                                if (previewStreamRef.current) {
+                                  previewStreamRef.current.getTracks().forEach(tr => tr.stop());
+                                  previewStreamRef.current = null;
+                                }
+                                setPreviewScanning(false);
+                                const parsed = parseBobaQrPayload(raw);
+                                if (parsed && parsed.token) {
+                                  window.location.assign(window.location.pathname + "?t=" + encodeURIComponent(parsed.token));
+                                } else {
+                                  showToast("That QR is not a BOBA table link. Use the sticker from Apex.");
+                                }
+                              });
+                              previewRafRef.current = { cancel: stopLoop };
                             } catch (e) {
                               setPreviewScanError("Camera permission denied. Allow camera access and try again.");
                             }
@@ -4275,7 +4250,14 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
               <div className="flex items-center justify-between text-white mb-3">
                 <p className="font-semibold text-sm">Scan table QR</p>
                 <button type="button" className="px-3 py-1.5 rounded-lg bg-white/15 text-sm" onClick={() => {
-                  if (previewRafRef.current) cancelAnimationFrame(previewRafRef.current);
+                  if (previewRafRef.current) {
+                    if (typeof previewRafRef.current.cancel === "function") {
+                      try { previewRafRef.current.cancel(); } catch (e) {}
+                    } else if (typeof previewRafRef.current === "number") {
+                      cancelAnimationFrame(previewRafRef.current);
+                    }
+                    previewRafRef.current = null;
+                  }
                   if (previewStreamRef.current) {
                     previewStreamRef.current.getTracks().forEach(tr => tr.stop());
                     previewStreamRef.current = null;
@@ -4287,7 +4269,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <video ref={previewVideoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
               </div>
               {previewScanError ? <p className="mt-3 text-amber-100 text-sm text-center">{previewScanError}</p> : (
-                <p className="mt-3 text-white/80 text-xs text-center">Point at the QR sticker on your table</p>
+                <p className="mt-3 text-white/80 text-xs text-center">Hold steady — scanning automatically</p>
               )}
             </div>
           )}
@@ -4934,37 +4916,101 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
           const now = new Date();
           let fromIso = null;
           if (p === "day") {
-            fromIso = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            fromIso = d.toISOString();
           } else if (p === "week") {
             fromIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
           }
-          let q = sb.from("boba_table_sessions")
+
+          // Prefer rounds joined to paid sessions (same path as insights)
+          let rq = sb.from("boba_order_rounds").select("id, session_id, status, items, total, created_at, ordered_by_name");
+          if (fromIso) rq = rq.gte("created_at", fromIso);
+          const { data: allRounds, error: rErr } = await rq.order("created_at", { ascending: false }).limit(2000);
+          if (rErr) throw rErr;
+
+          const sessionIds = [...new Set((allRounds || []).map(r => r.session_id).filter(Boolean))];
+          let sessionMap = {};
+          if (sessionIds.length) {
+            for (let i = 0; i < sessionIds.length; i += 50) {
+              const chunk = sessionIds.slice(i, i + 50);
+              const { data: sessions, error: sErr } = await sb
+                .from("boba_table_sessions")
+                .select("id, table_no, status, guest_name, guest_phone, cleared_at, created_at, discount_percent")
+                .in("id", chunk);
+              if (sErr) throw sErr;
+              (sessions || []).forEach(s => { sessionMap[s.id] = s; });
+            }
+          }
+
+          // Also pull paid sessions that may have no rounds matched by created_at window
+          let pq = sb.from("boba_table_sessions")
             .select("id, table_no, status, guest_name, guest_phone, cleared_at, created_at, discount_percent")
             .eq("status", "paid")
             .order("cleared_at", { ascending: false })
             .limit(100);
-          if (fromIso) q = q.gte("cleared_at", fromIso);
-          const { data: sessions, error } = await q;
-          if (error) throw error;
-          const list = sessions || [];
-          const ids = list.map(s => s.id).filter(Boolean);
-          let rounds = [];
-          for (let i = 0; i < ids.length; i += 40) {
-            const chunk = ids.slice(i, i + 40);
+          if (fromIso) {
+            // cleared today OR created today (cleared_at can be null on some rows)
+            pq = pq.or(`cleared_at.gte.${fromIso},created_at.gte.${fromIso}`);
+          }
+          const { data: paidSessions, error: pErr } = await pq;
+          if (pErr) {
+            // fallback without or filter
+            let pq2 = sb.from("boba_table_sessions")
+              .select("id, table_no, status, guest_name, guest_phone, cleared_at, created_at, discount_percent")
+              .eq("status", "paid")
+              .order("cleared_at", { ascending: false })
+              .limit(100);
+            const { data: paid2 } = await pq2;
+            (paid2 || []).forEach(s => { sessionMap[s.id] = s; });
+          } else {
+            (paidSessions || []).forEach(s => { sessionMap[s.id] = s; });
+          }
+
+          const paidIds = Object.keys(sessionMap).filter(id => {
+            const s = sessionMap[id];
+            return s && String(s.status).toLowerCase() === "paid";
+          });
+
+          // Fetch any missing rounds for paid sessions
+          const have = new Set((allRounds || []).map(r => r.session_id));
+          const missing = paidIds.filter(id => !have.has(id));
+          let rounds = (allRounds || []).slice();
+          for (let i = 0; i < missing.length; i += 40) {
+            const chunk = missing.slice(i, i + 40);
             const { data: pr, error: e2 } = await sb
               .from("boba_order_rounds")
               .select("id, session_id, status, items, total, created_at, ordered_by_name")
               .in("session_id", chunk);
-            if (e2) throw e2;
-            rounds = rounds.concat(pr || []);
+            if (!e2 && pr) rounds = rounds.concat(pr);
           }
+
+          const parseItems = (items) => {
+            if (Array.isArray(items)) return items;
+            if (typeof items === "string") {
+              try { const v = JSON.parse(items); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+            }
+            return [];
+          };
+          const roundTotal = (r) => {
+            const listed = Number(r.total);
+            if (listed && !Number.isNaN(listed)) return listed;
+            return parseItems(r.items).reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
+          };
+
           const byS = {};
           rounds.forEach(r => {
+            if (!r.session_id) return;
             if (!byS[r.session_id]) byS[r.session_id] = [];
-            byS[r.session_id].push(r);
+            byS[r.session_id].push({
+              ...r,
+              items: parseItems(r.items),
+              total: roundTotal(r),
+            });
           });
-          setTableHistory(list.map(s => {
-            const rs = (byS[s.id] || []).slice().sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+
+          const rows = paidIds.map(id => {
+            const s = sessionMap[id];
+            const rs = (byS[id] || []).slice().sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
             const bill = rs.reduce((sum, r) => {
               if (/cancel/i.test(String(r.status || ""))) return sum;
               return sum + (Number(r.total) || 0);
@@ -4974,13 +5020,20 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
               table: s.table_no,
               guest: s.guest_name || "Guest",
               phone: s.guest_phone || "",
-              clearedAt: s.cleared_at,
+              clearedAt: s.cleared_at || s.created_at,
               createdAt: s.created_at,
               discountPercent: Number(s.discount_percent || 0),
               rounds: rs,
               bill,
             };
-          }));
+          }).filter(h => {
+            if (p === "all") return true;
+            const ts = h.clearedAt ? new Date(h.clearedAt).getTime() : 0;
+            if (!fromIso) return true;
+            return ts >= new Date(fromIso).getTime() || (h.rounds || []).length > 0;
+          }).sort((a, b) => new Date(b.clearedAt || 0) - new Date(a.clearedAt || 0));
+
+          setTableHistory(rows);
         } catch (e) {
           console.error(e);
           showToast("Could not load history: " + (e.message || ""));
@@ -5857,7 +5910,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                 <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
                   <div>
                     <h2 className="font-display text-2xl text-ink">Kitchen</h2>
-                    <p className="text-mist text-sm">Orders staff sent to kitchen only · done stays ~3 min</p>
+                    <p className="text-mist text-sm">Orders staff sent to kitchen · recently completed below</p>
                   </div>
                   <button type="button" onClick={() => onRefreshOrders && onRefreshOrders()}
                     className="px-3 py-2 rounded-xl border border-pink/30 text-pink text-xs font-semibold flex items-center gap-1.5">
@@ -5963,30 +6016,26 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                         <div className="flex items-center gap-2 mb-3">
                           <h3 className="font-display text-lg text-ink">Recently done</h3>
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{lingering.length}</span>
-                          <span className="text-[11px] text-mist">Visible ~3 min</span>
+                          
                         </div>
                         {!lingering.length ? (
-                          <p className="text-mist text-sm">Completed tickets appear here briefly</p>
+                          <p className="text-mist text-sm">Completed tickets appear here after Mark done</p>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {lingering.map(card => {
-                              const left = Math.max(0, 3 * 60 * 1000 - (Date.now() - card.doneAt));
-                              const sec = Math.ceil(left / 1000);
-                              return (
-                                <div key={card.id} className="rounded-2xl bg-emerald-50/80 border border-emerald-200/80 p-4 opacity-80">
-                                  <div className="flex justify-between mb-1">
-                                    <p className="font-display text-ink line-through decoration-emerald-700/40">Table {card.table} · R{card.roundNo}</p>
-                                    <span className="text-[10px] font-semibold text-emerald-800">{sec}s</span>
-                                  </div>
-                                  <ul className="text-sm text-mist line-through space-y-0.5">
-                                    {(card.items || []).map((it, ii) => (
-                                      <li key={ii}>{(it.qty || 1)}× {it.name}</li>
-                                    ))}
-                                  </ul>
-                                  <p className="text-xs font-semibold text-emerald-900 mt-2">{formatPrice(card.total)}</p>
+                            {lingering.map(card => (
+                              <div key={card.id} className="rounded-2xl bg-emerald-50/80 border border-emerald-200/80 p-4 opacity-90">
+                                <div className="flex justify-between mb-1">
+                                  <p className="font-display text-ink line-through decoration-emerald-700/40">Table {card.table} · Round {card.roundNo}</p>
+                                  <span className="text-[10px] font-bold uppercase text-emerald-800">Done</span>
                                 </div>
-                              );
-                            })}
+                                <ul className="text-sm text-mist line-through space-y-0.5">
+                                  {(card.items || []).map((it, ii) => (
+                                    <li key={ii}>{(it.qty || 1)}× {it.name}</li>
+                                  ))}
+                                </ul>
+                                <p className="text-xs font-semibold text-emerald-900 mt-2">{formatPrice(card.total)}</p>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -6044,16 +6093,19 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
                         </summary>
                         <div className="px-4 pb-4 space-y-2 border-t border-pink/10 pt-3">
                           {(h.rounds || []).length === 0 ? (
-                            <p className="text-sm text-mist">No rounds stored for this session</p>
+                            <p className="text-sm text-mist">No order lines found for this cleared session.</p>
                           ) : (h.rounds || []).map((r, ri) => (
                             <div key={r.id || ri} className="rounded-xl bg-white border border-pink/10 p-3">
-                              <div className="flex justify-between text-xs text-mist mb-1">
-                                <span>Round {ri + 1} · {r.status || "—"}</span>
-                                <span>{formatPrice(r.total)}</span>
+                              <div className="flex justify-between text-xs text-mist mb-1 gap-2">
+                                <span className="min-w-0">Round {ri + 1} · {r.status || "—"}</span>
+                                <span className="shrink-0 font-semibold text-ink">{formatPrice(r.total)}</span>
                               </div>
                               <ul className="text-sm text-ink space-y-0.5">
-                                {(r.items || []).map((it, ii) => (
-                                  <li key={ii}>{(it.qty || 1)}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""} · {formatPrice((Number(it.price)||0)*(Number(it.qty)||1))}</li>
+                                {(Array.isArray(r.items) ? r.items : []).map((it, ii) => (
+                                  <li key={ii} className="flex justify-between gap-2">
+                                    <span className="min-w-0 break-words">{(it.qty || 1)}× {it.name}{it.variantLabel ? ` (${it.variantLabel})` : ""}</span>
+                                    <span className="shrink-0 text-mist">{formatPrice((Number(it.price)||0)*(Number(it.qty)||1))}</span>
+                                  </li>
                                 ))}
                               </ul>
                             </div>
@@ -7177,6 +7229,133 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       );
     };
 
+
+    // —— QR scan: BarcodeDetector + jsQR fallback (iOS Safari) ——
+    function ensureJsQR() {
+      return new Promise((resolve, reject) => {
+        if (typeof window.jsQR === "function") {
+          resolve(window.jsQR);
+          return;
+        }
+        const existing = document.querySelector("script[data-jsqr]");
+        if (existing) {
+          existing.addEventListener("load", () => resolve(window.jsQR));
+          existing.addEventListener("error", reject);
+          return;
+        }
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+        s.async = true;
+        s.dataset.jsqr = "1";
+        s.onload = () => resolve(window.jsQR);
+        s.onerror = () => reject(new Error("jsQR failed to load"));
+        document.head.appendChild(s);
+      });
+    }
+
+    function parseBobaQrPayload(raw) {
+      const href = String(raw || "").trim();
+      if (!href) return null;
+      let token = "";
+      let table = "";
+      try {
+        const u = new URL(href, window.location.origin);
+        token = (u.searchParams.get("t") || u.searchParams.get("token") || "").trim();
+        table = (u.searchParams.get("table") || "").trim();
+      } catch (e) {
+        const m = href.match(/[?&](?:t|token)=([^&\s#]+)/i);
+        if (m) token = decodeURIComponent(m[1]);
+        const m2 = href.match(/[?&]table=([^&\s#]+)/i);
+        if (m2) table = decodeURIComponent(m2[1]);
+      }
+      // bare token-looking string
+      if (!token && !table && /^[a-zA-Z0-9_-]{8,}$/.test(href) && !/\s/.test(href)) {
+        token = href;
+      }
+      return { raw: href, token, table };
+    }
+
+    /**
+     * Continuous QR scan from a <video> element.
+     * Returns a stop() function.
+     */
+    function startVideoQrScan(video, onDetected) {
+      let stopped = false;
+      let raf = null;
+      let detector = null;
+      let jsQRFn = null;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      if (typeof window.BarcodeDetector === "function") {
+        try {
+          detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        } catch (e) {
+          detector = null;
+        }
+      }
+
+      const schedule = () => {
+        if (stopped) return;
+        raf = requestAnimationFrame(loop);
+      };
+
+      const loop = async () => {
+        if (stopped || !video) return;
+        try {
+          if (video.readyState >= 2 && video.videoWidth > 0) {
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const maxW = 720;
+            const scale = vw > maxW ? maxW / vw : 1;
+            const cw = Math.max(1, Math.floor(vw * scale));
+            const ch = Math.max(1, Math.floor(vh * scale));
+            if (canvas.width !== cw || canvas.height !== ch) {
+              canvas.width = cw;
+              canvas.height = ch;
+            }
+            ctx.drawImage(video, 0, 0, cw, ch);
+
+            let value = null;
+            if (detector) {
+              try {
+                const codes = await detector.detect(canvas);
+                if (codes && codes.length && codes[0].rawValue) value = codes[0].rawValue;
+              } catch (e) {}
+            }
+            if (!value && jsQRFn) {
+              try {
+                const imageData = ctx.getImageData(0, 0, cw, ch);
+                const code = jsQRFn(imageData.data, cw, ch, { inversionAttempts: "attemptBoth" });
+                if (code && code.data) value = code.data;
+              } catch (e) {}
+            }
+            if (value) {
+              stopped = true;
+              try { onDetected(value); } catch (e) { console.error(e); }
+              return;
+            }
+          }
+        } catch (e) {}
+        if (!stopped) setTimeout(schedule, 60);
+      };
+
+      ensureJsQR()
+        .then((fn) => {
+          jsQRFn = fn;
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!stopped) schedule();
+        });
+
+      return () => {
+        stopped = true;
+        if (raf) cancelAnimationFrame(raf);
+      };
+    }
+
+
     function getTableFromUrl() {
       // Strictly opaque: never guess or extract table number client-side.
       return "";
@@ -7189,6 +7368,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
     }
 
     function App() {
+      React.useEffect(() => { ensureJsQR().catch(() => {}); }, []);
       const [tableFromQr, setTableFromQr] = useState(() => getTableFromUrl());
       const [pinFromQr] = useState(() => getPinFromUrl());
       const [linkError, setLinkError] = useState(null);
