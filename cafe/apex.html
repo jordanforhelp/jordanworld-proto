@@ -2438,37 +2438,23 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       settingsRef.current = snakeDiscount || DEFAULT_SNAKE_DISCOUNT;
 
       useEffect(() => {
-        if (open) {
-          setDrawerMounted(true);
-          setDrawerClosing(false);
-          setNoteEditingKey(null);
-          const scrollY = window.scrollY || window.pageYOffset || 0;
-          const prevOverflow = document.body.style.overflow;
-          const prevPosition = document.body.style.position;
-          const prevTop = document.body.style.top;
-          const prevWidth = document.body.style.width;
-          document.body.style.overflow = "hidden";
-          document.body.style.position = "fixed";
-          document.body.style.top = `-${scrollY}px`;
-          document.body.style.width = "100%";
-          return () => {
-            document.body.style.overflow = prevOverflow;
-            document.body.style.position = prevPosition;
-            document.body.style.top = prevTop;
-            document.body.style.width = prevWidth;
-            window.scrollTo(0, scrollY);
-          };
-        }
-        // Closing: play exit animation then unmount
-        if (drawerMounted) {
-          setDrawerClosing(true);
-          setNoteEditingKey(null);
-          const t = setTimeout(() => {
-            setDrawerMounted(false);
-            setDrawerClosing(false);
-          }, 320);
-          return () => clearTimeout(t);
-        }
+        if (!open) return;
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        const prevOverflow = document.body.style.overflow;
+        const prevPosition = document.body.style.position;
+        const prevTop = document.body.style.top;
+        const prevWidth = document.body.style.width;
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.width = "100%";
+        return () => {
+          document.body.style.overflow = prevOverflow;
+          document.body.style.position = prevPosition;
+          document.body.style.top = prevTop;
+          document.body.style.width = prevWidth;
+          window.scrollTo(0, scrollY);
+        };
       }, [open]);
 
       const COLS = 18;
