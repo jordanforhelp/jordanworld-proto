@@ -4913,6 +4913,39 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
         setHistoryLoading(true);
         try {
           const p = period || "day";
+          // Prefer server RPC (keeps rounds after clear)
+          try {
+            const token = typeof getStaffSessionToken === "function" ? getStaffSessionToken() : null;
+            if (token) {
+              const { data: hist, error: histErr } = await sb.rpc("boba_staff_table_history", {
+                p_staff_token: token,
+                p_period: p,
+              });
+              if (!histErr && hist && (hist.sessions || hist.success)) {
+                const sessions = hist.sessions || hist || [];
+                const rows = (Array.isArray(sessions) ? sessions : []).map(s => ({
+                  id: s.id,
+                  table: s.table,
+                  guest: s.guest || "Guest",
+                  phone: s.phone || "",
+                  clearedAt: s.clearedAt || s.cleared_at,
+                  createdAt: s.createdAt || s.created_at,
+                  discountPercent: Number(s.discountPercent || s.discount_percent || 0),
+                  bill: Number(s.bill || 0),
+                  rounds: (s.rounds || []).map(r => ({
+                    ...r,
+                    items: Array.isArray(r.items) ? r.items : (typeof r.items === "string" ? (() => { try { return JSON.parse(r.items); } catch { return []; } })() : []),
+                    total: Number(r.total || 0),
+                  })),
+                }));
+                setTableHistory(rows);
+                setHistoryLoading(false);
+                return;
+              }
+            }
+          } catch (rpcErr) {
+            console.warn("history rpc fallback", rpcErr);
+          }
           const now = new Date();
           let fromIso = null;
           if (p === "day") {
