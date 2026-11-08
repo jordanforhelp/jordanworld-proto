@@ -7415,40 +7415,7 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
         } catch (e) { return false; }
       });
 
-      // If token in URL is an opaque string (?t=... or ?token=...), resolve it strictly
-      React.useEffect(() => {
-        const q = new URLSearchParams(window.location.search);
-        const rawToken = (q.get("t") || q.get("token") || "").trim();
-        const tableParam = (q.get("table") || "").trim();
-        if (rawToken) {
-          setQrResolving(true);
-          cloudResolveQrToken(rawToken).then(res => {
-            if (res && res.valid === true && res.table_no) {
-              const tNo = String(res.table_no);
-              if (isRegisteredTable(tNo, tablePins)) {
-                setTableFromQr(tNo);
-                setLinkError(null);
-                setDismissedBrokenLink(false);
-              } else {
-                setTableFromQr("");
-                setLinkError({ rawToken, reason: "unregistered", tableNo: tNo });
-              }
-            } else {
-              setTableFromQr("");
-              setLinkError({ rawToken, reason: "not_found" });
-            }
-          }).catch(err => {
-            setTableFromQr("");
-            setLinkError({ rawToken, reason: "error", error: err?.message });
-          }).finally(() => {
-            setQrResolving(false);
-          });
-        } else if (tableParam) {
-          // If a user types ?table=X without an active token, treat as unregistered/broken unless preview mode
-          setTableFromQr("");
-          setLinkError({ rawToken: tableParam, reason: "not_found" });
-        }
-      }, [tablePins]);
+      
 
       React.useEffect(() => {
         const up = () => setIsOnline(true);
@@ -7527,6 +7494,42 @@ const PinModal = ({ onSuccess, onClose, forced }) => {
       React.useEffect(() => {
         if (!sb) return;
         cloudFetchPins().then(p => { if (p) setTablePins(p); }).catch(() => {});
+      }, []);
+
+      // Resolve table QR token AFTER tablePins is declared (prevents blank page crash)
+      React.useEffect(() => {
+        let cancelled = false;
+        const q = new URLSearchParams(window.location.search);
+        const rawToken = (q.get("t") || q.get("token") || "").trim();
+        const tableParam = (q.get("table") || "").trim();
+        if (rawToken) {
+          setQrResolving(true);
+          cloudResolveQrToken(rawToken).then(res => {
+            if (cancelled) return;
+            if (res && res.valid === true && res.table_no) {
+              const tNo = String(res.table_no);
+              setTableFromQr(tNo);
+              setLinkError(null);
+              setDismissedBrokenLink(false);
+            } else {
+              setTableFromQr("");
+              setLinkError({ rawToken, reason: "not_found" });
+            }
+          }).catch(err => {
+            if (cancelled) return;
+            setTableFromQr("");
+            setLinkError({ rawToken, reason: "error", error: (err && err.message) || "" });
+          }).finally(() => {
+            if (!cancelled) setQrResolving(false);
+          });
+        } else if (tableParam) {
+          setQrResolving(false);
+          setTableFromQr("");
+          setLinkError({ rawToken: tableParam, reason: "not_found" });
+        } else {
+          setQrResolving(false);
+        }
+        return () => { cancelled = true; };
       }, []);
       const [snakeDiscount, setSnakeDiscount] = useState(() => loadSnakeDiscountSettings());
       const [toast, setToast] = useState(null);
